@@ -6,21 +6,41 @@
 **Fokus kecurangan:** **mengambil uang dari laci kasir** (lihat bagian 3a).
 **Keputusan (17 Nov 2026):** sistem **dibangun sendiri**, dan video **tidak dikirim ke cloud vendor luar**. Produk komersial sejenis hanya dipakai sebagai pembanding (bagian 19).
 
+### Keputusan owner (17 Nov 2026)
+
+| # | Topik | Keputusan |
+|---|---|---|
+| D1 | Siapa yang menilai kartu bukti | **Tim kantor, role admin/developer.** Kontrol dan keputusan di kantor. AM **tidak** dilibatkan. |
+| D2 | Identitas kasir di kartu | **Dari data absensi**: crew yang clock-in di outlet itu pada jam kejadian. Tanpa pengenalan wajah, tanpa POS. |
+| D3 | Notifikasi | **Tanpa WhatsApp.** Kartu dicek di dashboard "Perlu Dicek". |
+| D4 | Pemberitahuan ke kasir/crew | **Setelah pilot.** Uji kantor tidak melibatkan kasir. Sebelum pilot di outlet, cek dulu ke HR/legal (bagian 12). |
+| D5 | Masa simpan klip | Wajar 90 hari · Mencurigakan 1 tahun · Investigasi sampai kasus ditutup. |
+| D6 | Kamera atas laci + SOP pendukung | **Disetujui keduanya.** |
+| D7 | Jam operasional untuk K2 | **Jam buka/tutup outlet di sistem** (`outlets.open_hour` / `close_hour`) ditambah jeda persiapan. |
+| D8 | Tindak lanjut kartu "Investigasi" | **Admin/developer**, dan hasilnya dicatat kembali di kartu. |
+| D9 | Peran owner | **Tidak ada akses** ke sistem. Owner menerima laporan dari admin/developer di luar sistem. |
+| D10 | Jeda persiapan untuk K2 | **Ditentukan saat uji kantor**, dari kebiasaan nyata buka/tutup laci. Selama uji, K2 dicatat tanpa jeda untuk mengukurnya. |
+| D11 | Perangkat uji kantor | **Paket A**: 2× TP-Link Tapo C110 (±Rp 600 rb), diolah di PC kantor. |
+| D12 | Kapan POS disambungkan | **Setelah pilot outlet berhasil.** |
+| D13 | Outlet pilot | **SUKA SHAWARMA BNR.** |
+| D14 | Cek HR/legal untuk pilot tanpa pemberitahuan | Owner menjawab **"ya"** (17 Nov 2026). Bentuk persetujuan HR/legal sebaiknya dilampirkan sebelum pilot BNR dimulai. |
+| D15 | Tempat mengolah & menyimpan video | **Perangkat lokal dulu, VPS nanti.** Uji kantor: PC kantor. Pilot BNR: mini PC di BNR, diakses dari kantor lewat VPN terenkripsi (Tailscale). Server pusat baru dibutuhkan saat sistem dipakai banyak outlet. **Perangkat di BNR diputuskan setelah uji kantor**: mini PC N100, PC/laptop bekas, atau diolah di PC kantor (tetap butuh alat jembatan VPN di BNR). Dasarnya beban PC dan besar arus video yang terukur saat uji. |
+
 ---
 
 ## 1. Latar belakang
 
 Outlet menerima uang tunai di konter, dan pengawasan saat ini bergantung pada rekaman CCTV yang hanya dibuka bila ada kecurigaan. Rekaman jarang dicek karena terlalu banyak untuk ditonton, dan sering sudah tertimpa sebelum sempat dicek.
 
-Konsep ini membuat CCTV **menandai sendiri** kejadian janggal di area kasir, menyimpan klip buktinya, lalu menyerahkan keputusan ke manusia (AM). Seiring waktu, sistem **belajar** dari penilaian AM.
+Konsep ini membuat CCTV **menandai sendiri** kejadian janggal di area kasir, menyimpan klip buktinya, lalu menyerahkan keputusan ke manusia (tim kantor: admin/developer). Seiring waktu, sistem **belajar** dari penilaian tim kantor.
 
 ## 2. Tujuan dan bukan tujuan
 
 **Tujuan**
 1. Menandai perilaku janggal di area kasir secara otomatis, lengkap dengan klip dan foto bukti.
 2. Menyimpan bukti di server pusat agar tidak hilang tertimpa rekaman kamera.
-3. Mengurangi waktu AM menonton rekaman: yang ditonton hanya klip yang ditandai.
-4. Mengumpulkan penilaian AM sebagai bahan untuk melatih model yang makin akurat.
+3. Mengurangi waktu tim kantor menonton rekaman: yang ditonton hanya klip yang ditandai.
+4. Mengumpulkan penilaian tim kantor sebagai bahan untuk melatih model yang makin akurat.
 5. Menyiapkan data (jumlah pembeli per waktu) yang nanti bisa dicocokkan dengan POS.
 
 **Bukan tujuan (tahap ini)**
@@ -31,7 +51,7 @@ Konsep ini membuat CCTV **menandai sendiri** kejadian janggal di area kasir, men
 
 ## 3. Prinsip
 
-1. **Sistem menandai, manusia memutuskan.** Setiap kejadian berakhir di keputusan AM, dan kasir diberi kesempatan menjelaskan sebelum ada sanksi.
+1. **Sistem menandai, manusia memutuskan.** Setiap kejadian berakhir di keputusan admin/developer, dan kasir diberi kesempatan menjelaskan sebelum ada sanksi.
 2. **Video membuktikan apa yang terjadi, bukan niatnya.** Kartu bukti tidak boleh ditulis sebagai tuduhan.
 3. **Bukti harus utuh.** Klip disalin ke pusat, diberi sidik digital, dan setiap akses tercatat.
 4. **Jam harus akurat.** Jam kamera disinkronkan otomatis ke internet (NTP), dan selisihnya dicek rutin.
@@ -92,7 +112,7 @@ Kamera kasir dibagi menjadi zona yang digambar sekali per outlet:
 | Kode | Kejadian | Kenapa janggal | Tahap |
 |---|---|---|---|
 | K1 | Aktivitas di zona LACI saat zona PEMBELI kosong | Laci dibuka tanpa ada pembeli yang dilayani | A |
-| K2 | Aktivitas di zona LACI di luar jam operasional | Tidak ada alasan membuka laci saat tutup | A |
+| K2 | Aktivitas di zona LACI di luar jam operasional (jam buka/tutup outlet di sistem + jeda persiapan, D7) | Tidak ada alasan membuka laci saat tutup | A |
 | K3 | Lebih dari satu orang di zona LACI | Uang dipegang orang yang bukan kasir | A |
 | K4 | Zona KASIR kosong lama saat ada pembeli menunggu | Pelayanan bermasalah atau kasir di tempat lain | A |
 | K5 | Kamera tertutup, gelap, kabur, atau sudutnya bergeser | Ada yang ingin tidak terekam | A |
@@ -123,8 +143,9 @@ Setiap kejadian menghasilkan satu kartu:
 │   ▶ ━━━━━━●━━━━━━━━   ● awal   ● akhir kejadian     │
 ├────────────────────────────────────────────────────┤
 │ Foto diam: [19:42:10] [19:42:25] [19:42:45]        │
-│ Penilaian AM: [Wajar] [Mencurigakan] [Investigasi]  │
-│ Catatan AM: ____________________________            │
+│ Crew bertugas (absensi): Andi, Budi                 │
+│ Penilaian: [Wajar] [Mencurigakan] [Investigasi]     │
+│ Catatan penilai: ________________________           │
 └────────────────────────────────────────────────────┘
 ```
 
@@ -132,18 +153,19 @@ Isi kartu:
 1. Klip video sekitar ±30–60 detik di sekitar kejadian.
 2. Penanda awal dan akhir kejadian di garis waktu video.
 3. Foto diam di detik penting, untuk lampiran teguran atau laporan.
-4. Penilaian dan catatan AM.
+4. **Crew yang bertugas**, diambil otomatis dari data absensi (D2).
+5. Penilaian dan catatan admin/developer, serta hasil tindak lanjut bila kartu naik ke Investigasi (D8).
 
-Nama kasir **tidak** diambil dari wajah. Selama POS belum disambungkan, AM mengisi siapa yang bertugas dari jadwal shift bila diperlukan.
+Nama kasir **tidak** diambil dari wajah. Sistem mencari crew yang **clock-in di outlet itu dan belum clock-out** pada jam kejadian. Kalau ada lebih dari satu crew yang bertugas, semuanya ditampilkan, karena sistem tidak tahu siapa yang berdiri di laci. Penilai yang menentukan dari rekaman. Kartu menulis "crew bertugas", **bukan** "pelaku".
 
 ## 7. Peran
 
 | Peran | Yang dilihat dan dilakukan |
 |---|---|
-| AM | Kartu bukti outlet binaannya, menonton klip, memberi penilaian |
-| Owner / Admin | Ringkasan semua outlet, tren per minggu, kartu yang naik ke investigasi |
-| Developer | Konfigurasi zona, kesehatan kamera dan perangkat outlet |
-| Kasir dan crew | Tidak melihat sistem ini, tetapi **diberi tahu** bahwa area kasir direkam untuk audit |
+| **Admin / Developer** (kantor) | Satu-satunya penilai: menonton klip, memberi penilaian, menindaklanjuti kartu Investigasi, dan mencatat hasilnya (D1, D8). Developer juga mengatur zona dan memantau kesehatan kamera serta perangkat outlet |
+| Owner | **Tidak ada akses** ke sistem (D9). Menerima laporan dari admin/developer |
+| AM | **Tidak** melihat dan tidak terlibat di sistem ini (D1) |
+| Kasir dan crew | Tidak melihat sistem ini. **Diberi tahu setelah pilot** bahwa area kasir direkam dan dianalisis untuk audit (D4) |
 
 ## 8. Bagaimana sistem belajar (tahapan)
 
@@ -151,16 +173,16 @@ Nama kasir **tidak** diambil dari wajah. Selama POS belum disambungkan, AM mengi
 - Model pendeteksi orang yang sudah jadi (YOLO) + zona.
 - Menghasilkan K1–K6 dan klipnya.
 - Mencatat aktivitas tiap zona per menit (jumlah orang, lama di zona) sebagai bahan Tahap B.
-- **Lanjut ke Tahap B bila:** stream stabil, klip tersimpan utuh, dan jumlah kartu per hari masih wajar untuk dicek AM.
+- **Lanjut ke Tahap B bila:** stream stabil, klip tersimpan utuh, dan jumlah kartu per hari masih wajar untuk dicek tim kantor.
 
 ### Tahap B — Belajar pola normal tiap outlet
 - Setelah 2–4 minggu data aktivitas zona, model deteksi anomali (mis. pustaka PyOD) mempelajari kebiasaan tiap outlet per jam dan per hari.
 - Menghasilkan K7: penyimpangan dari kebiasaan outlet itu sendiri.
 - Model dilatih ulang otomatis berkala, misalnya tiap minggu.
-- **Lanjut ke Tahap C bila:** sudah ada cukup klip yang dinilai AM (perkiraan awal: beberapa ratus).
+- **Lanjut ke Tahap C bila:** sudah ada cukup klip yang dinilai tim kantor (perkiraan awal: beberapa ratus).
 
-### Tahap C — Belajar dari klip yang dinilai AM
-- Klip yang dinilai AM dipakai untuk melatih model khusus yang mengenali **laci terbuka**, **uang tunai**, dan **HP**. Model jadi tidak mengenali benda-benda ini, jadi harus diajari dengan rekaman outlet sendiri.
+### Tahap C — Belajar dari klip yang dinilai tim kantor
+- Klip yang dinilai tim kantor dipakai untuk melatih model khusus yang mengenali **laci terbuka**, **uang tunai**, dan **HP**. Model jadi tidak mengenali benda-benda ini, jadi harus diajari dengan rekaman outlet sendiri.
 - Untuk modus mengambil uang, target utamanya **K12**: lacak tangan yang keluar dari laci membawa uang, lalu lihat tujuannya (pembeli di depan = wajar; saku, badan, tas, bawah konter = ditandai). Ini jauh lebih mudah dengan kamera atas laci.
 - Penilaian "Wajar" yang berulang menurunkan prioritas pola itu, sehingga alarm palsu berkurang.
 - Menghasilkan K8–K10.
@@ -189,15 +211,27 @@ Server pusat
    │
    ▼
 Halaman "Perlu Dicek" (admin-dashboard)
-   • kartu bukti → penilaian AM
-   • penilaian AM jadi bahan latihan model berikutnya
+   • kartu bukti → penilaian tim kantor
+   • penilaian tim kantor jadi bahan latihan model berikutnya
 ```
 
 Pengolahan video dilakukan **di outlet**, supaya internet outlet tidak terbebani. Yang dikirim ke pusat hanya data kejadian dan klip pendek.
 
-**Server pusat = server milik sendiri** (VPS perusahaan), bukan cloud vendor CCTV atau AI. Lokasi data center VPS perlu dicek dan dicatat di sini sebelum pilot outlet.
+**Penyimpanan bertahap (D15):**
 
-**Pemberitahuan ke AM lewat WhatsApp** memakai GOWA yang sudah dipakai untuk laporan WA Area Manager. Pesan berisi kode kejadian, outlet, jam, satu foto diam, dan tautan ke kartu bukti. Klip video tetap hanya bisa dibuka di halaman "Perlu Dicek" (perlu login), tidak dikirim lewat WhatsApp.
+| Tahap | Olah & simpan | Akses admin/developer |
+|---|---|---|
+| Uji kantor | PC kantor | Langsung di PC kantor |
+| Pilot BNR | Mini PC di BNR (Frigate + klip + halaman "Perlu Dicek") | Dari kantor lewat VPN terenkripsi (Tailscale). Video tidak diunggah ke mana pun |
+| Banyak outlet | Mini PC tiap outlet + **server pusat milik sendiri** untuk dashboard gabungan | Lewat server pusat. Klip "Investigasi" disalin ke pusat supaya tidak hilang bila mini PC rusak |
+
+Server pusat, kapan pun dibutuhkan, adalah **server milik sendiri** (VPS perusahaan atau server di kantor), bukan cloud vendor CCTV atau AI. Lokasi data center-nya dicatat di sini saat tahap itu tiba.
+
+**Tanpa notifikasi WhatsApp (D3).** Semua kartu dicek di halaman "Perlu Dicek" (perlu login, hanya admin/developer). Halaman itu menampilkan jumlah kartu yang belum dinilai, supaya terlihat kalau antrean menumpuk. Notifikasi lewat GOWA bisa ditambahkan belakangan bila kartu ternyata sering terlambat dicek.
+
+**Sumber data pendukung yang sudah ada di sistem** (hanya dibaca, tidak diubah):
+- Absensi crew (clock-in/clock-out per outlet), untuk mengisi "crew bertugas" (D2).
+- Jam buka/tutup outlet (`outlets.open_hour` / `close_hour`), untuk kejadian K2 (D7).
 
 ## 10. Kamera Bardi
 
@@ -212,7 +246,7 @@ Jalan yang mungkin, **belum diverifikasi untuk model yang dipakai outlet**:
 
 ## 11. Penyimpanan dan integritas bukti
 
-Usulan awal, perlu disetujui owner:
+**Disetujui owner 17 Nov 2026 (D5):**
 
 | Data | Lama disimpan |
 |---|---|
@@ -227,7 +261,9 @@ Usulan awal, perlu disetujui owner:
 
 ## 12. Privasi dan aspek hukum
 
-- **Pemberitahuan wajib:** kasir dan crew diberi tahu secara tertulis bahwa area kasir direkam dan dianalisis untuk audit. Dipasang juga tanda di area kasir.
+- **Pemberitahuan wajib, setelah pilot (D4):** kasir dan crew diberi tahu secara tertulis bahwa area kasir direkam dan dianalisis untuk audit, dan dipasang tanda di area kasir.
+  - Uji kantor tidak melibatkan kasir sungguhan, jadi tidak ada masalah di tahap itu.
+  - ⚠️ **Sebelum pilot di outlet berjalan tanpa pemberitahuan, wajib dicek dulu ke HR/legal.** Analisis rekaman karyawan secara diam-diam berisiko dari sisi UU PDP dan hubungan kerja. Klip dari masa itu juga bisa lemah kalau dipakai sebagai dasar sanksi. Alternatif aman: pilot berjalan dengan pemberitahuan umum "area kasir direkam" (CCTV memang sudah ada di outlet), tanpa merinci aturan deteksinya.
 - **Tanpa pengenalan wajah.** Sistem hanya mendeteksi "ada orang" dan posisinya.
 - **Akses terbatas** sesuai tabel peran di bagian 7.
 - **Tidak ada sanksi tanpa keputusan manusia** dan tanpa kesempatan kasir menjelaskan.
@@ -235,23 +271,50 @@ Usulan awal, perlu disetujui owner:
 
 Disarankan dikonsultasikan dengan pihak HR/legal sebelum diterapkan di semua outlet (UU PDP dan peraturan perusahaan).
 
-## 13. Rencana uji coba (pilot)
+## 13. Rencana uji coba
 
-**Lokasi:** satu outlet, sebaiknya yang ramai dan kameranya sudah mengarah ke konter.
+### 13.0 Uji kantor (dikerjakan pertama)
+
+**Perangkat (D11):** 2× TP-Link Tapo C110 (RTSP `stream1`/`stream2`, ONVIF port 2020, lewat "Camera Account" di aplikasi Tapo), dipasang dekat router. Diolah di PC kantor dengan go2rtc + Frigate, hanya bisa diakses dari jaringan lokal.
+
+**Meja kasir tiruan:** meja + kotak/laci pengganti laci uang + uang mainan. Satu kamera **di atas laci menghadap ke bawah**, satu kamera **serong belakang** melihat konter dan sisi pembeli.
+
+**Skenario yang diperagakan:**
+
+| Skenario | Yang diharapkan |
+|---|---|
+| Buka laci tanpa "pembeli" | K1 muncul |
+| Ambil uang lalu masukkan ke saku | K1 muncul, dan klipnya disimpan untuk latihan K12 |
+| Dua orang menjangkau laci | K3 muncul |
+| Tutup kamera dengan tangan/kertas | K5 muncul |
+| Matikan kamera / cabut listrik | K6 muncul |
+| Buka laci di luar jam (jam diatur sementara) | K2 muncul. Jeda wajar diukur di sini (D10) |
+| Transaksi normal: ada pembeli, beri kembalian | **Tidak boleh** muncul kartu |
+
+**Lulus uji kantor bila:**
+- semua skenario mencurigakan tertangkap,
+- transaksi normal tidak memicu kartu, atau alarm palsunya bisa ditekan dengan menyetel ambang,
+- klip tersimpan utuh dan jamnya cocok dengan kejadian.
+
+Setelah lulus, lanjut ke pilot outlet (13.1) memakai perangkat setara Paket B.
+
+### 13.1 Pilot outlet
+
+**Lokasi:** **SUKA SHAWARMA BNR** (D13). Perangkat: 2 kamera PoE (atas laci + konter), switch PoE, mini PC N100, dan UPS. Diakses dari kantor lewat Tailscale (D15).
 
 | Minggu | Kegiatan |
 |---|---|
 | 0 | Cek model Bardi, uji tarik stream (go2rtc), cek sudut kamera, sinkronkan jam |
 | 1 | Pasang mini PC + Frigate, gambar zona, jalankan dalam mode "catat saja" |
-| 2–3 | Kumpulkan kejadian K1–K6, AM menilai klip, setel ambang |
+| 2–3 | Kumpulkan kejadian K1–K6, admin/developer menilai klip, setel ambang |
 | 4 | Evaluasi bersama owner, putuskan lanjut / ubah / hentikan |
 
 Selama pilot, **tidak ada teguran ke kasir** berdasarkan sistem ini. Pilot hanya untuk mengukur apakah sistem menghasilkan kejadian yang berguna.
 
 **Ukuran keberhasilan pilot:**
 - Stream dan perekaman berjalan ≥ 95% dari jam operasional.
-- Jumlah kartu per hari masih bisa dicek AM (perkiraan: di bawah 10 per outlet per hari).
-- Sebagian kartu dinilai AM "layak dicek", bukan semuanya alarm palsu.
+- Jumlah kartu per hari masih bisa dicek tim kantor (perkiraan: di bawah 10 per outlet per hari).
+- Sebagian kartu dinilai tim kantor "layak dicek", bukan semuanya alarm palsu.
 - Klip bisa dibuka dan jamnya cocok dengan kejadian nyata.
 
 ## 14. Perkiraan biaya (kasar, perlu dicek harga terkini)
@@ -270,22 +333,21 @@ Selama pilot, **tidak ada teguran ke kasir** berdasarkan sistem ini. Pilot hanya
 | Risiko | Mitigasi |
 |---|---|
 | Stream Bardi tidak bisa ditarik | Ganti kamera kasir saja dengan IP camera |
-| Terlalu banyak alarm palsu, AM berhenti mengecek | Mulai dari sedikit jenis kejadian, setel ambang selama pilot |
+| Terlalu banyak alarm palsu, tim kantor berhenti mengecek | Mulai dari sedikit jenis kejadian, setel ambang selama pilot |
 | Sudut kamera tidak memadai | Geser atau tambah kamera sebelum pilot |
 | Jam kamera tidak akurat | Sinkron NTP + cek selisih rutin |
 | Internet outlet putus | Mini PC menyimpan sementara, lalu mengirim saat tersambung |
 | Kecurigaan berlebihan merusak suasana kerja | Pemberitahuan terbuka, tidak ada sanksi otomatis |
-| Model belajar dari penilaian AM yang bias | Owner meninjau sampel penilaian secara berkala |
+| Model belajar dari penilaian tim kantor yang bias | Admin dan developer saling meninjau sampel penilaian secara berkala |
+| Hanya admin/developer yang memegang bukti dan keputusan | Setiap penilaian, perubahan penilaian, dan pembukaan klip tercatat atas nama penggunanya, dan catatan ini tidak bisa dihapus. Owner bisa meminta catatan ini kapan saja lewat laporan |
 
 ## 16. Pertanyaan terbuka
 
-1. Outlet mana yang dipakai untuk pilot? Sebaiknya outlet yang paling dicurigai ada uang hilang dari laci.
-1a. Apakah owner setuju memasang **kamera atas laci** di outlet pilot, dan menjalankan SOP hitung uang di bawah kamera?
-2. Model kamera Bardi apa yang terpasang di outlet itu, dan apakah ada kamera yang mengarah ke konter/laci?
-3. Apakah outlet menyimpan rekaman di microSD, cloud Bardi, atau NVR?
-4. Siapa yang menilai klip selama pilot: AM outlet itu, atau owner/admin langsung?
-5. Masa simpan klip di bagian 11 disetujui atau perlu diubah?
-6. Kapan POS akan disambungkan (untuk mendeteksi order tunai yang tidak diinput)?
+Sudah terjawab: D1–D12 (lihat tabel keputusan di atas).
+
+Masih terbuka:
+1. **Lampiran persetujuan HR/legal** (D14), disimpan sebelum pilot BNR dimulai.
+2. **Lokasi data center server pusat**, baru dibutuhkan saat sistem dipakai banyak outlet (D15).
 
 ## 17. Tahap sesudahnya (di luar dokumen ini)
 

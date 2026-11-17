@@ -1,16 +1,14 @@
 // @ts-nocheck
 'use client'
-
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { PeriodFilterValue } from '@/hooks/useDashboardStore'
+import type { PeriodFilterValue, SalesSource } from '@/lib/types'
 import type { Preset } from '@/lib/period'
 import { presetRange } from '@/lib/period'
-import { Globe, Calendar, Monitor, Gift, Check, ChevronDown } from 'lucide-react'
+import { Store, Globe, Search, Check, ChevronDown, Calendar, Monitor, Gift, Loader2 } from 'lucide-react'
 import { getChannel } from '@/lib/channels'
-import { OutletCombobox } from './OutletCombobox'
 
-const SOURCES = ['all', 'pos', 'online', 'gofood', 'grabfood', 'shopeefood', 'tiktok', 'endors'] as const
+const SOURCES: (SalesSource | 'all')[] = ['all', 'pos', 'online', 'gofood', 'grabfood', 'shopeefood', 'tiktok', 'endors']
 
 const SOURCE_LABELS: Record<string, string> = {
   all: 'Semua Sumber',
@@ -23,13 +21,17 @@ const SOURCE_LABELS: Record<string, string> = {
   endors: 'Endors',
 }
 
+import { OutletCombobox, cleanOutletName } from './OutletCombobox'
+import type { StatusTutupOutlet } from '@/lib/outletTutup'
+
 function CustomDateRangePopover({
-  from, to, onChange, isActive
+  from, to, onChange, isActive, isLoading
 }: {
   from: string
   to: string
   onChange: (range: { from: string; to: string }) => void
   isActive: boolean
+  isLoading?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -109,14 +111,18 @@ function CustomDateRangePopover({
         ref={buttonRef}
         type="button"
         onClick={() => setOpen(!open)}
-        className={`px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer whitespace-nowrap ${
+        className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer whitespace-nowrap ${
           isActive || open
             ? 'bg-suka-orange text-white shadow-md font-extrabold ring-1 ring-black/5'
             : 'text-suka-brown/70 hover:text-suka-brown hover:bg-suka-orange/5'
         }`}
         title="Rentang tanggal kustom"
       >
-        <Calendar className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+        {isLoading && isActive ? (
+          <Loader2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 animate-spin" />
+        ) : (
+          <Calendar className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+        )}
         <span className="hidden sm:inline">Kustom</span>
       </button>
 
@@ -168,32 +174,55 @@ function CustomDateRangePopover({
   )
 }
 
+
+const DEFAULT_PRESETS: Preset[] = ['yesterday', 'today', '7d', '30d', 'this_month']
+
 export function PeriodFilter({
-  value, onChange, outlets, lockedOutletId, hideSource
+  value, onChange, outlets, lockedOutletId, hideSource, hideOutlet, isLoading, presets = DEFAULT_PRESETS
 }: {
   value: PeriodFilterValue
   onChange: (v: PeriodFilterValue) => void
-  outlets: { id: string; name: string }[]
+  outlets: ({ id: string; name: string; type?: string } & StatusTutupOutlet)[]
   lockedOutletId?: string | null
   hideSource?: boolean
+  /** Sembunyikan pemilih outlet sepenuhnya — untuk layar yang memang hanya
+   *  punya satu arti, mis. Laba Rugi Global yang selalu seluruh outlet. */
+  hideOutlet?: boolean
+  isLoading?: boolean
+  /** Tombol preset yang ditampilkan, berurutan. Default = empat tombol lama. */
+  presets?: Preset[]
 }) {
-  const setPreset = (p: Preset) => onChange({ ...value, ...presetRange(p) })
+  const [pendingPreset, setPendingPreset] = useState<Preset | null>(null)
 
+  useEffect(() => {
+    setPendingPreset(null)
+  }, [value.from, value.to])
+
+  const setPreset = (p: Preset) => {
+    setPendingPreset(p)
+    onChange({ ...value, ...presetRange(p) })
+  }
+
+  // Determine current active preset based on exact date match
   const activePreset = () => {
+    if (pendingPreset) return pendingPreset
+
     const pToday = presetRange('today')
     if (value.from === pToday.from && value.to === pToday.to) return 'today'
     
     const pYesterday = presetRange('yesterday')
     if (value.from === pYesterday.from && value.to === pYesterday.to) return 'yesterday'
 
-    const p7d = presetRange('7d')
-    if (value.from === p7d.from && value.to === p7d.to) return '7d'
-
-    const p30d = presetRange('30d')
-    if (value.from === p30d.from && value.to === p30d.to) return '30d'
+    const pLastMonth = presetRange('last_month')
+    if (value.from === pLastMonth.from && value.to === pLastMonth.to) return 'last_month'
 
     const pThisMonth = presetRange('this_month')
     if (value.from === pThisMonth.from && value.to === pThisMonth.to) return 'this_month'
+
+    if (presets.includes('7d')) {
+      const p7 = presetRange('7d')
+      if (value.from === p7.from && value.to === p7.to) return '7d'
+    }
 
     return null
   }
@@ -201,52 +230,62 @@ export function PeriodFilter({
   const currentPreset = activePreset()
 
   return (
-    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-center w-full justify-end">
-      {/* 1. Date Range Presets */}
-      <div className="bg-white/60 backdrop-blur-xl p-1.5 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex items-stretch gap-1 text-xs font-bold w-full sm:w-auto flex-wrap sm:flex-nowrap">
-        {(['kemarin', 'today', '7d', '30d', 'this_month'] as const).map((pOrKemarin) => {
-          const p = pOrKemarin === 'kemarin' ? 'yesterday' : pOrKemarin
+    <div className="flex flex-col sm:flex-row sm:flex-wrap lg:flex-nowrap gap-2 sm:gap-2.5 sm:items-center w-full 2xl:w-auto justify-end">
+      <div className="bg-white/60 backdrop-blur-xl p-1 sm:p-1.5 rounded-xl sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-nowrap items-stretch gap-0.5 sm:gap-1 text-[11px] sm:text-xs font-bold w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar">
+        {presets.map((p) => {
           const isActive = currentPreset === p
-          const label = p === 'today' ? 'Hari ini' : p === 'yesterday' ? 'Kemarin' : p === '7d' ? '7 Hari' : p === '30d' ? '30 Hari' : 'Bulan ini'
+          const isButtonLoading = (isLoading || pendingPreset === p) && isActive
+          const label = p === 'today' ? 'Hari ini' : p === 'yesterday' ? 'Kemarin' : p === 'last_month' ? 'Bulan Lalu' : p === '7d' ? '7 Hari' : p === '30d' ? '30 Hari' : 'Bulan ini'
           return (
             <button
               key={p}
+              disabled={isButtonLoading}
               onClick={() => setPreset(p)}
-              className={`flex-1 sm:flex-none px-1.5 sm:px-4 py-2 sm:py-2.5 rounded-lg whitespace-nowrap transition-all active:scale-95 cursor-pointer ${
+              className={`flex-1 sm:flex-none px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg whitespace-nowrap transition-all active:scale-95 cursor-pointer inline-flex items-center justify-center gap-1.5 ${
                 isActive
                   ? 'bg-suka-orange text-white shadow-md font-extrabold ring-1 ring-black/5'
                   : 'text-suka-brown/70 hover:text-suka-brown hover:bg-suka-orange/5'
               }`}
             >
-              {label}
+              {isButtonLoading && (
+                <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+              )}
+              <span>{label}</span>
             </button>
           )
         })}
         <CustomDateRangePopover
           from={value.from}
           to={value.to}
-          onChange={(range) => onChange({ ...value, from: range.from, to: range.to })}
+          onChange={(range) => {
+            setPendingPreset(null)
+            onChange({ ...value, from: range.from, to: range.to })
+          }}
           isActive={currentPreset === null}
+          isLoading={isLoading}
         />
       </div>
 
-      {/* 2 & 3. Dropdowns */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        {!lockedOutletId && (
-          <OutletCombobox
-            value={value.outletId}
-            outlets={outlets || []}
-            includeAll={!outlets || outlets.length > 1}
-            onChange={(outletId) => onChange({ ...value, outletId })}
-          />
-        )}
-        {!hideSource && (
-          <SourceCombobox
-            value={value.source}
-            onChange={(source) => onChange({ ...value, source })}
-          />
-        )}
-      </div>
+      {/* 2 & 3. Dropdowns — stack to full width on mobile, inline on larger screens */}
+      {((!lockedOutletId && !hideOutlet) || !hideSource) && (
+        <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3">
+          {!lockedOutletId && !hideOutlet && (
+            <OutletCombobox
+              value={value.outletId}
+              outlets={outlets || []}
+              includeAll={!outlets || outlets.length > 1}
+              periodeMulai={value.from}
+              onChange={(outletId) => onChange({ ...value, outletId: outletId as PeriodFilterValue['outletId'] })}
+            />
+          )}
+          {!hideSource && (
+            <SourceCombobox
+              value={value.source}
+              onChange={(source) => onChange({ ...value, source: source as PeriodFilterValue['source'] })}
+            />
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -343,3 +382,4 @@ function SourceCombobox({
     </div>
   )
 }
+

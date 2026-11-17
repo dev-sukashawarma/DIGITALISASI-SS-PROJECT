@@ -3932,7 +3932,7 @@ Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawa
 - **Admin = sumber.** Setiap perubahan Rangkuman Penjualan di admin WAJIB disalin ke finance & HR. `rangkumanPenjualan.parity.test.ts` di finance & HR membandingkan ±35 berkas (posReport/*, server action, filter, komponen) dengan admin dan menggagalkan CI bila menyimpang.
 - Perbedaan yang disengaja: `page.tsx` per app (penjaga peran: HR daftar peran, finance via `resolveCallerScope`); tombol Upload Settlement di finance/HR membuka admin di tab baru; HR memakai `lib/outletFiltersPenjualan.ts` (salinan outletFilters admin) karena `lib/outletFilters.ts` HR milik `@suka/hr-rumus`.
 - `OutletCombobox` ketiga app kini menentukan mitra dari `outlets.type` saja (perbaikan finance 13 Nov dibawa ke admin & HR).
-- ⚠️ Branch `feat/sembunyi-outlet-tutup` (belum merge) mengubah `OutletCombobox` admin+finance dengan aturan nama lagi + menambah `lib/outletTutup.ts`: saat merge, pertahankan aturan `type === 'mitra'`, salin `OutletCombobox.tsx` & `outletTutup.ts` ke HR, lalu tambahkan `lib/outletTutup.ts` ke daftar kedua tes paritas.
+- Branch `feat/sembunyi-outlet-tutup` (outlet tutup tampil s/d akhir bulan) di-merge hari yang sama: `OutletCombobox` + `lib/outletTutup.ts` identik di ketiga app dan masuk daftar tes paritas; aturan `type === 'mitra'` dipertahankan.
 
 ---
 

@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react'
 import type { Outlet } from '@/lib/types'
+import { namaDenganKeteranganTutup, outletTampilDiPeriode } from '@/lib/outletTutup'
 import { Select } from '@/components/ui/Select'
 import type { AttendanceRecordExt } from './AttendanceReportView'
 import {
@@ -647,7 +648,7 @@ export function EditAttendanceModal({
           <div className="space-y-2">
             <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Outlet absen baru</p>
             <Select
-              options={outlets.map((o) => ({ value: o.id, label: o.name }))}
+              options={outlets.filter((o) => o.id === row.outlet_id || outletTampilDiPeriode(o, row.date)).map((o) => ({ value: o.id, label: namaDenganKeteranganTutup(o.name, o) }))}
               value={outletId}
               onChange={setOutletId}
               placeholder="Pilih outlet"

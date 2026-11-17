@@ -50,7 +50,7 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
     supabase.from('users').select('role, outlet_id').eq('id', userId || '').maybeSingle(),
     supabase
       .from('outlets')
-      .select('id, slug, name, address, lat, lng, type, is_active, marquee_warning_threshold')
+      .select('id, slug, name, address, lat, lng, type, is_active, status, nonaktif_at, marquee_warning_threshold')
       .neq('id', TEST_OUTLET_ID)
       .neq('status', 'pending')
       .order('name'),
@@ -79,7 +79,7 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
   const allOutletsRaw = isReadOnly
     ? (await serviceSupabase
         .from('outlets')
-        .select('id, slug, name, address, lat, lng, type, is_active, marquee_warning_threshold')
+        .select('id, slug, name, address, lat, lng, type, is_active, status, nonaktif_at, marquee_warning_threshold')
         .neq('id', TEST_OUTLET_ID)
         .neq('status', 'pending')
         .order('name')).data ?? rawOutlets

@@ -31,7 +31,8 @@ describe('itemDariKasbon', () => {
     expect(i.judul).toBe('Budi')
     expect(i.nominal).toBe(500000)
     expect(i.menungguSejak).toBe('2026-11-13T03:00:00Z')
-    expect(i.keterangan).toContain('SUKA SHAWARMA EMPANG')
+    expect(i.outlet).toBe('SUKA SHAWARMA EMPANG')
+    expect(i.keterangan).toContain('Biaya berobat anak')
     expect(i.keterangan).toContain('2x cicilan')
   })
 

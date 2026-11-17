@@ -1,94 +1,64 @@
 'use client'
-
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { createSupabaseBrowserClient } from '@suka/auth'
+import { createClient } from '@/lib/supabase'
+import type { SalesSummaryRow, PeriodFilterValue, SalesSource } from '@/lib/types'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { fetchAllPagesParallel } from '@/lib/queryPaging'
+import { periodCacheOptions, withPeriodCache } from '@/lib/periodCache'
+import {
+  normalizeSettlementPlatform,
+  reconcileRowPromoWithSettlement,
+  splitDateRangeChunks,
+} from '@/lib/ownerDashboardAlign'
 
-export interface SalesSummaryRow {
-  outlet_id: string
-  outlet_name: string
-  sales_source: string
-  sales_date: string
-  omzet: number
-  jumlah_order_completed: number
-  jumlah_order_all: number
-  total_deductions: number
-  platform_fee: number
-}
-
-function splitDateRangeChunks(
-  from: string,
-  to: string,
-  maxDays = 10,
-): { from: string; to: string }[] {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || from > to) {
-    return [{ from, to }]
-  }
-  const DAY_MS = 86_400_000
-  const startMs = Date.parse(`${from}T00:00:00Z`)
-  const endMs = Date.parse(`${to}T00:00:00Z`)
-  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
-    return [{ from, to }]
-  }
-  const stepDays = Math.max(1, Math.floor(maxDays))
-  const chunks: { from: string; to: string }[] = []
-  for (let cur = startMs; cur <= endMs; ) {
-    const chunkEnd = Math.min(endMs, cur + (stepDays - 1) * DAY_MS)
-    chunks.push({
-      from: new Date(cur).toISOString().slice(0, 10),
-      to: new Date(chunkEnd).toISOString().slice(0, 10),
-    })
-    cur = chunkEnd + DAY_MS
-  }
-  return chunks
-}
-
-function normalizePlatform(src: string | null | undefined): string {
-  const s = (src || '').toLowerCase()
-  if (s.includes('gofood') || s.includes('gojek')) return 'gofood'
-  if (s.includes('grab')) return 'grabfood'
-  if (s.includes('shopee')) return 'shopeefood'
-  if (s.includes('tiktok')) return 'tiktokgo'
-  return s
-}
-
-export function useSalesDaily(
-  filter: { from: string; to: string; outletId: string; source: string },
-  outlets?: { id: string; name: string }[],
-  options?: { enabled?: boolean }
-) {
-  const supabase = createSupabaseBrowserClient()
+// Ringkasan harian per outlet × sumber langsung dari view DB `sales_daily_scoped`.
+// Sangat cepat karena dihitung langsung di database menggunakan covering & functional indexes.
+export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string; name: string }[], options?: { enabled?: boolean }) {
+  const supabase = createClient()
+  const queryKey = ['sales-daily', filter.from, filter.to, filter.outletId, filter.source] as const
   const query = useQuery<SalesSummaryRow[]>({
-    queryKey: ['sales-daily', filter.from, filter.to, filter.outletId, filter.source],
-    staleTime: 2 * 60_000,
+    queryKey: [...queryKey],
+    ...periodCacheOptions(filter),
     enabled: (options?.enabled ?? true) && Boolean(filter.from && filter.to),
-    queryFn: async () => {
+    queryFn: withPeriodCache(queryKey, filter, async () => {
+      // PostgREST memotong hasil di 1.000 baris tanpa error apa pun. Rentang
+      // 30 hari menghasilkan ~2.000 baris (outlet × sumber × tanggal), jadi
+      // tanpa paginasi omzet yang tampil hanya ~50% dari yang sebenarnya —
+      // dan karena tak ada ORDER BY, baris mana yang lolos pun tak menentu.
+      // Halaman Untung Rugi & Rekap Bulanan sempat melaporkan rugi palsu
+      // karena ini. Selalu ambil sampai halaman terakhir.
       const PAGE_SIZE = 1000
-      const salesData: any[] = []
+      const buildSalesQuery = (chunkFrom: string, chunkTo: string) => {
+        let b = supabase
+          .from('sales_daily_scoped')
+          .select('outlet_id, sales_source, sales_date, omzet, total_deductions, jumlah_order_completed')
+          .neq('outlet_id', TEST_OUTLET_ID)
+          .gte('sales_date', chunkFrom)
+          .lte('sales_date', chunkTo)
+          // Urutan HARUS unik. Grain view ini adalah (outlet_id, sales_source,
+          // sales_date) -- mengurut hanya dengan (sales_date, outlet_id)
+          // menyisakan sampai 6 baris kembar (satu per sales_source), dan batas
+          // halaman jatuh tepat di tengah kelompok kembar itu. Karena tiap
+          // halaman adalah query terpisah, baris di dalam kelompok kembar bisa
+          // terhitung dua kali atau terlewat. Ketiga kolom bersama-sama unik
+          // (2.081 baris = 2.081 kombinasi).
+          .order('sales_date', { ascending: true })
+          .order('outlet_id', { ascending: true })
+          .order('sales_source', { ascending: true })
 
-      // Paginasi berurutan per potongan <= 10 hari agar tidak terpotong di 1.000 baris PostgREST
-      // dan tidak pernah menyentuh statement_timeout 8 detik pada rentang 1 bulan penuh.
+        if (filter.outletId !== 'all') b = b.eq('outlet_id', filter.outletId)
+        if (filter.source !== 'all') b = b.eq('sales_source', filter.source)
+        return b
+      }
+
+      // SENGAJA berurutan dalam potongan <= 10 hari agar view agregat `sales_daily_scoped`
+      // tidak pernah menyentuh `statement_timeout` 8 detik PostgreSQL pada rentang 1 bulan penuh
+      // (~3.100 baris di Oktober 2026), sekaligus tidak membebani CPU DB dengan kueri paralel.
+      const salesData: any[] = []
       for (const chunk of splitDateRangeChunks(filter.from, filter.to, 10)) {
         for (let offset = 0; ; offset += PAGE_SIZE) {
-          let q = supabase
-            .from('sales_daily_scoped')
-            .select('outlet_id, sales_source, sales_date, omzet, total_deductions, jumlah_order_completed')
-            .neq('outlet_id', TEST_OUTLET_ID)
-            .gte('sales_date', chunk.from)
-            .lte('sales_date', chunk.to)
-            .order('sales_date', { ascending: true })
-            .order('outlet_id', { ascending: true })
-            .order('sales_source', { ascending: true })
-
-          if (filter.outletId !== 'all') {
-            q = q.eq('outlet_id', filter.outletId)
-          }
-          if (filter.source !== 'all') {
-            q = q.eq('sales_source', filter.source)
-          }
-
-          const { data, error } = await q.range(offset, offset + PAGE_SIZE - 1)
+          const { data, error } = await buildSalesQuery(chunk.from, chunk.to).range(offset, offset + PAGE_SIZE - 1)
           if (error) throw error
           const page = data ?? []
           salesData.push(...page)
@@ -96,121 +66,108 @@ export function useSalesDaily(
         }
       }
 
-      const settlementCommissionMap = new Map<string, number>()
-      const settlementPromoMap = new Map<string, number>()
+      // Tarik komisi platform dari platform_settlements untuk rentang tanggal yang dipilih
+      let settlementList: any[] = []
       try {
-        let offset = 0
-        while (true) {
-          let b = supabase
-            .from('platform_settlements')
-            .select('outlet_id, platform, tanggal, commission, promo_merchant')
-            .gte('tanggal', filter.from)
-            .lte('tanggal', filter.to)
-            .order('tanggal', { ascending: true })
-            .order('id', { ascending: true })
-          if (filter.outletId !== 'all') {
-            b = b.eq('outlet_id', filter.outletId)
-          }
-          const { data: stlPage, error: stlErr } = await b.range(offset, offset + 999)
-          if (stlErr) throw stlErr
-          const page = stlPage ?? []
-          for (const s of page) {
-            const plat = normalizePlatform(s.platform)
-            const key = `${s.outlet_id}__${plat}__${s.tanggal}`
-            settlementCommissionMap.set(key, (settlementCommissionMap.get(key) || 0) + (Number(s.commission) || 0))
-            if (s.promo_merchant !== null && s.promo_merchant !== undefined) {
-              settlementPromoMap.set(key, (settlementPromoMap.get(key) || 0) + Math.max(0, Number(s.promo_merchant) || 0))
+        settlementList = await fetchAllPagesParallel<any>(
+          (from, to, withCount) => {
+            let b = supabase
+              .from('platform_settlements')
+              .select('outlet_id, platform, tanggal, commission, promo_merchant', withCount ? { count: 'exact' } : undefined)
+              .gte('tanggal', filter.from)
+              .lte('tanggal', filter.to)
+              .order('tanggal', { ascending: true })
+              .order('id', { ascending: true })
+            if (filter.outletId !== 'all') {
+              b = b.eq('outlet_id', filter.outletId)
             }
-          }
-          if (page.length < 1000) break
-          offset += 1000
-        }
-      } catch (err) {
-        console.error('Error fetching settlements in useSalesDaily:', err)
+            return b.range(from, to)
+          },
+          1000,
+        )
+      } catch (settlementError) {
+        console.error('useSalesDaily platform_settlements error:', settlementError)
       }
 
+      const settlementCommissionMap = new Map<string, number>()
+      const settlementPromoMap = new Map<string, number>()
+      for (const s of settlementList) {
+        const plat = normalizeSettlementPlatform(s.platform)
+        const key = `${s.outlet_id}__${plat}__${s.tanggal}`
+        settlementCommissionMap.set(key, (settlementCommissionMap.get(key) || 0) + (Number(s.commission) || 0))
+        if (s.promo_merchant !== null && s.promo_merchant !== undefined) {
+          settlementPromoMap.set(key, (settlementPromoMap.get(key) || 0) + Math.max(0, Number(s.promo_merchant) || 0))
+        }
+      }
+
+      // Catatan: query mentah ke `orders` yang dulu ada di sini (untuk menghitung
+      // potongan per hari) sudah dihapus. View `sales_daily_scoped` sendiri sudah
+      // menyediakan `total_deductions` dengan definisi yang sama persis
+      // (terverifikasi identik pada data produksi), jadi query itu hanya menarik
+      // puluhan ribu baris order tanpa menambah informasi apa pun — dan ia
+      // sendiri ikut terpotong di 1.000 baris.
       const posRows: SalesSummaryRow[] = salesData
         .filter((r: any) => !isTestOutlet(r.outlet_id))
         .map((r: any) => {
-          const safeOmzet = Number(r.omzet || 0)
-          const safeDed = Number(r.total_deductions) || 0
-          const plat = normalizePlatform(r.sales_source)
+          const plat = normalizeSettlementPlatform(r.sales_source)
           const key = `${r.outlet_id}__${plat}__${r.sales_date}`
           const platformFee = settlementCommissionMap.get(key) || 0
-
-          if (plat === 'tiktokgo') {
-            const settlementPromo = settlementPromoMap.has(key) ? (settlementPromoMap.get(key) || 0) : 0
-            const rawGross = safeOmzet + safeDed
-            return {
-              outlet_id: r.outlet_id,
-              outlet_name: '',
-              sales_source: r.sales_source,
-              sales_date: r.sales_date,
-              omzet: Math.max(0, rawGross - settlementPromo),
-              jumlah_order_completed: Number(r.jumlah_order_completed || 0),
-              jumlah_order_all: Number(r.jumlah_order_completed || 0),
-              total_deductions: settlementPromo,
-              platform_fee: platformFee,
-            }
-          }
-
-          if (
-            settlementPromoMap.has(key) &&
-            (plat === 'gofood' || plat === 'shopeefood' || plat === 'grabfood')
-          ) {
-            const settlementPromo = settlementPromoMap.get(key) || 0
-            const rawGross = safeOmzet + safeDed
-            return {
-              outlet_id: r.outlet_id,
-              outlet_name: '',
-              sales_source: r.sales_source,
-              sales_date: r.sales_date,
-              omzet: Math.max(0, rawGross - settlementPromo),
-              jumlah_order_completed: Number(r.jumlah_order_completed || 0),
-              jumlah_order_all: Number(r.jumlah_order_completed || 0),
-              total_deductions: settlementPromo,
-              platform_fee: platformFee,
-            }
-          }
+          const reconciled = reconcileRowPromoWithSettlement(
+            plat,
+            key,
+            Number(r.omzet) || 0,
+            Number(r.total_deductions) || 0,
+            settlementPromoMap,
+          )
 
           return {
             outlet_id: r.outlet_id,
             outlet_name: '',
-            sales_source: r.sales_source,
+            sales_source: r.sales_source as SalesSource,
             sales_date: r.sales_date,
-            omzet: safeOmzet,
+            omzet: reconciled.omzet,
             jumlah_order_completed: Number(r.jumlah_order_completed || 0),
             jumlah_order_all: Number(r.jumlah_order_completed || 0),
-            total_deductions: safeDed,
+            total_deductions: reconciled.total_deductions,
             platform_fee: platformFee,
           }
         })
 
-      // Tarik Ecommerce Sales (Shopee, TikTok Shop, Web SS Online) identik 1:1 dengan admin-dashboard
+      // Batas hari Asia/Jakarta untuk query ecommerce (kolom order_date bertipe
+      // timestamp, bukan date). Sebelumnya dihitung bersama query `orders` mentah
+      // yang sudah dihapus, sehingga variabelnya sempat hilang.
+      const fromIso = new Date(`${filter.from}T00:00:00+07:00`).toISOString()
+      const toIso = new Date(`${filter.to}T23:59:59.999+07:00`).toISOString()
+
+      // Fetch Ecommerce Sales (Shopee, TikTok Shop, Web SS Online) if applicable
       const allEcommerceRows: SalesSummaryRow[] = []
       if (filter.outletId === 'all' || filter.outletId === 'ss-online') {
-        const fromIso = new Date(`${filter.from}T00:00:00+07:00`).toISOString()
-        const toIso = new Date(`${filter.to}T23:59:59.999+07:00`).toISOString()
-        const ecommerceSalesList: any[] = []
+        // Sama seperti di atas: halaman diambil bersamaan, bukan berurutan.
+        // `order_date` saja bukan pengurut yang aman untuk paginasi — nilainya
+        // disimpan sebagai tengah malam tiap hari, sehingga 1.377 baris hanya
+        // punya ~30 timestamp unik. `id` dipakai sebagai pemecah seri agar
+        // urutannya deterministik dan tak ada baris terhitung dua kali.
+        let ecommerceSalesList: any[] = []
         try {
-          let offset = 0
-          while (true) {
-            const { data: ePage, error: eErr } = await supabase
-              .from('ecommerce_sales')
-              .select('id, channel_id, order_date, total_amount, raw_data')
-              .gte('order_date', fromIso)
-              .lte('order_date', toIso)
-              .order('order_date', { ascending: true })
-              .order('id', { ascending: true })
-              .range(offset, offset + 999)
-            if (eErr) throw eErr
-            const page = ePage ?? []
-            ecommerceSalesList.push(...page)
-            if (page.length < 1000) break
-            offset += 1000
-          }
+          ecommerceSalesList = await fetchAllPagesParallel<any>(
+            (from, to, withCount) =>
+              supabase
+                .from('ecommerce_sales')
+                .select(
+                  'id, channel_id, order_date, total_amount, raw_data',
+                  withCount ? { count: 'exact' } : undefined,
+                )
+                .gte('order_date', fromIso)
+                .lte('order_date', toIso)
+                .order('order_date', { ascending: true })
+                .order('id', { ascending: true })
+                .range(from, to),
+            1000,
+          )
         } catch (ecommerceError) {
-          console.error('useSalesDaily finance ecommerce error:', ecommerceError)
+          // Perilaku lama dipertahankan: kegagalan sisi ecommerce tidak
+          // menggagalkan seluruh laporan, cukup dicatat dan dilewati.
+          console.error('useSalesDaily ecommerce error:', ecommerceError)
         }
 
         const ecommerceSummaryMap = new Map<string, SalesSummaryRow>()
@@ -221,14 +178,14 @@ export function useSalesDaily(
           const omzetNet = Math.max(0, omzetKotor - totalPotongan)
 
           const d = new Date(saleRecord.order_date)
-          const dateStr = new Date(d.getTime() + 7 * 60 * 60 * 1000).toISOString().split('T')[0]
+          const dateStr = new Date(d.getTime() + (7 * 60 * 60 * 1000)).toISOString().split('T')[0]
 
           const chNorm = (saleRecord.channel_id || '').toLowerCase()
-          let salesSource = 'online'
+          let salesSource: SalesSource = 'online'
           if (chNorm.includes('tiktok') || chNorm === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5') {
-            salesSource = 'tiktok_shop'
+            salesSource = 'tiktok_shop' as SalesSource
           } else if (chNorm.includes('shopee') || chNorm === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584') {
-            salesSource = 'shopee_shop'
+            salesSource = 'shopee_shop' as SalesSource
           }
 
           if (filter.source !== 'all') {
@@ -262,9 +219,10 @@ export function useSalesDaily(
       }
 
       return [...posRows, ...allEcommerceRows]
-    },
+    }),
   })
 
+  // Resolusi nama outlet dari daftar yang sudah dimuat caller (useOutlets()).
   const rows = useMemo<SalesSummaryRow[]>(() => {
     const base = query.data ?? []
     if (!outlets || outlets.length === 0) return base
@@ -277,3 +235,4 @@ export function useSalesDaily(
 
   return { rows, loading: query.isLoading, error: query.error ? (query.error as Error).message : null }
 }
+

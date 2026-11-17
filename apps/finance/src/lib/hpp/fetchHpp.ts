@@ -1,0 +1,463 @@
+import type { PeriodFilterValue } from "@/lib/types";
+import { cleanItemName } from "@/lib/order-item-name";
+import { isTestOutlet, TEST_OUTLET_ID } from "@/lib/outletFilters";
+import { fetchAllPagesParallel } from "@/lib/queryPaging";
+import { isMitraOutlet } from "@/lib/outletOwnership";
+import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from "@/lib/hpp/riwayatHpp";
+import { adalahKanalSsOnline } from "@/lib/hpp/kanalSsOnline";
+import { resolveOrderSource } from "@/lib/order-source";
+
+export interface HppChannelBreakdown {
+  outlet: number;
+  food_apps: number;
+  tiktok_go: number;
+  website: number;
+}
+
+export interface HppRow {
+  outlet_id: string;
+  hpp: number;
+  baseHpp?: number;
+  markup?: number;
+  channels?: HppChannelBreakdown;
+}
+
+export function getOrderHppChannelGroup(
+  channel?: string | null,
+  salesSource?: string | null,
+  customerName?: string | null,
+  isEndorse?: boolean | null,
+): keyof HppChannelBreakdown {
+  const normCh = (channel || "").toLowerCase().trim();
+  const normSrc = (salesSource || "").toLowerCase().trim();
+
+  // 1. Channel eksplisit Food Apps (GoFood, GrabFood, ShopeeFood)
+  if (
+    [
+      "gofood",
+      "grabfood",
+      "shopeefood",
+      "food_apps",
+      "foodapps",
+      "grab_food",
+      "go_food",
+      "shopee_food",
+    ].includes(normCh)
+  ) {
+    return "food_apps";
+  }
+
+  // 2. Channel eksplisit TikTok Go
+  if (["tiktokgo", "tiktok", "tiktok_go"].includes(normCh)) {
+    return "tiktok_go";
+  }
+
+  // 3. Channel eksplisit Website & Marketplace
+  if (
+    [
+      "online",
+      "website",
+      "web",
+      "website ss",
+      "ss-online",
+      "ss_online",
+      "tiktok_shop",
+      "shopee_shop",
+    ].includes(normCh)
+  ) {
+    return "website";
+  }
+
+  // 4. Resolusi berbasis sumber pesanan (resolveOrderSource)
+  const src = resolveOrderSource(channel, salesSource, customerName, isEndorse).key.toLowerCase();
+  if (
+    [
+      "gofood",
+      "grabfood",
+      "shopeefood",
+      "generic_food_app",
+      "food_apps",
+      "foodapp",
+      "foodapps",
+    ].includes(src)
+  ) {
+    return "food_apps";
+  }
+  if (["tiktokgo", "tiktok", "tiktok_go"].includes(src)) {
+    return "tiktok_go";
+  }
+  if (
+    [
+      "online",
+      "website",
+      "ss-online",
+      "ss_online",
+      "tiktok_shop",
+      "shopee_shop",
+    ].includes(src) ||
+    normSrc === "online"
+  ) {
+    return "website";
+  }
+  return "outlet";
+}
+
+export const MITRA_OPEX_TAKEOUT_START = "2026-10-01";
+export const MITRA_DRINK_OPEX_DB_START = "2026-11-02";
+export const MITRA_CILEUNGSI_OUTLET_ID = "62a56103-2085-4dd5-9d25-a3c0cffc88ff";
+/**
+ * Mulai 1 Nov 2026 HPP mitra = (HPP + OPEX) x 1,15 untuk SEMUA outlet mitra,
+ * termasuk MITRA CILEUNGSI. Sumber: "HPP NOVEMBER.xlsx" tab OFFLINE sel P3
+ * (MARKUP MITRA = 0,15 "FIXED"); kolom I = kolom C x 1,15 dan kolom M
+ * (PROFIT HPP) = kolom I - kolom C. Keputusan owner 11 Nov 2026.
+ * Harus sama dengan DB get_mitra_item_hpp (migration 20261111101413).
+ */
+export const MITRA_MARKUP_15_START = "2026-11-01";
+export const MITRA_MARKUP_15 = 1.15;
+
+const PURE_DRINK_IDS_BEFORE_NOV2 = new Set<string>([
+  "08a57f8f-f212-4205-a3eb-fb88066ae1b8", // Ice Tea
+  "c543b78e-3341-44e0-b3ef-53349e71e3d3", // Orange Juice
+  "c8427af3-0a41-48dd-9a08-6b93cd913ec6", // Aqua
+]);
+
+export function getItemHpp(
+  menuItem: any,
+  outletType?: string,
+  fallbackName?: string,
+  menuItemByNameMap?: Map<string, any>,
+  channel?: string | null,
+  outletId?: string | null,
+  orderDate?: string | null,
+): { hpp: number; baseHpp: number; markup: number } {
+  let itemObj = menuItem;
+
+  const extractLeafBase = (obj: any): number => {
+    if (!obj) return 0;
+    const normCh = channel ? channel.toLowerCase() : null;
+    let channelHppVal: number | null = null;
+    if (obj.channel_hpp && typeof obj.channel_hpp === 'object' && normCh) {
+      if (adalahKanalSsOnline(normCh)) {
+        channelHppVal = obj.channel_hpp.ss_online ?? obj.channel_hpp.tiktok_shop ?? obj.channel_hpp.shopee_shop ?? obj.channel_hpp[normCh] ?? null;
+      } else {
+        channelHppVal = obj.channel_hpp[normCh] ?? null;
+      }
+    }
+
+    if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
+      return Number(channelHppVal);
+    }
+    if (
+      obj.hpp_override !== null &&
+      obj.hpp_override !== undefined &&
+      Number(obj.hpp_override) > 0
+    ) {
+      return Number(obj.hpp_override);
+    }
+    return 0;
+  };
+
+  const extractBase = (obj: any): number => {
+    if (!obj) return 0;
+    const leaf = extractLeafBase(obj);
+    if (leaf > 0) return leaf;
+    if (obj.is_package && Array.isArray(obj.package_items)) {
+      return obj.package_items.reduce((sum: number, pkg: any) => {
+        const compHpp = pkg.component ? extractBase(pkg.component) : 0;
+        const qty = pkg.quantity || 1;
+        return sum + compHpp * qty;
+      }, 0);
+    }
+    return 0;
+  };
+
+  let baseHpp = extractBase(itemObj);
+
+  // Jika baseHpp 0 (atau itemObj null / menu lama tanpa HPP), cari via fallbackName di menuItemByNameMap
+  if (baseHpp === 0 && fallbackName && menuItemByNameMap) {
+    const rawClean = cleanItemName(fallbackName);
+    const rawLower = rawClean.trim().toLowerCase();
+    const candidates = [
+      rawClean,
+      rawLower,
+      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').trim(),
+      rawLower.replace(/\s*\((1x|2x|3x|4x)\)\s*$/i, '').trim(),
+      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s*\((1x|2x|3x|4x)\)\s*$/i, '').trim(),
+      rawLower.replace(/\s*-\s*(large|barbar)\s*$/i, '').trim(),
+      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s*-\s*(large|barbar)\s*$/i, '').trim(),
+      rawLower.replace(/\s+shawarma\s*$/i, '').trim(),
+      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s+shawarma\s*$/i, '').trim(),
+    ];
+
+    for (const key of candidates) {
+      if (menuItemByNameMap.has(key)) {
+        const candObj = menuItemByNameMap.get(key);
+        const candBase = extractBase(candObj);
+        if (candBase > 0) {
+          itemObj = candObj;
+          baseHpp = candBase;
+          break;
+        }
+      }
+    }
+  }
+
+  if (outletType === "mitra" && baseHpp > 0) {
+    const effDate = orderDate ? orderDate.slice(0, 10) : tanggalWib(new Date().toISOString());
+    if (effDate >= MITRA_MARKUP_15_START) {
+      // Mulai 1 Nov 2026: seragam (HPP + OPEX) x 1,15, Cileungsi ikut.
+      // Dicek PALING AWAL supaya cabang Cileungsi di bawah tidak mendahuluinya.
+      const hpp = Math.round(baseHpp * MITRA_MARKUP_15);
+      return { hpp, baseHpp, markup: hpp - baseHpp };
+    }
+    if (effDate < MITRA_OPEX_TAKEOUT_START || outletId === MITRA_CILEUNGSI_OUTLET_ID) {
+      // Periode < 1 Okt 2026 atau MITRA CILEUNGSI: tetap base (HPP+OPEX) + 10%.
+      const hpp = Math.round(baseHpp * 1.1);
+      return { hpp, baseHpp, markup: hpp - baseHpp };
+    }
+
+    // Mulai 1 Okt 2026 untuk mitra selain Cileungsi: OPEX 10% di-takeout,
+    // sehingga mitra ditagih HPP Murni + 10% dan margin pasokan pusat tetap 10% HPP Murni.
+    const extractMitraTakeout = (obj: any): { mitraRaw: number; murniRaw: number } => {
+      if (!obj) return { mitraRaw: 0, murniRaw: 0 };
+      const leaf = extractLeafBase(obj);
+      if (leaf > 0) {
+        const isPureDrink =
+          effDate < MITRA_DRINK_OPEX_DB_START &&
+          Boolean(obj.id && PURE_DRINK_IDS_BEFORE_NOV2.has(obj.id));
+        if (isPureDrink) {
+          return { mitraRaw: leaf * 1.1, murniRaw: leaf };
+        }
+        return { mitraRaw: leaf, murniRaw: leaf / 1.1 };
+      }
+      if (obj.is_package && Array.isArray(obj.package_items)) {
+        return obj.package_items.reduce(
+          (acc: { mitraRaw: number; murniRaw: number }, pkg: any) => {
+            const sub = pkg.component ? extractMitraTakeout(pkg.component) : { mitraRaw: 0, murniRaw: 0 };
+            const qty = pkg.quantity || 1;
+            return {
+              mitraRaw: acc.mitraRaw + sub.mitraRaw * qty,
+              murniRaw: acc.murniRaw + sub.murniRaw * qty,
+            };
+          },
+          { mitraRaw: 0, murniRaw: 0 },
+        );
+      }
+      return { mitraRaw: 0, murniRaw: 0 };
+    };
+
+    const { mitraRaw, murniRaw } = extractMitraTakeout(itemObj);
+    const hpp = Math.round(mitraRaw);
+    const modalMurni = Math.round(murniRaw * 100) / 100;
+    const markup = Math.round((hpp - modalMurni) * 100) / 100;
+    return { hpp, baseHpp: modalMurni, markup };
+  }
+  return { hpp: baseHpp, baseHpp, markup: 0 };
+}
+
+const PAGE_SIZE = 1000;
+
+// Kolom HPP yang dipakai getItemHpp. Ditarik SEKALI dari `menu_items` (50 baris)
+// lalu dipetakan per id, bukan ikut di-join ke tiap order_item.
+export const MENU_HPP_SELECT =
+  "id, name, hpp_override, channel_hpp, is_package, is_available, outlet_id, categories(name), package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))";
+
+export async function fetchHppRows(
+  supabase: any,
+  filter: PeriodFilterValue,
+  options?: {
+    respectMitraCutoff?: boolean;
+    /**
+     * Batasi order ke daftar outlet ini dalam SATU pengambilan (tanpa ecommerce).
+     * Hasil per outlet identik dengan memanggil fungsi ini sekali per outlet —
+     * agregasinya memang per `outlet_id` — tetapi data master (menu, outlet,
+     * riwayat HPP) cukup diambil sekali, bukan sekali per outlet.
+     */
+    outletIds?: string[];
+  },
+): Promise<HppRow[]> {
+  const outletIdsTerbatas = options?.outletIds;
+  if (outletIdsTerbatas && outletIdsTerbatas.length === 0) return [];
+  const fromDateStr = filter.from.slice(0, 10);
+  const toDateStr = filter.to.slice(0, 10);
+  const ordersGte = `${fromDateStr}T00:00:00+07:00`;
+  const ordersLte = `${toDateStr}T23:59:59.999+07:00`;
+
+  // Tabel master untuk resep dan outlet
+  const [outletsRes, menuItemsRes, mitraInvRes, riwayatRows] = await Promise.all([
+    supabase.from("outlets").select("id, type, name, slug").neq("id", TEST_OUTLET_ID),
+    supabase.from("menu_items").select(MENU_HPP_SELECT),
+    supabase.from("mitra_investments").select("outlet_id, tanggal_mulai"),
+    ambilRiwayatHpp(supabase),
+  ]);
+
+  const mitraIdsSet = new Set<string>();
+  const mitraCutoffMap = new Map<string, string>();
+  mitraInvRes.data?.forEach((m: any) => {
+    if (m.outlet_id) {
+      mitraIdsSet.add(m.outlet_id);
+      if (m.tanggal_mulai) mitraCutoffMap.set(m.outlet_id, m.tanggal_mulai);
+    }
+  });
+
+  const outletTypeMap = new Map<string, string>();
+  outletsRes.data?.forEach((o: any) => {
+    if (!isTestOutlet(o)) {
+      // Aturan "siapa outlet mitra" dipakai bersama halaman Laba Rugi lewat
+      // satu fungsi — kalau ditulis ulang di sini, markup HPP dan pengakuan
+      // pendapatan margin bisa diam-diam berbeda daftar outletnya.
+      outletTypeMap.set(o.id, isMitraOutlet(o, mitraIdsSet) ? "mitra" : (o.type || "outlet"));
+    }
+  });
+
+  const menuItemsData = menuItemsRes.data ?? [];
+  // HPP per tanggal order: objek menu & peta nama/id ditimpa nilai yang
+  // berlaku pada tanggal itu (lihat lib/hpp/riwayatHpp.ts).
+  const penerapHpp = buatPenerapRiwayat(menuItemsData, riwayatRows, cleanItemName);
+
+  // `order_items` di-select TANPA join bersarang ke menu_items. Join itu
+  // mengirim ulang tabel `menu_items` yang cuma 50 baris untuk tiap satu
+  // dari ~90.000 order_item: 16,7 MB dan 26 detik untuk satu bulan, hanya
+  // untuk menghasilkan 19 baris agregat. `menu_item_id` cukup — objek yang
+  // dulu ikut di-join persis baris yang sama dengan yang sudah ada di
+  // penerapHpp.byId di atas.
+  //
+  // `status` disaring di server (dulu tiap baris ditarik lalu dibuang di
+  // klien), dan `.order('id')` membuat urutan halaman deterministik —
+  // syarat mutlak sebelum halaman boleh diambil paralel.
+  const buildOrdersPage = (from: number, to: number, withCount: boolean) => {
+    let b = supabase
+      .from("orders")
+      .select(
+        "outlet_id, channel, sales_source, customer_name, is_endorse, created_at, order_items(menu_item_id, menu_item_name, quantity)",
+        withCount ? { count: "exact" } : undefined,
+      )
+      .neq("outlet_id", TEST_OUTLET_ID)
+      .in("status", ["completed", "settled"])
+      .gte("created_at", ordersGte)
+      .lte("created_at", ordersLte)
+      .order("id", { ascending: true });
+
+    if (outletIdsTerbatas) b = b.in("outlet_id", outletIdsTerbatas);
+    else if (filter.outletId !== "all") b = b.eq("outlet_id", filter.outletId);
+    return b.range(from, to);
+  };
+
+  const wantsEcommerce =
+    !outletIdsTerbatas &&
+    (filter.outletId === "all" || filter.outletId === "ss-online");
+
+  const buildEcommercePage = (from: number, to: number, withCount: boolean) =>
+    supabase
+      .from("ecommerce_sales")
+      .select(
+        "channel_id, order_date, ecommerce_sale_items(menu_id, quantity)",
+        withCount ? { count: "exact" } : undefined,
+      )
+      .gte("order_date", ordersGte)
+      .lte("order_date", ordersLte)
+      .order("id", { ascending: true })
+      .range(from, to);
+
+  const [allOrders, ecommerceSalesList] = await Promise.all([
+    fetchAllPagesParallel<any>(buildOrdersPage, PAGE_SIZE),
+    wantsEcommerce
+      ? fetchAllPagesParallel<any>(buildEcommercePage, PAGE_SIZE)
+      : Promise.resolve([] as any[]),
+  ]);
+
+  const hppMap = new Map<
+    string,
+    {
+      hpp: number;
+      baseHpp: number;
+      markup: number;
+      channels: HppChannelBreakdown;
+    }
+  >();
+
+  allOrders.forEach((o: any) => {
+    if (isTestOutlet(o.outlet_id)) return;
+    const orderWibDate = tanggalWib(o.created_at);
+    if (options?.respectMitraCutoff) {
+      const cutoff = mitraCutoffMap.get(o.outlet_id);
+      if (cutoff && orderWibDate < cutoff) return;
+    }
+    const outletType = outletTypeMap.get(o.outlet_id);
+    const orderChannel = o.channel || o.sales_source;
+    const channelGroup = getOrderHppChannelGroup(
+      o.channel,
+      o.sales_source,
+      o.customer_name,
+      o.is_endorse,
+    );
+
+    const pHpp = penerapHpp.untuk(orderWibDate);
+    o.order_items?.forEach((item: any) => {
+      const { hpp, baseHpp, markup } = getItemHpp(
+        item.menu_item_id ? pHpp.byId.get(item.menu_item_id) : null,
+        outletType,
+        item.menu_item_name,
+        pHpp.byName,
+        orderChannel,
+        o.outlet_id,
+        orderWibDate,
+      );
+      const qty = item.quantity || 1;
+      const current = hppMap.get(o.outlet_id) || {
+        hpp: 0,
+        baseHpp: 0,
+        markup: 0,
+        channels: { outlet: 0, food_apps: 0, tiktok_go: 0, website: 0 },
+      };
+      const itemHpp = hpp * qty;
+      current.hpp += itemHpp;
+      current.baseHpp += baseHpp * qty;
+      current.markup += markup * qty;
+      current.channels[channelGroup] += itemHpp;
+      hppMap.set(o.outlet_id, current);
+    });
+  });
+
+  ecommerceSalesList.forEach((saleRecord: any) => {
+    const outletId = "ss-online";
+    const outletType = "outlet";
+    const ecommerceChannel = saleRecord.channel_id || "ss_online";
+
+    const pHpp = penerapHpp.untuk(tanggalWib(saleRecord.order_date));
+    saleRecord.ecommerce_sale_items?.forEach((item: any) => {
+      const menuItem = item.menu_id
+        ? pHpp.byId.get(item.menu_id)
+        : null;
+      const fallbackName = menuItem?.name || "Unknown";
+      const { hpp, baseHpp, markup } = getItemHpp(
+        menuItem,
+        outletType,
+        fallbackName,
+        pHpp.byName,
+        ecommerceChannel,
+      );
+      const qty = item.quantity || 1;
+      const current = hppMap.get(outletId) || {
+        hpp: 0,
+        baseHpp: 0,
+        markup: 0,
+        channels: { outlet: 0, food_apps: 0, tiktok_go: 0, website: 0 },
+      };
+      const itemHpp = hpp * qty;
+      current.hpp += itemHpp;
+      current.baseHpp += baseHpp * qty;
+      current.markup += markup * qty;
+      current.channels.website += itemHpp;
+      hppMap.set(outletId, current);
+    });
+  });
+
+  return Array.from(hppMap.entries()).map(([outlet_id, data]) => ({
+    outlet_id,
+    hpp: data.hpp,
+    baseHpp: data.baseHpp,
+    markup: data.markup,
+    channels: data.channels,
+  }));
+}

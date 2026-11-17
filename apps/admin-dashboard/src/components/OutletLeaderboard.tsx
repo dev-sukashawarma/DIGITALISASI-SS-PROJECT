@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import type { LeaderboardEntry } from '@/lib/leaderboard'
 import { rupiah, rupiahCompact } from '@/lib/format'
 import { Search, Info } from 'lucide-react'
+import { outletTampilDiPeriode, type StatusTutupOutlet } from '@/lib/outletTutup'
 
 function getPerformanceTierBadge(tier?: string) {
   switch (tier) {
@@ -33,7 +34,13 @@ function getPerformanceTierBadge(tier?: string) {
   }
 }
 
-export function OutletLeaderboard({ entries, allOutlets }: { entries: LeaderboardEntry[], allOutlets: {id: string, name: string}[] }) {
+export function OutletLeaderboard({ entries, allOutlets, periodeMulai }: {
+  entries: LeaderboardEntry[]
+  allOutlets: ({ id: string; name: string } & StatusTutupOutlet)[]
+  /** Awal periode (YYYY-MM-DD): outlet tutup tanpa omzet yang tutup sebelum
+   *  bulan ini tidak ditambahkan sebagai baris nol. */
+  periodeMulai?: string | null
+}) {
   const [query, setQuery] = useState('')
   const [showAll, setShowAll] = useState(false)
 
@@ -44,7 +51,9 @@ export function OutletLeaderboard({ entries, allOutlets }: { entries: Leaderboar
     }
     
     // Merge with all outlets to include those with 0 sales
-    const combined = allOutlets.map(o => {
+    const combined = allOutlets
+      .filter(o => map.has(o.id) || outletTampilDiPeriode(o, periodeMulai))
+      .map(o => {
       if (map.has(o.id)) return map.get(o.id)!
       return {
         outlet_id: o.id,
@@ -61,7 +70,7 @@ export function OutletLeaderboard({ entries, allOutlets }: { entries: Leaderboar
     
     // Sort by omzet descending
     return combined.sort((a, b) => b.omzet - a.omzet)
-  }, [entries, allOutlets])
+  }, [entries, allOutlets, periodeMulai])
 
   const displayedEntries = query.trim() === '' 
     ? (showAll ? fullEntries : fullEntries.slice(0, 5))

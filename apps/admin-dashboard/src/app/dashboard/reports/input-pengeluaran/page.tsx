@@ -71,6 +71,7 @@ import { deleteTransactionAction } from '@/app/actions/expenses'
 import { CATEGORY_META, isSalaryCategory, isLemburExpense, PENGELUARAN_CATEGORIES } from '@/lib/expenseCategories'
 import { rupiah } from '@/lib/format'
 import { isExcludedOutlet } from '@/lib/outletFilters'
+import { namaDenganKeteranganTutup, outletTampilDiPeriode } from '@/lib/outletTutup'
 import { generateOpexReportPDF } from '@/utils/opexPdfGenerator'
 import { BUKU_KAS_PARAMS } from '@/lib/bukuKasLink'
 import { calculateDateRangeProrata } from '@/lib/opexDateRangeProrata'
@@ -948,16 +949,22 @@ export default function InputPengeluaranPage() {
     return stats
   }, [daftarTampil])
 
+  // Outlet yang tutup sebelum bulan awal periode disembunyikan dari pilihan
+  // (lib/outletTutup.ts); pilihan yang tersembunyi kembali ke Global.
   const validOutlets = useMemo(() => {
-    return outlets.filter(o => !isExcludedOutlet(o))
-  }, [outlets])
+    return outlets.filter(o => !isExcludedOutlet(o) && outletTampilDiPeriode(o, startDate))
+  }, [outlets, startDate])
+  useEffect(() => {
+    const terpilih = outlets.find(o => o.id === target)
+    if (terpilih && !outletTampilDiPeriode(terpilih, startDate)) setTarget('all')
+  }, [outlets, target, startDate])
 
   const selectOptions = useMemo(() => {
     const outletMitra = validOutlets.filter(o => mitraIds.has(o.id))
     const outletInternal = validOutlets.filter(o => !mitraIds.has(o.id))
     // `groupLabel` menggambar garis pemisah berteks tepat di atas pilihan itu.
     const berkelompok = (daftar: typeof validOutlets, judul: string) =>
-      daftar.map((o, i) => ({ label: o.name, value: o.id, ...(i === 0 ? { groupLabel: judul } : {}) }))
+      daftar.map((o, i) => ({ label: namaDenganKeteranganTutup(o.name, o), value: o.id, ...(i === 0 ? { groupLabel: judul } : {}) }))
     return [
       { label: 'Global (HO & Semua Outlet)', value: 'all' },
       { label: 'Semua Outlet', value: 'ALL_OUTLETS' },

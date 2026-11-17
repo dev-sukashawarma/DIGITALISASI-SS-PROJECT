@@ -7,6 +7,8 @@ import { Target, Trophy, Radio, Edit3, X, Save, Trash2, Loader2, CheckCircle2, C
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useRole } from '@/components/layout/RoleContext'
 import { OutletCombobox } from '@/components/OutletCombobox'
+import { useOutlets } from '@/hooks/useOutlets'
+import { outletTampilDiPeriode } from '@/lib/outletTutup'
 import type { PeriodFilterValue, SalesSummaryRow } from '@/lib/types'
 
 import { User } from '@/lib/types'
@@ -109,8 +111,20 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
   );
   const isToday = !isMoreThanOneDay && (!filter?.from || filter.from === todayJakarta);
 
+  // Target harian sempat terus dibuat untuk outlet yang sudah tutup (Rp 5 jt,
+  // capaian 0%). Outlet yang tutup sebelum bulan periode ini disaring keluar.
+  const { data: daftarOutlet = [] } = useOutlets()
+  const rowsTampil = useMemo(() => {
+    const periodeMulai = filter?.from ?? todayJakarta
+    const statusById = new Map(daftarOutlet.map((o) => [o.id, o]))
+    return rows.filter((r) => {
+      const o = statusById.get(r.outlet_id)
+      return !o || outletTampilDiPeriode(o, periodeMulai)
+    })
+  }, [rows, daftarOutlet, filter?.from, todayJakarta])
+
   const withTarget = useMemo(() => {
-    let baseRows = rows;
+    let baseRows = rowsTampil;
     
     if (filter && filter.outletId !== 'all') {
       baseRows = baseRows.filter(r => r.outlet_id === filter.outletId);
@@ -148,7 +162,7 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
         }
         return b.pct - a.pct;
       });
-  }, [rows, filter, kpiRows, isMoreThanOneDay, localOutletFilter])
+  }, [rowsTampil, filter, kpiRows, isMoreThanOneDay, localOutletFilter])
 
   const achieved = withTarget.filter((r) => r.pct >= 100).length
   
@@ -190,9 +204,9 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
               <div className="ml-2">
                 <OutletCombobox
                   value={localOutletFilter}
-                  outlets={Array.from(new Set(rows.map(r => r.outlet_id))).map(id => ({
+                  outlets={Array.from(new Set(rowsTampil.map(r => r.outlet_id))).map(id => ({
                     id,
-                    name: rows.find(r => r.outlet_id === id)?.outlet_name || 'Outlet'
+                    name: rowsTampil.find(r => r.outlet_id === id)?.outlet_name || 'Outlet'
                   }))}
                   onChange={(id) => {
                     setLocalOutletFilter(id);
@@ -322,8 +336,8 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
                 className="w-full px-3 py-2.5 rounded-xl text-sm font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10"
               >
                 <option value="global">Semua Outlet (Default)</option>
-                {Array.from(new Set(rows.map(r => r.outlet_id))).map(id => {
-                  const name = rows.find(r => r.outlet_id === id)?.outlet_name;
+                {Array.from(new Set(rowsTampil.map(r => r.outlet_id))).map(id => {
+                  const name = rowsTampil.find(r => r.outlet_id === id)?.outlet_name;
                   return (
                     <option key={id} value={id}>{name}</option>
                   )

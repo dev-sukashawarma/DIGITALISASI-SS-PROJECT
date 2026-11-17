@@ -35,6 +35,7 @@ const FILES: Array<[hr: string, admin: string]> = [
     'lib/marketplaceOutlets.ts',
     'lib/order-item-name.ts',
     'lib/order-source.ts',
+    'lib/outletTutup.ts',
     'lib/ownerDashboardCache.ts',
     'lib/posReport/compute.ts',
     'lib/posReport/dayCodec.ts',

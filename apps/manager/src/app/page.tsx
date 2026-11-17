@@ -17,6 +17,7 @@ import { computeOrderGross, computeOrderDeduction, buildFoodAppsSettlementPromoM
 import { cleanItemName } from '../lib/order-item-name';
 import { getMenuItemsData, getRiwayatHppData } from '../lib/menuCache';
 import { isIgnoredAMStaffName, petaAmAktif, type BarisPenugasanAm } from '../lib/petaAm';
+import { outletTampilDiPeriode } from '@/lib/outletTutup';
 
 const formatRupiah = (amount: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -174,7 +175,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
   // Disaring di daftar outlet DAN di tiap agregat di bawah — menyaring
   // daftarnya saja tidak cukup, omzet/waste dijumlahkan dari tabel mentah.
   const qOutlets = applyOutletFilter(
-    supabaseAdmin.from('outlets').select('id, name, is_active, region, type').neq('id', TEST_OUTLET_ID).order('name'),
+    supabaseAdmin.from('outlets').select('id, name, is_active, status, nonaktif_at, region, type').neq('id', TEST_OUTLET_ID).order('name'),
     'id'
   );
 
@@ -525,7 +526,9 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
   const isPositive = percentageChange >= 0;
   const absChange = Math.abs(percentageChange).toFixed(1);
 
-  const allOutlets = (outlets || []).filter(o => !isExcludedOutlet(o)).sort((a, b) => {
+  // Daftar cabang hari ini: outlet yang tutup sebelum bulan ini disembunyikan (lib/outletTutup.ts).
+  const todayOutletWib = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
+  const allOutlets = (outlets || []).filter(o => !isExcludedOutlet(o) && outletTampilDiPeriode(o, todayOutletWib)).sort((a, b) => {
     const isAMitra = a.name.toUpperCase().startsWith('MITRA');
     const isBMitra = b.name.toUpperCase().startsWith('MITRA');
     if (isAMitra && !isBMitra) return 1;

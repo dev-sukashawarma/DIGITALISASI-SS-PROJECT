@@ -1,0 +1,560 @@
+import { createClient } from '@/lib/supabase'
+import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { getExpensesAction } from '@/app/actions/expenses'
+import { mapExpenseRow } from '@/lib/expenseRow'
+import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
+import { fetchHppRows } from '@/hooks/useHpp'
+import { getAllPlatformSettlementSummaries } from '@/app/actions/platformSettlement'
+import { fetchAllPagesParallel } from '@/lib/queryPaging'
+import {
+  normalizeSettlementPlatform,
+  reconcileRowPromoWithSettlement,
+  splitDateRangeChunks,
+} from '@/lib/ownerDashboardAlign'
+import { calculateProratedExpenses, getJakartaCurrentMonthInfo } from '@/lib/opexProrata'
+import { susunBarisGajiKantor, gabungGajiKantor } from '@/lib/gajiKantorPusat'
+import { barisPayrollDariHr, gantiPayrollDenganHr } from '@/lib/opexDariHr'
+import { terapkanClosingOpex } from '@/lib/closing/terapkanClosingOpex'
+import { getHRPayrollSummaryAction } from '@/app/actions/hrPayroll'
+import { computeCompanyProfit } from '@/lib/profit'
+import { applyHoOpexManagementFeeOffset, computeMitraManagementFees } from '@/lib/managementFee'
+import { isInScope, mitraOutletIds, type ProfitScope } from '@/lib/outletOwnership'
+import { getMitraInvestmentsAction } from '@/app/actions/mitraInvestments'
+import { getProrataAuxiliaryDataAction } from '@/app/actions/prorataAuxiliary'
+import type { ExpenseRow } from '@/hooks/useExpenses'
+import type { OutletExportItem, ConsolidatedSummaryData } from './profitExportService'
+
+export interface ProfitExportDataResult {
+  outletBreakdown: OutletExportItem[]
+  summaryData: ConsolidatedSummaryData
+  salesRows: any[]
+  expenseRows: ExpenseRow[]
+  tiktokSettlements: Record<string, any>
+  platformSettlements?: Record<string, any>
+}
+
+/**
+ * Mengambil data finansial laba rugi lengkap untuk periode bebas di latar belakang
+ * tanpa mengubah filter tampilan dashboard aktif.
+ */
+export async function fetchProfitExportData({
+  from,
+  to,
+  scope,
+  outlets,
+  mitraInvestments,
+  onProgress,
+}: {
+  from: string
+  to: string
+  scope: ProfitScope
+  outlets: { id: string; name: string; type?: string; is_active?: boolean }[]
+  mitraInvestments: Record<string, any>
+  onProgress?: (message: string) => void
+}): Promise<ProfitExportDataResult> {
+  const supabase = createClient()
+
+  // 1. Ambil Penjualan (sales_daily_scoped) dengan paginasi per potongan <= 10 hari
+  // agar rentang 1 bulan tidak pernah menyentuh statement_timeout PostgreSQL.
+  onProgress?.('Mengambil data omzet penjualan...')
+  const PAGE_SIZE = 1000
+  const rawSalesData: any[] = []
+  for (const chunk of splitDateRangeChunks(from, to, 10)) {
+    for (let offset = 0; ; offset += PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('sales_daily_scoped')
+        .select('outlet_id, sales_source, sales_date, omzet, total_deductions, jumlah_order_completed')
+        .neq('outlet_id', TEST_OUTLET_ID)
+        .gte('sales_date', chunk.from)
+        .lte('sales_date', chunk.to)
+        .order('sales_date', { ascending: true })
+        .order('outlet_id', { ascending: true })
+        .order('sales_source', { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1)
+
+      if (error) throw error
+      const page = data ?? []
+      rawSalesData.push(...page)
+      if (page.length < PAGE_SIZE) break
+    }
+  }
+
+  // Tarik komisi & promo_merchant resmi platform dari platform_settlements (1:1 dengan useSalesDaily.ts)
+  const settlementCommissionMap = new Map<string, number>()
+  const settlementPromoMap = new Map<string, number>()
+  try {
+    let offset = 0
+    while (true) {
+      const { data: stlPage, error: stlErr } = await supabase
+        .from('platform_settlements')
+        .select('outlet_id, platform, tanggal, commission, promo_merchant')
+        .gte('tanggal', from)
+        .lte('tanggal', to)
+        .order('tanggal', { ascending: true })
+        .order('id', { ascending: true })
+        .range(offset, offset + 999)
+      if (stlErr) throw stlErr
+      const page = stlPage ?? []
+      for (const s of page) {
+        const plat = normalizeSettlementPlatform(s.platform)
+        const key = `${s.outlet_id}__${plat}__${s.tanggal}`
+        settlementCommissionMap.set(key, (settlementCommissionMap.get(key) || 0) + (Number(s.commission) || 0))
+        if (s.promo_merchant !== null && s.promo_merchant !== undefined) {
+          settlementPromoMap.set(key, (settlementPromoMap.get(key) || 0) + Math.max(0, Number(s.promo_merchant) || 0))
+        }
+      }
+      if (page.length < 1000) break
+      offset += 1000
+    }
+  } catch (err) {
+    console.error('Error fetching settlements in profitExportFetcher:', err)
+  }
+
+  const posSalesRows = rawSalesData
+    .filter((r: any) => !isTestOutlet(r.outlet_id))
+    .map((r: any) => {
+      const plat = normalizeSettlementPlatform(r.sales_source)
+      const key = `${r.outlet_id}__${plat}__${r.sales_date}`
+      const platformFee = settlementCommissionMap.get(key) || 0
+      const reconciled = reconcileRowPromoWithSettlement(
+        plat,
+        key,
+        Number(r.omzet || 0),
+        Number(r.total_deductions) || 0,
+        settlementPromoMap,
+      )
+
+      return {
+        outlet_id: r.outlet_id,
+        outlet_name: '',
+        sales_source: r.sales_source,
+        sales_date: r.sales_date,
+        omzet: reconciled.omzet,
+        jumlah_order_completed: Number(r.jumlah_order_completed || 0),
+        jumlah_order_all: Number(r.jumlah_order_completed || 0),
+        total_deductions: reconciled.total_deductions,
+        platform_fee: platformFee,
+      }
+    })
+
+  // Tarik penjualan Ecommerce (Shopee, TikTok Shop, Web SS Online) identik 1:1 dengan useSalesDaily.ts
+  const allEcommerceRows: any[] = []
+  if (scope !== 'mitra') {
+    const fromIso = new Date(`${from}T00:00:00+07:00`).toISOString()
+    const toIso = new Date(`${to}T23:59:59.999+07:00`).toISOString()
+    let ecommerceSalesList: any[] = []
+    try {
+      ecommerceSalesList = await fetchAllPagesParallel<any>(
+        (pFrom, pTo, withCount) =>
+          supabase
+            .from('ecommerce_sales')
+            .select(
+              'id, channel_id, order_date, total_amount, raw_data',
+              withCount ? { count: 'exact' } : undefined,
+            )
+            .gte('order_date', fromIso)
+            .lte('order_date', toIso)
+            .order('order_date', { ascending: true })
+            .order('id', { ascending: true })
+            .range(pFrom, pTo),
+        1000,
+      )
+    } catch (ecommerceError) {
+      console.error('profitExportFetcher ecommerce error:', ecommerceError)
+    }
+
+    const ecommerceSummaryMap = new Map<string, any>()
+    for (const saleRecord of ecommerceSalesList) {
+      const raw = saleRecord.raw_data || {}
+      const totalPotongan = Math.abs(Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0)
+      const omzetKotor = Number(saleRecord.total_amount) || 0
+      const omzetNet = Math.max(0, omzetKotor - totalPotongan)
+
+      const d = new Date(saleRecord.order_date)
+      const dateStr = new Date(d.getTime() + 7 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+      const chNorm = (saleRecord.channel_id || '').toLowerCase()
+      let salesSource = 'online'
+      if (chNorm.includes('tiktok') || chNorm === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5') {
+        salesSource = 'tiktok_shop'
+      } else if (chNorm.includes('shopee') || chNorm === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584') {
+        salesSource = 'shopee_shop'
+      }
+
+      const key = `ss-online__${salesSource}__${dateStr}`
+      const existing = ecommerceSummaryMap.get(key) || {
+        outlet_id: 'ss-online',
+        outlet_name: 'SS ONLINE',
+        sales_source: salesSource,
+        sales_date: dateStr,
+        omzet: 0,
+        jumlah_order_completed: 0,
+        jumlah_order_all: 0,
+        total_deductions: 0,
+        platform_fee: 0,
+      }
+      existing.omzet += omzetNet
+      existing.jumlah_order_completed += 1
+      existing.jumlah_order_all += 1
+      existing.total_deductions = (existing.total_deductions || 0) + totalPotongan
+      ecommerceSummaryMap.set(key, existing)
+    }
+
+    allEcommerceRows.push(...Array.from(ecommerceSummaryMap.values()))
+  }
+
+  const salesRows = [...posSalesRows, ...allEcommerceRows]
+
+  // 2. Ambil Pengeluaran (expenses & petty cash)
+  onProgress?.('Mengambil data beban operasional...')
+  const expRes = await getExpensesAction({
+    from,
+    to,
+    outletId: 'all',
+    source: 'all',
+  })
+  if (expRes && 'success' in expRes && !expRes.success) {
+    throw new Error(expRes.error || 'Gagal memuat data pengeluaran dari server')
+  }
+
+  const rawExpenses = expRes.expenses ?? []
+  const rawPettyCash = expRes.pettyCashExpenses ?? []
+
+  const monthlyRows = (rawExpenses ?? [])
+    .filter((row: any) => !row.outlet_id || (!isTestOutlet(row.outlet_id) && !isTestOutlet(row.outlets?.name)))
+    .map(mapExpenseRow)
+
+  const pettyCashRows = (rawPettyCash ?? [])
+    .filter((row: any) => !isTestOutlet(row.outlet_id) && !isTestOutlet(row.outlets?.name))
+    .map((row: any) => {
+      let cat = row.category
+      if (cat === 'bb') cat = 'bahan_baku'
+      else if (cat === 'outlet' || cat === 'operasional') cat = 'pengeluaran_outlet'
+      else if (cat === 'utilities') cat = 'utilitas'
+
+      return {
+        id: row.id,
+        outlet_id: row.outlet_id,
+        outlet_name: row.outlets?.name ?? (row.outlet_id ? 'Outlet Tidak Dikenal' : null),
+        category: cat,
+        scope: 'outlet' as const,
+        amount: Number(row.amount) || 0,
+        description: row.description ?? '',
+        expense_date: row.expense_date,
+        period_month: (row.expense_date || '').slice(0, 7) + '-01',
+        receipt_url: row.receipt_url,
+        source: 'petty_cash' as const,
+        type: 'expense',
+        recipient_name: null,
+        division: null,
+        raw_description: row.description,
+        raw_category: row.category,
+      } as ExpenseRow
+    })
+
+  const filteredPettyCashRows = pettyCashRows.filter(buatSaringanKasKecil(monthlyRows))
+  const combinedRawExpenses = [...monthlyRows, ...filteredPettyCashRows] as ExpenseRow[]
+
+  onProgress?.('Menghitung prorata beban tetap, gaji HR & bonus crew...')
+  let auxData: any = {
+    payrollRecords: [],
+    staffFinancials: [],
+    crewBonusRecords: [],
+    lastMonthExpenses: [],
+  }
+  try {
+    auxData = await getProrataAuxiliaryDataAction({ from, to })
+  } catch (err) {
+    console.warn('Gagal memuat prorata auxiliary data di profitExportFetcher:', err)
+  }
+
+  const prorataResult = calculateProratedExpenses({
+    filter: { from, to, outletId: 'all', source: 'all' },
+    rawExpenses: combinedRawExpenses,
+    payrollRecords: auxData.payrollRecords,
+    staffFinancials: auxData.staffFinancials,
+    crewBonusRecords: auxData.crewBonusRecords,
+    lastMonthExpenses: auxData.lastMonthExpenses,
+    outlets,
+    managerAssignments: auxData.managerAssignments,
+    operationalOutletIds: auxData.operationalOutletIds,
+  })
+  // Gaji staf kantor pusat (HR) sebagai biaya pusat — sama dengan layar Laba Rugi.
+  // Baris pusat disaring per scope di bawah (tidak ikut di scope mitra).
+  // Gaji & bonus outlet dari ringkasan payroll HR (sumber Buku Kas) — sama dengan layar.
+  let hrRingkasan: Awaited<ReturnType<typeof getHRPayrollSummaryAction>> | null = null
+  try {
+    hrRingkasan = await getHRPayrollSummaryAction({ from, to, outletId: 'ALL_OUTLETS' })
+  } catch (err) {
+    console.warn('Gagal memuat ringkasan payroll HR di profitExportFetcher:', err)
+  }
+  const barisEngineDanHr = gantiPayrollDenganHr(prorataResult.rows, barisPayrollDariHr({ hr: hrRingkasan, from, to }))
+  const expenseRowsData = gabungGajiKantor(barisEngineDanHr, susunBarisGajiKantor({
+    from,
+    to,
+    officePayrollRecords: auxData.officePayrollRecords || [],
+    officeStaffMonthlyTotal: auxData.officeStaffMonthlyTotal || 0,
+    currentMonthFirstDay: getJakartaCurrentMonthInfo().firstDay,
+  }))
+  // Closing OPEX September 2026 — sama dengan layar Laba Rugi.
+  const expenseRows = terapkanClosingOpex(expenseRowsData, { from, to, outletId: 'all' }).rows
+
+  // 3. Ambil HPP
+  onProgress?.('Mengambil data HPP bahan baku...')
+  const hppRows = await fetchHppRows(supabase, {
+    from,
+    to,
+    outletId: 'all',
+    source: 'all',
+  })
+
+  // 4. Ambil Waste (bahan rusak)
+  onProgress?.('Mengambil data bahan rusak (waste)...')
+  const { data: wasteData, error: wasteErr } = await supabase.rpc('get_waste_periode', {
+    p_from: from,
+    p_to: to,
+  })
+  if (wasteErr) throw wasteErr
+  const wasteRows = (wasteData ?? [])
+    .filter((r: any) => r.outlet_id !== TEST_OUTLET_ID && !isTestOutlet(r.outlet_id))
+    .map((r: any) => ({
+      outlet_id: r.outlet_id as string,
+      nilai_waste: Number(r.nilai_waste),
+    }))
+
+  // 5. Ambil Rekonsiliasi Settlement Platform (GoFood, ShopeeFood, TikTok Go)
+  onProgress?.('Mengambil data rekonsiliasi settlement platform...')
+  const settlementRes = await getAllPlatformSettlementSummaries(from, to)
+  const tiktokSettlements = settlementRes.success && settlementRes.data ? settlementRes.data.tiktokSummaries : {}
+  const platformSettlements = settlementRes.success && settlementRes.data ? settlementRes.data.byOutletPlatform : {}
+
+  // Baris penjualan sudah direkonsiliasi per (outlet_id, platform, tanggal) di atas (1:1 dengan useSalesDaily.ts)
+  const reconciledSalesRows = salesRows
+
+  // 6. Evaluasi Scope & Kemitraan
+  onProgress?.('Menganalisis & menghitung angka laba rugi...')
+  let activeInvestments = mitraInvestments
+  if (!activeInvestments || Object.keys(activeInvestments).length === 0) {
+    try {
+      activeInvestments = await getMitraInvestmentsAction()
+    } catch (e) {
+      console.warn('Gagal memuat fallback mitraInvestments di profitExportFetcher:', e)
+    }
+  }
+
+  const cleanOutlets = outlets.filter(o => !isTestOutlet(o))
+  const allOutlets = cleanOutlets.some(o => o.id === 'ss-online')
+    ? cleanOutlets
+    : [{ id: 'ss-online', name: 'SS ONLINE', type: 'online' } as any, ...cleanOutlets]
+  const mitraIds = mitraOutletIds(allOutlets, activeInvestments)
+  const cutoffDates = new Map<string, string>()
+  for (const [id, inv] of Object.entries(activeInvestments)) {
+    if (inv?.tanggal_mulai) {
+      cutoffDates.set(id, inv.tanggal_mulai)
+    }
+  }
+
+  const inScope = (outletId: string | null | undefined, dateStr?: string | null) => {
+    const targetDate = dateStr ?? to ?? from
+    return isInScope(scope, outletId, mitraIds, targetDate, cutoffDates)
+  }
+
+  const scopedSalesRows = reconciledSalesRows.filter((r: any) => inScope(r.outlet_id, r.sales_date))
+  const scopedHppRows = hppRows.filter((r: any) => inScope(r.outlet_id, (r as any).date || (r as any).order_date))
+  const scopedWasteRows = wasteRows.filter((r: any) => inScope(r.outlet_id, (r as any).date || (r as any).created_at))
+  const scopedExpenseRows = expenseRows.filter((r: ExpenseRow) =>
+    r.scope === 'pusat' ? scope !== 'mitra' : inScope(r.outlet_id, r.expense_date || (r as any).date),
+  )
+
+  // Perhitungan Management Fee Kemitraan
+  const managementFeeData = computeMitraManagementFees({
+    salesRows: reconciledSalesRows,
+    outlets: allOutlets,
+    investments: activeInvestments as Record<string, any>,
+    periodFrom: from,
+    periodTo: to,
+  })
+
+  const perOutletFee = managementFeeData.perOutletFee
+
+  // Margin Pasokan Bahan Baku Mitra
+  const mitraHppTotals = hppRows
+    .filter((r: any) => mitraIds.has(r.outlet_id) && !isTestOutlet(r.outlet_id))
+    .reduce(
+      (acc: { hpp: number; base: number; markup: number }, r: any) => ({
+        hpp: acc.hpp + (Number(r.hpp) || 0),
+        base: acc.base + (Number(r.baseHpp) || 0),
+        markup: acc.markup + (Number(r.markup) || 0),
+      }),
+      { hpp: 0, base: 0, markup: 0 },
+    )
+
+  // managementFeeReceived dihitung setelah hoFeeOffset di bawah
+  const managementFeeExpense = (scope === 'mitra' || scope === 'all') ? managementFeeData.totalMitraFee : 0
+  const mitraHppMarginReceived = (scope === 'all' || scope === 'internal') ? mitraHppTotals.markup : 0
+
+  const actualGrossSales = scopedSalesRows.reduce((sum: number, r: any) => sum + (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0), 0)
+  const totalDeductions = scopedSalesRows.reduce((sum: number, r: any) => sum + (Number(r.total_deductions) || 0) + (Number(r.platform_fee) || 0), 0)
+
+  const pengeluaranOutlet = scopedExpenseRows.filter((r: ExpenseRow) => r.scope === 'outlet').reduce((sum: number, r: ExpenseRow) => sum + r.amount, 0)
+  const totalJointExpense = scopedExpenseRows
+    .filter((r: ExpenseRow) => r.scope === 'outlet' && !isTestOutlet(r.outlet_id) && ((r as any).category === 'joint_expense' || (r as any).category === 'joint_expanse'))
+    .reduce((sum: number, r: ExpenseRow) => sum + r.amount, 0)
+  const pengeluaranPusatRaw = scopedExpenseRows.filter((r: ExpenseRow) => r.scope === 'pusat').reduce((sum: number, r: ExpenseRow) => sum + r.amount, 0)
+  const hoFeeOffset = applyHoOpexManagementFeeOffset(
+    scope !== 'mitra' ? pengeluaranPusatRaw : 0,
+    scope !== 'mitra' ? managementFeeData.totalFeeForHoOpex : 0,
+  )
+  const pengeluaranPusat = scope !== 'mitra' ? hoFeeOffset.netHoOpex : pengeluaranPusatRaw
+  const managementFeeReceived = (scope === 'all' || scope === 'internal')
+    ? managementFeeData.totalFeeLegacyRevenue + hoFeeOffset.surplusToRevenue
+    : 0
+  const totalHpp = scopedHppRows.reduce((sum: number, r: any) => sum + r.hpp, 0)
+  const totalWaste = scopedWasteRows.reduce((sum: number, r: any) => sum + r.nilai_waste, 0)
+
+  const netRevenue = actualGrossSales - totalDeductions + managementFeeReceived + mitraHppMarginReceived - managementFeeExpense
+  const labaKotor = netRevenue - totalHpp
+  const marginKotor = actualGrossSales > 0 ? (labaKotor / actualGrossSales) * 100 : 0
+  const labaBersih = labaKotor - pengeluaranOutlet - totalWaste
+  // Income Lainnya Kas Office: pendapatan pusat, tidak ikut scope mitra.
+  let pendapatanLain = 0
+  if (scope !== 'mitra') {
+    for (let start = 0; ; start += 1000) {
+      const { data, error } = await supabase
+        .from('income_lainnya')
+        .select('id, amount')
+        .eq('status', 'aktif')
+        .gte('occurred_at', `${from}T00:00:00+07:00`)
+        .lte('occurred_at', `${to}T23:59:59.999+07:00`)
+        .order('id')
+        .range(start, start + 999)
+      if (error) throw error
+      const rows = data ?? []
+      pendapatanLain += rows.reduce((sum: number, r: any) => sum + (Number(r.amount) || 0), 0)
+      if (rows.length < 1000) break
+    }
+  }
+  const labaPerusahaan = computeCompanyProfit(labaBersih, pengeluaranPusat, pendapatanLain).labaPerusahaan
+  const displayLaba = labaPerusahaan
+  const costBase = actualGrossSales > 0 ? actualGrossSales : (netRevenue > 0 ? netRevenue : 0)
+  const displayMargin = costBase > 0 ? (displayLaba / costBase) * 100 : 0
+  const adaAntarKantong = managementFeeReceived > 0 || mitraHppMarginReceived > 0 || managementFeeExpense > 0
+  const includeCentral = scope !== 'mitra'
+
+  const summaryData: ConsolidatedSummaryData = {
+    actualGrossSales,
+    totalDeductions,
+    netRevenue,
+    totalHpp,
+    labaKotor,
+    marginKotor,
+    pengeluaranOutlet,
+    totalWaste,
+    pengeluaranPusat,
+    pengeluaranPusatRaw,
+    potonganFeeManajemenPusat: hoFeeOffset.appliedDeduction,
+    pendapatanLain,
+    managementFeeReceived,
+    mitraHppMarginReceived,
+    managementFeeExpense,
+    displayLaba,
+    displayMargin,
+    adaAntarKantong,
+    includeCentral,
+    totalJointExpense,
+  }
+
+  // Bangun breakdown outlet
+  const map = new Map<string, { name: string; omzet: number; deductions: number; expense: number; hpp: number; waste: number; cogsChannels?: any }>()
+  allOutlets.filter(o => !isTestOutlet(o) && inScope(o.id)).forEach(o => {
+    map.set(o.id, { name: o.name, omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 })
+  })
+
+  scopedSalesRows.forEach((s: any) => {
+    const cur = map.get(s.outlet_id) ?? {
+      name: s.outlet_name || (s.outlet_id === 'ss-online' ? 'SS ONLINE' : 'Outlet Tidak Dikenal'),
+      omzet: 0,
+      deductions: 0,
+      expense: 0,
+      hpp: 0,
+      waste: 0,
+    }
+    cur.omzet += (Number(s.omzet) || 0) + (Number(s.total_deductions) || 0)
+    cur.deductions += (Number(s.total_deductions) || 0) + (Number(s.platform_fee) || 0)
+    map.set(s.outlet_id, cur)
+  })
+
+  scopedExpenseRows.forEach((e: ExpenseRow) => {
+    if (e.scope !== 'outlet' || !e.outlet_id) return
+    const cur = map.get(e.outlet_id) ?? { name: e.outlet_name ?? 'Outlet Tidak Dikenal', omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
+    cur.expense += e.amount
+    map.set(e.outlet_id, cur)
+  })
+
+  scopedHppRows.forEach((h: any) => {
+    const cur = map.get(h.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
+    cur.hpp += h.hpp
+    if (h.channels) {
+      const curChannels = cur.cogsChannels ?? { outlet: 0, food_apps: 0, tiktok_go: 0, website: 0 }
+      curChannels.outlet += h.channels.outlet || 0
+      curChannels.food_apps += h.channels.food_apps || 0
+      curChannels.tiktok_go += h.channels.tiktok_go || 0
+      curChannels.website += h.channels.website || 0
+      cur.cogsChannels = curChannels
+    }
+    map.set(h.outlet_id, cur)
+  })
+
+  scopedWasteRows.forEach((w: any) => {
+    const cur = map.get(w.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
+    cur.waste += w.nilai_waste
+    map.set(w.outlet_id, cur)
+  })
+
+  const outletBreakdown: OutletExportItem[] = [...map.entries()]
+    .map(([id, val]) => {
+      const grossRev = val.omzet
+      const netRev = val.omzet - val.deductions
+      const labaKotorOutlet = grossRev - val.hpp - val.deductions
+      const feeInfo = perOutletFee.get(id)
+      const isOutletMitraScope = scope === 'internal'
+        ? false
+        : (scope === 'mitra' ? true : mitraIds.has(id))
+      const mgmtFee = isOutletMitraScope ? (feeInfo?.fee ?? 0) : 0
+      const mgmtFeePct = isOutletMitraScope ? (feeInfo?.pct ?? 0) : 0
+      const isBep = Boolean(feeInfo?.isBep)
+      const net = labaKotorOutlet - val.expense - val.waste - mgmtFee
+      const margin = grossRev > 0 ? (net / grossRev) * 100 : 0
+      const totalCost = val.deductions + val.hpp + val.waste + val.expense + mgmtFee
+      return {
+        id,
+        name: val.name,
+        omzet: grossRev,
+        deductions: val.deductions,
+        netRev,
+        expense: val.expense,
+        hpp: val.hpp,
+        cogsChannels: val.cogsChannels,
+        waste: val.waste,
+        mgmtFee,
+        mgmtFeePct,
+        isBep,
+        isMitra: isOutletMitraScope,
+        labaKotor: labaKotorOutlet,
+        net,
+        margin,
+        totalCost,
+      }
+    })
+    .filter(item => item.omzet > 0 || item.expense > 0 || item.hpp > 0 || item.waste > 0)
+    .sort((a, b) => b.net - a.net)
+
+  return {
+    outletBreakdown,
+    summaryData,
+    salesRows: scopedSalesRows,
+    expenseRows: scopedExpenseRows,
+    tiktokSettlements,
+    platformSettlements,
+  }
+}

@@ -36,6 +36,9 @@ import {
   type LucideIcon,
   ScrollText,
   Inbox,
+  DollarSign,
+  Store,
+  HeartHandshake,
 } from 'lucide-react'
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
@@ -52,6 +55,7 @@ type NavItem = {
   icon: LucideIcon
   isExternal?: boolean
   aliases?: string[]
+  children?: NavItem[]
 }
 
 type NavGroup = {
@@ -110,6 +114,15 @@ const FINANCE_NAV_GROUPS: NavGroup[] = [
     icon: PieChart,
     defaultOpen: false,
     items: [
+      {
+        href: '/laporan/laba-rugi',
+        label: 'Laba Rugi',
+        icon: DollarSign,
+        children: [
+          { href: '/laporan/laba-rugi/internal', label: 'Laba Rugi Internal', icon: Store },
+          { href: '/laporan/laba-rugi/mitra', label: 'Laba Rugi Mitra', icon: HeartHandshake },
+        ],
+      },
       { href: '/laporan/penjualan', label: 'Rangkuman Penjualan', icon: PieChart },
       { href: '/laporan/rekap-bulanan', label: 'Rekap Bulanan', icon: Table2 },
       { href: '/laporan/target-harian', label: 'Target Harian', icon: Target },
@@ -148,8 +161,10 @@ function buildPurchasingNavGroups(): NavGroup[] {
   ]
 }
 
-// Flattened for easy lookup of active path
-const ALL_LINKS = FINANCE_NAV_GROUPS.flatMap(g => g.items)
+// Flattened for easy lookup of active path (termasuk sub-menu)
+const ALL_LINKS = FINANCE_NAV_GROUPS.flatMap(g =>
+  g.items.flatMap(item => (item.children?.length ? [item, ...item.children] : [item]))
+)
 
 // Web Audio API simple "ding" sound
 function playNotificationSound() {
@@ -249,6 +264,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
 
   const visibleInternalLinks = visibleNavGroups
     .flatMap(g => g.items)
+    .flatMap(item => (item.children?.length ? [item, ...item.children] : [item]))
     .filter(item => !item.isExternal)
 
   const BOTTOM_NAV_ITEMS = isPurchasingRole
@@ -289,8 +305,28 @@ export function CashLayout({ children }: { children: ReactNode }) {
     visibleInternalLinks.find(l => l.href === currentNavPath) ??
     ALL_LINKS.find(l => l.href === currentNavPath)
   const activeGroupTitle = visibleNavGroups.find(g =>
-    g.items.some(item => item.href === currentNavPath)
+    g.items.some(
+      item =>
+        item.href === currentNavPath ||
+        Boolean(item.children?.some(c => c.href === currentNavPath))
+    )
   )?.title
+
+  const activeParentHref = visibleNavGroups
+    .flatMap(g => g.items)
+    .find(
+      item =>
+        item.children?.length &&
+        (item.href === currentNavPath || item.children.some(c => c.href === currentNavPath))
+    )?.href
+
+  const [openSub, setOpenSub] = useState<string | null>(activeParentHref ?? null)
+
+  useEffect(() => {
+    if (activeParentHref) {
+      setOpenSub(activeParentHref)
+    }
+  }, [activeParentHref])
 
   // State buka/tutup grup di sidebar
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
@@ -397,7 +433,11 @@ export function CashLayout({ children }: { children: ReactNode }) {
           {visibleNavGroups.map((group) => {
             const GroupIcon = group.icon
             const isOpen = Boolean(openGroups[group.title])
-            const hasActiveItem = group.items.some(item => item.href === currentNavPath)
+            const hasActiveItem = group.items.some(
+              item =>
+                item.href === currentNavPath ||
+                Boolean(item.children?.some(c => c.href === currentNavPath))
+            )
             const groupBadgeTotal = group.items.reduce(
               (sum, item) => sum + (getItemBadge(item.href) || 0),
               0
@@ -446,9 +486,11 @@ export function CashLayout({ children }: { children: ReactNode }) {
                       className="overflow-hidden"
                     >
                       <div className="mt-0.5 space-y-0.5 pl-2 border-l border-white/10 ml-3">
-                        {group.items.map(({ href, label, icon: Icon, isExternal }) => {
+                        {group.items.map(({ href, label, icon: Icon, isExternal, children: subItems }) => {
                           const active = currentNavPath === href
                           const badgeCount = getItemBadge(href)
+                          const hasChildren = Boolean(subItems?.length)
+                          const subOpen = hasChildren && openSub === href
 
                           if (isExternal) {
                             return (
@@ -467,41 +509,94 @@ export function CashLayout({ children }: { children: ReactNode }) {
                           }
 
                           return (
-                            <Link
-                              key={href}
-                              ref={active ? activeItemRef : undefined}
-                              href={href}
-                              className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 font-semibold text-xs transition-colors relative z-10 ${
-                                active
-                                  ? 'text-suka-brown font-bold'
-                                  : 'text-white/70 hover:text-white hover:bg-white/5'
-                              }`}
-                            >
-                              {active && (
-                                <motion.div
-                                  layoutId="sidebarActive"
-                                  className="absolute inset-0 bg-suka-cream rounded-lg -z-10 shadow-sm"
-                                  transition={{ type: 'spring', stiffness: 250, damping: 22 }}
-                                />
-                              )}
-                              <Icon
-                                className={`w-3.5 h-3.5 shrink-0 transition-colors ${
-                                  active ? 'text-suka-orange' : 'text-white/50'
-                                }`}
-                              />
-                              <span className="flex-1 truncate">{label}</span>
-                              {teksBadge(href, badgeCount) && (
-                                <span
-                                  className={`flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-bold transition-colors ${
+                            <div key={href}>
+                              <div className="flex items-center gap-0.5">
+                                <Link
+                                  ref={active ? activeItemRef : undefined}
+                                  href={href}
+                                  onClick={() => hasChildren && setOpenSub(href)}
+                                  className={`flex flex-1 min-w-0 items-center gap-2.5 rounded-lg px-2.5 py-1.5 font-semibold text-xs transition-colors relative z-10 ${
                                     active
-                                      ? 'bg-suka-orange text-white'
-                                      : 'bg-red-500 text-white shadow-sm'
+                                      ? 'text-suka-brown font-bold'
+                                      : 'text-white/70 hover:text-white hover:bg-white/5'
                                   }`}
                                 >
-                                  {teksBadge(href, badgeCount)}
-                                </span>
+                                  {active && (
+                                    <motion.div
+                                      layoutId="sidebarActive"
+                                      className="absolute inset-0 bg-suka-cream rounded-lg -z-10 shadow-sm"
+                                      transition={{ type: 'spring', stiffness: 250, damping: 22 }}
+                                    />
+                                  )}
+                                  <Icon
+                                    className={`w-3.5 h-3.5 shrink-0 transition-colors ${
+                                      active ? 'text-suka-orange' : 'text-white/50'
+                                    }`}
+                                  />
+                                  <span className="flex-1 truncate">{label}</span>
+                                  {teksBadge(href, badgeCount) && (
+                                    <span
+                                      className={`flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-bold transition-colors ${
+                                        active
+                                          ? 'bg-suka-orange text-white'
+                                          : 'bg-red-500 text-white shadow-sm'
+                                      }`}
+                                    >
+                                      {teksBadge(href, badgeCount)}
+                                    </span>
+                                  )}
+                                </Link>
+                                {hasChildren && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setOpenSub(subOpen ? null : href)}
+                                    aria-expanded={subOpen}
+                                    aria-label={subOpen ? `Tutup sub-menu ${label}` : `Buka sub-menu ${label}`}
+                                    className="shrink-0 rounded-lg p-1 text-white/40 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                                  >
+                                    <ChevronDown
+                                      className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                                        subOpen ? 'rotate-180' : ''
+                                      }`}
+                                    />
+                                  </button>
+                                )}
+                              </div>
+
+                              {hasChildren && subOpen && (
+                                <div className="mt-0.5 ml-3 pl-2 border-l border-white/10 space-y-0.5">
+                                  {subItems!.map(({ href: subHref, label: subLabel, icon: SubIcon }) => {
+                                    const subActive = currentNavPath === subHref
+                                    return (
+                                      <Link
+                                        key={subHref}
+                                        ref={subActive ? activeItemRef : undefined}
+                                        href={subHref}
+                                        className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 font-semibold text-[11px] transition-colors relative z-10 ${
+                                          subActive
+                                            ? 'text-suka-brown font-bold'
+                                            : 'text-white/65 hover:text-white hover:bg-white/5'
+                                        }`}
+                                      >
+                                        {subActive && (
+                                          <motion.div
+                                            layoutId="sidebarActive"
+                                            className="absolute inset-0 bg-suka-cream rounded-lg -z-10 shadow-sm"
+                                            transition={{ type: 'spring', stiffness: 250, damping: 22 }}
+                                          />
+                                        )}
+                                        <SubIcon
+                                          className={`w-3 h-3 shrink-0 transition-colors ${
+                                            subActive ? 'text-suka-orange' : 'text-white/45'
+                                          }`}
+                                        />
+                                        <span className="flex-1 truncate">{subLabel}</span>
+                                      </Link>
+                                    )
+                                  })}
+                                </div>
                               )}
-                            </Link>
+                            </div>
                           )
                         })}
                       </div>
@@ -689,7 +784,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
                         {group.title}
                       </h3>
                       <div className="grid grid-cols-4 gap-y-6 gap-x-2">
-                        {group.items.map(({ href, label, icon: Icon, isExternal }) => {
+                        {group.items.flatMap(item => (item.children?.length ? [item, ...item.children] : [item])).map(({ href, label, icon: Icon, isExternal }) => {
                           const active = currentNavPath === href
                           const badgeCount = getItemBadge(href)
 

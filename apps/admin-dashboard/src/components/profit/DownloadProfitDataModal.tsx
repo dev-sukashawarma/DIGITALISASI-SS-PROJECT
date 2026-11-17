@@ -35,12 +35,13 @@ import {
 } from '@/lib/export/profitExportService'
 import { fetchProfitExportData } from '@/lib/export/profitExportFetcher'
 import { getMitraInvestmentsAction } from '@/app/actions/mitraInvestments'
+import { outletTampilDiPeriode } from '@/lib/outletTutup'
 
 interface DownloadProfitDataModalProps {
   isOpen: boolean
   onClose: () => void
   currentFilter: PeriodFilterValue
-  outlets: { id: string; name: string; type?: string; is_active?: boolean }[]
+  outlets: { id: string; name: string; type?: string; is_active?: boolean; status?: string | null; nonaktif_at?: string | null }[]
   scope: ProfitScope
   mitraInvestments: Record<string, any>
   currentData: {
@@ -113,7 +114,7 @@ export function DownloadProfitDataModal({
         }
       }
       const validOutlets = outlets.filter(
-        o => !isTestOutlet(o) && isInScope(scope, o.id, mIds, screenTo, cutoffDates)
+        o => !isTestOutlet(o) && isInScope(scope, o.id, mIds, screenTo, cutoffDates) && outletTampilDiPeriode(o, screenFrom)
       )
 
       if (currentFilter.outletId && currentFilter.outletId !== 'all') {
@@ -172,7 +173,7 @@ export function DownloadProfitDataModal({
     }
     const targetDate = toDate || fromDate
     return outlets.filter(
-      o => !isTestOutlet(o) && isInScope(scope, o.id, mIds, targetDate, cutoffDates)
+      o => !isTestOutlet(o) && isInScope(scope, o.id, mIds, targetDate, cutoffDates) && outletTampilDiPeriode(o, fromDate)
     )
   }, [outlets, scope, mitraInvestments, toDate, fromDate])
 

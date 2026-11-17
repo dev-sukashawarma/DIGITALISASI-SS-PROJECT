@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRole } from '@/components/layout/RoleContext'
 import { useOutlets } from '@/hooks/useOutlets'
+import { namaDenganKeteranganTutup, saringOutletPeriode } from '@/lib/outletTutup'
 import {
   useMonthlyBonusSummary,
   useMonthlyCrewBonus,
@@ -126,16 +127,25 @@ export default function CrewBonusPage() {
     error: rmError,
   } = useMonthlyRMBonus({ month, year })
 
+  // Outlet yang tutup sebelum bulan terpilih disembunyikan (lib/outletTutup.ts).
+  const periodeMulai = `${year}-${String(month).padStart(2, '0')}-01`
+  const outletsTampil = useMemo(() => saringOutletPeriode(outlets, periodeMulai), [outlets, periodeMulai])
+  useEffect(() => {
+    if (selectedOutletId && outlets.some((o) => o.id === selectedOutletId) && !outletsTampil.some((o) => o.id === selectedOutletId)) {
+      setSelectedOutletId('')
+    }
+  }, [selectedOutletId, outlets, outletsTampil])
+
   const outletOptions = useMemo(() => {
     return [
       { label: 'Semua Outlet', value: '', icon: <Store className="w-4 h-4 text-suka-orange" /> },
-      ...outlets.map((o) => ({
-        label: cleanOutletName(o.name),
+      ...outletsTampil.map((o) => ({
+        label: namaDenganKeteranganTutup(cleanOutletName(o.name), o),
         value: o.id,
         icon: <Store className="w-4 h-4 text-suka-gray-400" />,
       })),
     ]
-  }, [outlets])
+  }, [outletsTampil])
 
   const selectedMonthLabel = MONTH_OPTIONS.find((m) => m.value === month.toString())?.label || ''
 
@@ -520,7 +530,7 @@ export default function CrewBonusPage() {
           month={month}
           year={year}
           monthLabel={selectedMonthLabel}
-          outlets={outlets}
+          outlets={outletsTampil}
           selectedOutletId={selectedOutletId}
           onSelectOutletId={setSelectedOutletId}
           onMonthYearChange={(m, y) => {

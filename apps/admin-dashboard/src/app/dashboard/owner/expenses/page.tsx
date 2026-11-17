@@ -1,7 +1,8 @@
 // apps/admin-dashboard/src/app/dashboard/owner/expenses/page.tsx
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { namaDenganKeteranganTutup, outletTampilDiPeriode } from '@/lib/outletTutup'
 import Link from 'next/link'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useMitraInvestments } from '@/hooks/useMitraInvestments'
@@ -283,13 +284,21 @@ export default function ExpensesPage() {
 
   const topCategory = byCategoryAll.length > 0 ? byCategoryAll[0].name : '-'
 
-  const validOutlets = useMemo(() => outlets.filter((o) => !isExcludedOutlet(o)), [outlets])
+  // Outlet yang tutup sebelum bulan terpilih disembunyikan (lib/outletTutup.ts).
+  const validOutlets = useMemo(
+    () => outlets.filter((o) => !isExcludedOutlet(o) && outletTampilDiPeriode(o, periodMonth)),
+    [outlets, periodMonth],
+  )
+  useEffect(() => {
+    const terpilih = outlets.find((o) => o.id === target)
+    if (terpilih && !outletTampilDiPeriode(terpilih, periodMonth)) setTarget('all')
+  }, [outlets, target, periodMonth])
 
   const selectOptions = useMemo(() => {
     const outletMitra = validOutlets.filter((o) => mitraIds.has(o.id))
     const outletInternal = validOutlets.filter((o) => !mitraIds.has(o.id))
     const berkelompok = (daftar: typeof validOutlets, judul: string) =>
-      daftar.map((o, i) => ({ label: o.name, value: o.id, ...(i === 0 ? { groupLabel: judul } : {}) }))
+      daftar.map((o, i) => ({ label: namaDenganKeteranganTutup(o.name, o), value: o.id, ...(i === 0 ? { groupLabel: judul } : {}) }))
     return [
       { label: 'Global (HO & Semua Outlet)', value: 'all' },
       { label: 'Semua Outlet', value: 'ALL_OUTLETS' },

@@ -27,6 +27,29 @@ import {
   ambilRekeningPembayarAction
 } from '@/app/actions/expenses'
 
+const MAX_RECEIPTS = 4
+
+type ReceiptItem =
+  | { kind: 'existing'; id: string; url: string }
+  | { kind: 'new'; id: string; file: File; previewUrl: string | null }
+
+function parseReceiptUrls(raw: string | null | undefined): string[] {
+  if (!raw) return []
+  const trimmed = raw.trim()
+  if (!trimmed) return []
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (Array.isArray(parsed)) {
+        return parsed.filter((u): u is string => typeof u === 'string' && u.trim().length > 0)
+      }
+    } catch {
+      // Fallback ke single URL bila bukan JSON valid
+    }
+  }
+  return [trimmed]
+}
+
 const inputCls =
   'w-full rounded-xl border border-suka-gray-200 px-3 py-2 text-sm outline-none focus:border-suka-orange bg-white'
 
@@ -73,11 +96,17 @@ export function ExpenseFormModal({
   const bisaPilihRekening =
     !(isEdit && initialData?.source === 'petty_cash') && ['expense', 'rab'].includes(initialData?.type ?? 'expense')
 
-  // File upload state for invoice / receipt proof
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [existingReceiptUrl, setExistingReceiptUrl] = useState<string | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  // File upload state for invoice / receipt proof (maksimal 4 file)
+  const [receiptItems, setReceiptItems] = useState<ReceiptItem[]>([])
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const revokeBlobPreviews = (items: ReceiptItem[]) => {
+    for (const item of items) {
+      if (item.kind === 'new' && item.previewUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(item.previewUrl)
+      }
+    }
+  }
 
   useEffect(() => {
     if (initialData) {
@@ -103,9 +132,15 @@ export function ExpenseFormModal({
       setDivision(
         initialData.division && initialData.division !== '-' ? initialData.division : ''
       )
-      setExistingReceiptUrl(initialData.receipt_url || null)
-      setPreviewUrl(initialData.receipt_url || null)
-      setSelectedFile(null)
+      const existingUrls = parseReceiptUrls(initialData.receipt_url)
+      setReceiptItems(prev => {
+        revokeBlobPreviews(prev)
+        return existingUrls.map((url, idx) => ({
+          kind: 'existing',
+          id: `existing-${idx}-${url}`,
+          url,
+        }))
+      })
     } else {
       setOutletId('PUSAT')
       setCategory(PENGELUARAN_CATEGORIES[0])
@@ -114,9 +149,10 @@ export function ExpenseFormModal({
       setExpenseDate(today)
       setRecipientName('')
       setDivision('')
-      setExistingReceiptUrl(null)
-      setPreviewUrl(null)
-      setSelectedFile(null)
+      setReceiptItems(prev => {
+        revokeBlobPreviews(prev)
+        return []
+      })
     }
   }, [initialData, isOpen, today])
 
@@ -164,36 +200,52 @@ export function ExpenseFormModal({
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (files.length === 0) return
 
-    // Foto dikompres otomatis sebelum diunggah (lihat @suka/auth unggahLangsung),
-    // jadi foto kamera HP berukuran besar tetap diterima.
-    if (file.size > UKURAN_MENTAH_MAKS) {
-      toast.error('Ukuran file maksimal 40MB')
+    const remainingSlots = MAX_RECEIPTS - receiptItems.length
+    if (remainingSlots <= 0) {
+      toast.error(`Maksimal ${MAX_RECEIPTS} foto bukti invoice / nota`)
       return
     }
 
-    if (previewUrl && previewUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(previewUrl)
+    // Foto dikompres otomatis sebelum diunggah (lihat @suka/auth unggahLangsung),
+    // jadi foto kamera HP berukuran besar tetap diterima.
+    const validFiles: File[] = []
+    for (const file of files) {
+      if (file.size > UKURAN_MENTAH_MAKS) {
+        toast.error(`File "${file.name}" melebihi ukuran maksimal 40MB`)
+        continue
+      }
+      validFiles.push(file)
+    }
+    if (validFiles.length === 0) return
+
+    let filesToAdd = validFiles
+    if (validFiles.length > remainingSlots) {
+      toast.error(`Maksimal ${MAX_RECEIPTS} foto bukti invoice / nota (${remainingSlots} slot tersisa)`)
+      filesToAdd = validFiles.slice(0, remainingSlots)
     }
 
-    setSelectedFile(file)
-    if (file.type.startsWith('image/')) {
-      const objUrl = URL.createObjectURL(file)
-      setPreviewUrl(objUrl)
-    } else {
-      setPreviewUrl(null)
-    }
+    const newItems: ReceiptItem[] = filesToAdd.map((file, idx) => ({
+      kind: 'new',
+      id: `new-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+      file,
+      previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+    }))
+
+    setReceiptItems(prev => [...prev, ...newItems])
   }
 
-  const handleRemoveFile = () => {
-    if (previewUrl && previewUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(previewUrl)
-    }
-    setSelectedFile(null)
-    setExistingReceiptUrl(null)
-    setPreviewUrl(null)
+  const handleRemoveReceipt = (id: string) => {
+    setReceiptItems(prev => {
+      const target = prev.find(item => item.id === id)
+      if (target?.kind === 'new' && target.previewUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(target.previewUrl)
+      }
+      return prev.filter(item => item.id !== id)
+    })
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -232,29 +284,45 @@ export function ExpenseFormModal({
 
     setSubmitting(true)
     try {
-      let receiptUrl: string | null = existingReceiptUrl
+      const uploadedUrls: string[] = []
+      const newItemsCount = receiptItems.filter(item => item.kind === 'new').length
+      let uploadIdx = 0
 
-      if (selectedFile) {
-        setSubmitMessage('Mengupload bukti invoice...')
-        // Unggah langsung ke Supabase Storage (tidak lewat server aplikasi):
-        // foto apa pun dinormalkan jadi JPEG ringan, dicoba ulang bila koneksi putus.
-        try {
-          const hasil = await unggahLangsung({
-            supabase: createClient(),
-            bucket: 'opex-invoices',
-            file: selectedFile,
-            mintaLink: mintaLinkUnggahNotaOpexAction,
-          })
-          receiptUrl = hasil.url
-        } catch (err: any) {
-          toast.error('Gagal mengupload bukti invoice: ' + (err?.message || 'Terjadi kesalahan'))
-          setSubmitting(false)
-          setSubmitMessage('')
-          return
+      for (const item of receiptItems) {
+        if (item.kind === 'existing') {
+          uploadedUrls.push(item.url)
+        } else {
+          uploadIdx++
+          setSubmitMessage(
+            newItemsCount > 1
+              ? `Mengupload bukti invoice (${uploadIdx}/${newItemsCount})...`
+              : 'Mengupload bukti invoice...'
+          )
+          // Unggah langsung ke Supabase Storage (tidak lewat server aplikasi):
+          // foto apa pun dinormalkan jadi JPEG ringan, dicoba ulang bila koneksi putus.
+          try {
+            const hasil = await unggahLangsung({
+              supabase: createClient(),
+              bucket: 'opex-invoices',
+              file: item.file,
+              mintaLink: mintaLinkUnggahNotaOpexAction,
+            })
+            uploadedUrls.push(hasil.url)
+          } catch (err: any) {
+            toast.error(`Gagal mengupload bukti invoice "${item.file.name}": ` + (err?.message || 'Terjadi kesalahan'))
+            setSubmitting(false)
+            setSubmitMessage('')
+            return
+          }
         }
-      } else if (!existingReceiptUrl) {
-        receiptUrl = null
       }
+
+      const receiptUrl: string | null =
+        uploadedUrls.length === 0
+          ? null
+          : uploadedUrls.length === 1
+            ? uploadedUrls[0]
+            : JSON.stringify(uploadedUrls)
 
       setSubmitMessage(isEdit ? 'Menyimpan perubahan...' : 'Menyimpan data pengeluaran...')
       const yyyyMm = expenseDate.slice(0, 7)
@@ -308,9 +376,7 @@ export function ExpenseFormModal({
         toast.success(isRab ? 'Pengeluaran RAB tercatat (tidak dihitung OPEX)' : 'Pengeluaran OPEX berhasil ditambahkan')
       }
 
-      if (previewUrl && previewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(previewUrl)
-      }
+      revokeBlobPreviews(receiptItems)
       onSuccess()
     } catch (err: any) {
       toast.error('Gagal menyimpan transaksi: ' + (err.message || 'Error'))
@@ -483,21 +549,29 @@ export function ExpenseFormModal({
             </label>
           )}
 
-          {/* Opsi Input Gambar Bukti Invoice */}
-          <div className="space-y-1.5">
-            <span className="block text-sm font-medium text-suka-ink">
-              Bukti Invoice / Nota <span className="text-xs text-suka-gray-400 font-normal">(Opsional)</span>
-            </span>
+          {/* Opsi Input Gambar Bukti Invoice (Maksimal 4) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="block text-sm font-medium text-suka-ink">
+                Bukti Invoice / Nota <span className="text-xs text-suka-gray-400 font-normal">(Opsional, maks. {MAX_RECEIPTS})</span>
+              </span>
+              {receiptItems.length > 0 && (
+                <span className="text-[11px] font-medium text-suka-gray-500">
+                  {receiptItems.length}/{MAX_RECEIPTS} file
+                </span>
+              )}
+            </div>
 
             <input
               type="file"
               ref={fileInputRef}
               accept="image/*,application/pdf"
+              multiple
               className="hidden"
               onChange={handleFileChange}
             />
 
-            {!selectedFile && !existingReceiptUrl ? (
+            {receiptItems.length === 0 ? (
               <div
                 onClick={() => fileInputRef.current?.click()}
                 className="group border-2 border-dashed border-suka-gray-200 hover:border-suka-orange rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-suka-gray-50/60 hover:bg-orange-50/40 transition-all text-center"
@@ -508,100 +582,100 @@ export function ExpenseFormModal({
                 <div className="text-xs font-semibold text-suka-gray-700 group-hover:text-suka-orange">
                   Klik untuk upload foto invoice / nota
                 </div>
-                <p className="text-[11px] text-suka-gray-400">Foto apa saja (JPG, PNG, WEBP, HEIC) atau PDF — dikompres otomatis</p>
-              </div>
-            ) : selectedFile ? (
-              <div className="border border-suka-gray-200 rounded-xl p-3 bg-suka-gray-50 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 overflow-hidden">
-                  {previewUrl ? (
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      className="w-12 h-12 rounded-lg object-cover border border-suka-gray-200 shrink-0 shadow-2xs"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-lg bg-orange-100 text-suka-orange flex items-center justify-center shrink-0">
-                      <FileText className="w-6 h-6" />
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-suka-ink truncate">{selectedFile.name}</p>
-                    <p className="text-[11px] text-suka-gray-500">
-                      {(selectedFile.size / 1024).toFixed(1)} KB (File Baru)
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="text-[11px] text-suka-orange hover:underline font-medium px-2 py-1"
-                  >
-                    Ganti
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleRemoveFile}
-                    className="p-1 text-suka-gray-400 hover:text-red-500 transition-colors"
-                    title="Hapus file"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+                <p className="text-[11px] text-suka-gray-400">Maksimal {MAX_RECEIPTS} file — foto apa saja (JPG, PNG, WEBP, HEIC) atau PDF, dikompres otomatis</p>
               </div>
             ) : (
-              /* Existing receipt */
-              <div className="border border-emerald-200 rounded-xl p-3 bg-emerald-50/50 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 overflow-hidden">
-                  {previewUrl?.toLowerCase().endsWith('.pdf') ? (
-                    <div className="w-12 h-12 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                      <FileText className="w-6 h-6" />
-                    </div>
-                  ) : previewUrl ? (
-                    <img
-                      src={previewUrl}
-                      alt="Nota Tersimpan"
-                      className="w-12 h-12 rounded-lg object-cover border border-emerald-200 shrink-0 shadow-2xs"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                      <FileText className="w-6 h-6" />
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-emerald-800 flex items-center gap-1">
-                      <Eye size={12} />
-                      Bukti Nota Tersimpan
-                    </p>
-                    <a
-                      href={existingReceiptUrl!}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[11px] text-emerald-600 hover:underline truncate block"
+              <div className="space-y-2">
+                {receiptItems.map((item, idx) =>
+                  item.kind === 'new' ? (
+                    <div
+                      key={item.id}
+                      className="border border-suka-gray-200 rounded-xl p-2.5 bg-suka-gray-50 flex items-center justify-between gap-3"
                     >
-                      Buka dokumen nota
-                    </a>
-                  </div>
-                </div>
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        {item.previewUrl ? (
+                          <img
+                            src={item.previewUrl}
+                            alt={`Preview ${idx + 1}`}
+                            className="w-11 h-11 rounded-lg object-cover border border-suka-gray-200 shrink-0 shadow-2xs"
+                          />
+                        ) : (
+                          <div className="w-11 h-11 rounded-lg bg-orange-100 text-suka-orange flex items-center justify-center shrink-0">
+                            <FileText className="w-5 h-5" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-suka-ink truncate">{item.file.name}</p>
+                          <p className="text-[11px] text-suka-gray-500">
+                            {(item.file.size / 1024).toFixed(1)} KB (File Baru)
+                          </p>
+                        </div>
+                      </div>
 
-                <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveReceipt(item.id)}
+                        className="p-1 text-suka-gray-400 hover:text-red-500 transition-colors shrink-0"
+                        title="Hapus file"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      key={item.id}
+                      className="border border-emerald-200 rounded-xl p-2.5 bg-emerald-50/50 flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        {item.url.toLowerCase().endsWith('.pdf') ? (
+                          <div className="w-11 h-11 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                            <FileText className="w-5 h-5" />
+                          </div>
+                        ) : (
+                          <img
+                            src={item.url}
+                            alt={`Nota Tersimpan ${idx + 1}`}
+                            className="w-11 h-11 rounded-lg object-cover border border-emerald-200 shrink-0 shadow-2xs"
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-emerald-800 flex items-center gap-1">
+                            <Eye size={12} />
+                            Bukti Nota Tersimpan #{idx + 1}
+                          </p>
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[11px] text-emerald-600 hover:underline truncate block"
+                          >
+                            Buka dokumen nota
+                          </a>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveReceipt(item.id)}
+                        className="p-1 text-suka-gray-400 hover:text-red-500 transition-colors shrink-0"
+                        title="Hapus nota"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )
+                )}
+
+                {receiptItems.length < MAX_RECEIPTS && (
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="text-[11px] text-suka-orange hover:underline font-medium px-2 py-1"
+                    className="w-full border border-dashed border-suka-gray-300 hover:border-suka-orange rounded-xl py-2 px-3 flex items-center justify-center gap-1.5 text-xs font-semibold text-suka-gray-600 hover:text-suka-orange hover:bg-orange-50/40 transition-colors cursor-pointer"
                   >
-                    Ganti
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Tambah foto / nota lagi (sisa {MAX_RECEIPTS - receiptItems.length})</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleRemoveFile}
-                    className="p-1 text-suka-gray-400 hover:text-red-500 transition-colors"
-                    title="Hapus nota"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+                )}
               </div>
             )}
           </div>

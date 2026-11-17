@@ -69,6 +69,7 @@ import {
 import EndorsementMenuSelector, { SelectedMenuItem } from '@/components/dashboard/EndorsementMenuSelector'
 import type { PosMenuItem } from '@/lib/supabase-pos'
 import { formatLastUpdate, formatFullDateTime } from '@/lib/format-date'
+import { parseReceiptUrls, serializeReceiptUrls } from '@/lib/opex-constants'
 
 export interface SerializedEndorsementPost {
   id: string
@@ -252,6 +253,207 @@ export function getPlatformBadgeConfig(platform: string, customName?: string | n
         badgeClass: 'bg-amber-600 text-white border border-amber-500',
       }
   }
+}
+
+const MAX_PAYMENT_PROOFS = 4
+
+function PaymentProofUploader({
+  urls,
+  statsMap,
+  isUploading,
+  uploadProgress,
+  showManualUrl,
+  onToggleManualUrl,
+  onAddManualUrl,
+  onUploadFiles,
+  onRemoveUrl,
+  label = 'Upload Bukti Pembayaran',
+}: {
+  urls: string[]
+  statsMap: Record<string, string>
+  isUploading: boolean
+  uploadProgress: string
+  showManualUrl: boolean
+  onToggleManualUrl: () => void
+  onAddManualUrl: (url: string) => void
+  onUploadFiles: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onRemoveUrl: (index: number) => void
+  label?: string
+}) {
+  const [manualInput, setManualInput] = useState('')
+  const canAddMore = urls.length < MAX_PAYMENT_PROOFS
+
+  const handleAddManual = () => {
+    const trimmed = manualInput.trim()
+    if (!trimmed || !canAddMore) return
+    onAddManualUrl(trimmed)
+    setManualInput('')
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider">
+            {label}
+          </label>
+          <span
+            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${
+              urls.length >= MAX_PAYMENT_PROOFS
+                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                : 'bg-stone-100 text-stone-600 border-stone-200'
+            }`}
+          >
+            {urls.length}/{MAX_PAYMENT_PROOFS}
+          </span>
+        </div>
+        {canAddMore && (
+          <button
+            type="button"
+            onClick={onToggleManualUrl}
+            className="text-[11px] font-medium text-stone-500 hover:text-[#D9480F] transition-colors underline cursor-pointer"
+          >
+            {showManualUrl ? 'Tutup URL' : '+ Link URL'}
+          </button>
+        )}
+      </div>
+
+      {/* Hidden input for form submission */}
+      <input
+        type="hidden"
+        name="paymentReceiptUrl"
+        value={serializeReceiptUrls(urls) || ''}
+      />
+
+      {showManualUrl && canAddMore && (
+        <div className="flex items-center gap-2">
+          <input
+            type="url"
+            placeholder="https://... (URL file/bukti transfer)"
+            value={manualInput}
+            onChange={(e) => setManualInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                handleAddManual()
+              }
+            }}
+            className="flex-1 min-w-0 px-3 py-1.5 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] bg-white"
+          />
+          <button
+            type="button"
+            onClick={handleAddManual}
+            disabled={!manualInput.trim()}
+            className="px-3 py-1.5 text-xs font-bold bg-[#D9480F] hover:bg-[#B83808] text-white rounded-xl transition-colors disabled:opacity-40 cursor-pointer shrink-0"
+          >
+            Tambah
+          </button>
+        </div>
+      )}
+
+      {urls.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {urls.map((url, idx) => {
+            const stat = statsMap[url]
+            return (
+              <div
+                key={`${url}-${idx}`}
+                className="p-2 border border-[#EFE8DE] bg-white rounded-xl flex items-center justify-between gap-2 shadow-2xs min-w-0"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {url.toLowerCase().includes('.pdf') ? (
+                    <div className="w-9 h-9 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                  ) : (
+                    <img
+                      src={url}
+                      alt={`Bukti Transfer #${idx + 1}`}
+                      className="w-9 h-9 rounded-lg object-cover border border-[#EFE8DE] bg-stone-50 shrink-0"
+                      onError={(e) => {
+                        ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+                      }}
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 max-w-full truncate">
+                      <CheckCircle2 className="w-2.5 h-2.5 shrink-0" />
+                      <span className="truncate">
+                        Bukti #{idx + 1} {stat ? `(${stat})` : ''}
+                      </span>
+                    </span>
+                    <div>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-[#D9480F] hover:underline inline-flex items-center gap-1 font-semibold mt-0.5"
+                      >
+                        Lihat Bukti <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onRemoveUrl(idx)}
+                  className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                  title={`Hapus Bukti #${idx + 1}`}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {canAddMore ? (
+        <label
+          className={`w-full py-2.5 px-3 border border-dashed rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all ${
+            isUploading
+              ? 'border-[#D9480F] bg-orange-50/40 cursor-wait text-[#D9480F]'
+              : 'border-orange-300 bg-orange-50/30 hover:bg-orange-50 text-[#D9480F] font-semibold text-xs'
+          }`}
+        >
+          <input
+            type="file"
+            multiple
+            accept="image/*,application/pdf"
+            className="hidden"
+            disabled={isUploading}
+            onChange={onUploadFiles}
+          />
+          {isUploading ? (
+            <div className="flex items-center gap-1.5 text-xs font-semibold">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#D9480F]" />
+              <span>{uploadProgress || 'Mengompresi & mengunggah bukti...'}</span>
+            </div>
+          ) : urls.length > 0 ? (
+            <div className="flex items-center gap-1.5">
+              <Plus className="w-3.5 h-3.5 text-[#D9480F]" />
+              <span>Tambah Bukti Lainnya (Maks. {MAX_PAYMENT_PROOFS - urls.length} lagi)</span>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center py-0.5 text-center">
+              <div className="flex items-center gap-1.5">
+                <UploadCloud className="w-3.5 h-3.5 text-[#D9480F]" />
+                <span>Upload Bukti Pembayaran (Maks. {MAX_PAYMENT_PROOFS} gambar)</span>
+              </div>
+              <span className="text-[10px] text-stone-400 font-normal mt-0.5">
+                Bisa pilih beberapa file sekaligus • Otomatis dikompresi WebP (JPG, PNG, PDF)
+              </span>
+            </div>
+          )}
+        </label>
+      ) : (
+        <p className="text-[11px] text-amber-700 font-medium text-center py-1 bg-amber-50/70 border border-amber-200/80 rounded-xl">
+          Maksimal {MAX_PAYMENT_PROOFS} bukti pembayaran tercapai. Hapus salah satu jika ingin mengganti.
+        </p>
+      )}
+    </div>
+  )
 }
 
 function VideoPlatformLinksEditor({
@@ -553,81 +755,95 @@ export default function EndorsementList({
   const [editRateCard, setEditRateCard] = useState<string>('0')
   const [editMenuItems, setEditMenuItems] = useState<SelectedMenuItem[]>([])
 
-  // Bukti pembayaran states
-  const [editPaymentReceiptUrl, setEditPaymentReceiptUrl] = useState('')
+  // Bukti pembayaran states (maksimal 4)
+  const [editPaymentReceiptUrls, setEditPaymentReceiptUrls] = useState<string[]>([])
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false)
   const [uploadReceiptProgress, setUploadReceiptProgress] = useState('')
   const [showManualReceiptUrl, setShowManualReceiptUrl] = useState(false)
 
-  const [createPaymentReceiptUrl, setCreatePaymentReceiptUrl] = useState('')
+  const [createPaymentReceiptUrls, setCreatePaymentReceiptUrls] = useState<string[]>([])
   const [isUploadingCreateReceipt, setIsUploadingCreateReceipt] = useState(false)
   const [uploadCreateReceiptProgress, setUploadCreateReceiptProgress] = useState('')
   const [showManualCreateReceiptUrl, setShowManualCreateReceiptUrl] = useState(false)
-  const [editReceiptStats, setEditReceiptStats] = useState<string | null>(null)
-  const [createReceiptStats, setCreateReceiptStats] = useState<string | null>(null)
+  const [editReceiptStats, setEditReceiptStats] = useState<Record<string, string>>({})
+  const [createReceiptStats, setCreateReceiptStats] = useState<Record<string, string>>({})
 
   const handleUploadPaymentProof = async (
     e: React.ChangeEvent<HTMLInputElement>,
     mode: 'edit' | 'create'
   ) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const selectedFiles = Array.from(e.target.files || [])
+    if (selectedFiles.length === 0) return
 
-    const originalKb = Math.round(file.size / 1024)
-    if (mode === 'edit') {
-      setIsUploadingReceipt(true)
-      setUploadReceiptProgress(`Mengompresi gambar (${originalKb} KB)...`)
-    } else {
-      setIsUploadingCreateReceipt(true)
-      setUploadCreateReceiptProgress(`Mengompresi gambar (${originalKb} KB)...`)
+    const currentUrls = mode === 'edit' ? editPaymentReceiptUrls : createPaymentReceiptUrls
+    const remainingSlots = MAX_PAYMENT_PROOFS - currentUrls.length
+
+    if (remainingSlots <= 0) {
+      setErrorMessage(`Maksimal ${MAX_PAYMENT_PROOFS} gambar bukti pembayaran.`)
+      e.target.value = ''
+      return
     }
 
+    const filesToUpload = selectedFiles.slice(0, remainingSlots)
+    if (selectedFiles.length > remainingSlots) {
+      setErrorMessage(
+        `Maksimal ${MAX_PAYMENT_PROOFS} bukti pembayaran. Hanya ${remainingSlots} file pertama yang diunggah.`
+      )
+    }
+
+    const setUploading = mode === 'edit' ? setIsUploadingReceipt : setIsUploadingCreateReceipt
+    const setProgress = mode === 'edit' ? setUploadReceiptProgress : setUploadCreateReceiptProgress
+    const setUrls = mode === 'edit' ? setEditPaymentReceiptUrls : setCreatePaymentReceiptUrls
+    const setStats = mode === 'edit' ? setEditReceiptStats : setCreateReceiptStats
+
+    setUploading(true)
+
     try {
-      const compressedFile = await compressReceiptImage(file)
-      const compressedKb = Math.round(compressedFile.size / 1024)
-      const savedPct = file.size > compressedFile.size
-        ? Math.round((1 - compressedFile.size / file.size) * 100)
-        : 0
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const file = filesToUpload[i]
+        const originalKb = Math.round(file.size / 1024)
+        const prefix = filesToUpload.length > 1 ? `[${i + 1}/${filesToUpload.length}] ` : ''
+        setProgress(`${prefix}Mengompresi gambar (${originalKb} KB)...`)
 
-      const uploadMsg = compressedFile.size < file.size
-        ? `Mengunggah (${originalKb} KB ➔ ${compressedKb} KB, hemat ${savedPct}%)...`
-        : `Mengunggah (${compressedKb} KB)...`
+        const compressedFile = await compressReceiptImage(file)
+        const compressedKb = Math.round(compressedFile.size / 1024)
+        const savedPct =
+          file.size > compressedFile.size
+            ? Math.round((1 - compressedFile.size / file.size) * 100)
+            : 0
 
-      if (mode === 'edit') {
-        setUploadReceiptProgress(uploadMsg)
-      } else {
-        setUploadCreateReceiptProgress(uploadMsg)
-      }
+        const uploadMsg =
+          compressedFile.size < file.size
+            ? `${prefix}Mengunggah (${originalKb} KB ➔ ${compressedKb} KB, hemat ${savedPct}%)...`
+            : `${prefix}Mengunggah (${compressedKb} KB)...`
 
-      const data = new FormData()
-      data.append('file', compressedFile)
-      const res = await uploadEndorsementPaymentProof(data)
+        setProgress(uploadMsg)
 
-      if (res?.error) {
-        setErrorMessage(res.error)
-      } else if (res?.url) {
-        const statLabel = compressedFile.size < file.size
-          ? `WebP ${compressedKb} KB (- ${savedPct}%)`
-          : `${compressedKb} KB`
+        const data = new FormData()
+        data.append('file', compressedFile)
+        const res = await uploadEndorsementPaymentProof(data)
 
-        if (mode === 'edit') {
-          setEditPaymentReceiptUrl(res.url)
-          setEditReceiptStats(statLabel)
-        } else {
-          setCreatePaymentReceiptUrl(res.url)
-          setCreateReceiptStats(statLabel)
+        if (res?.error) {
+          setErrorMessage(res.error)
+          break
+        } else if (res?.url) {
+          const uploadedUrl = res.url
+          const statLabel =
+            compressedFile.size < file.size
+              ? `WebP ${compressedKb} KB (-${savedPct}%)`
+              : `${compressedKb} KB`
+
+          setUrls((prev) =>
+            prev.length < MAX_PAYMENT_PROOFS ? [...prev, uploadedUrl] : prev
+          )
+          setStats((prev) => ({ ...prev, [uploadedUrl]: statLabel }))
         }
       }
     } catch (err: any) {
       setErrorMessage(err?.message || 'Gagal mengunggah bukti pembayaran')
     } finally {
-      if (mode === 'edit') {
-        setIsUploadingReceipt(false)
-        setUploadReceiptProgress('')
-      } else {
-        setIsUploadingCreateReceipt(false)
-        setUploadCreateReceiptProgress('')
-      }
+      setUploading(false)
+      setProgress('')
       e.target.value = ''
     }
   }
@@ -741,8 +957,8 @@ export default function EndorsementList({
     setEditHpp(item.hppMenu || 0)
     setEditRateCard(item.rateCard.toString())
     setEditMenuItems(item.menuItems ? (item.menuItems as any) : [])
-    setEditPaymentReceiptUrl(item.paymentReceiptUrl || '')
-    setEditReceiptStats(null)
+    setEditPaymentReceiptUrls(parseReceiptUrls(item.paymentReceiptUrl))
+    setEditReceiptStats({})
     setShowManualReceiptUrl(false)
 
     if (item.posts && item.posts.length > 0) {
@@ -1555,8 +1771,8 @@ export default function EndorsementList({
               setCreateMenuName('')
               setCreateHpp(0)
               setCreateMenuItems([])
-              setCreatePaymentReceiptUrl('')
-              setCreateReceiptStats(null)
+              setCreatePaymentReceiptUrls([])
+              setCreateReceiptStats({})
               setShowManualCreateReceiptUrl(false)
               setIsCreateOpen(true)
             }}
@@ -2091,20 +2307,28 @@ export default function EndorsementList({
                                     Belum Bayar
                                   </span>
                                 )}
-                                {item.paymentReceiptUrl && (
-                                  <div className="mt-0.5">
-                                    <a
-                                      href={item.paymentReceiptUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#D9480F] hover:underline"
-                                      title="Lihat Bukti Transfer"
-                                    >
-                                      <ExternalLink className="w-2.5 h-2.5 shrink-0" /> Bukti Bayar
-                                    </a>
-                                  </div>
-                                )}
+                                {item.paymentReceiptUrl && (() => {
+                                  const receiptUrls = parseReceiptUrls(item.paymentReceiptUrl)
+                                  if (receiptUrls.length === 0) return null
+                                  return (
+                                    <div className="mt-0.5 flex flex-wrap justify-center gap-x-2 gap-y-0.5">
+                                      {receiptUrls.map((url, idx) => (
+                                        <a
+                                          key={idx}
+                                          href={url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#D9480F] hover:underline"
+                                          title={`Lihat Bukti Transfer${receiptUrls.length > 1 ? ` #${idx + 1}` : ''}`}
+                                        >
+                                          <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                                          {receiptUrls.length > 1 ? `Bukti #${idx + 1}` : 'Bukti Bayar'}
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )
+                                })()}
                               </div>
                             )}
                           </div>
@@ -3495,7 +3719,8 @@ export default function EndorsementList({
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="p-5 sm:p-6 overflow-y-auto flex-1 overscroll-contain">
+            <form onSubmit={handleCreate} className="flex flex-col flex-1 min-h-0">
+              <div className="p-5 sm:p-6 overflow-y-auto flex-1 overscroll-contain">
               {errorMessage && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -3895,117 +4120,24 @@ export default function EndorsementList({
                   </div>
 
                   {/* Upload Bukti Pembayaran in Create */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
-                        Upload Bukti Pembayaran (Opsional)
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setShowManualCreateReceiptUrl(!showManualCreateReceiptUrl)}
-                        className="text-[10px] text-stone-400 hover:text-[#D9480F] transition-colors underline cursor-pointer"
-                      >
-                        {showManualCreateReceiptUrl ? 'Tutup URL' : '+ Link URL'}
-                      </button>
-                    </div>
-
-                    <input
-                      type="hidden"
-                      name="paymentReceiptUrl"
-                      value={createPaymentReceiptUrl}
-                    />
-
-                    {showManualCreateReceiptUrl && (
-                      <div className="mb-2">
-                        <input
-                          type="url"
-                          placeholder="https://... (URL file/bukti transfer)"
-                          value={createPaymentReceiptUrl}
-                          onChange={(e) => setCreatePaymentReceiptUrl(e.target.value)}
-                          className="w-full px-3 py-1.5 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none bg-white"
-                        />
-                      </div>
-                    )}
-
-                    {createPaymentReceiptUrl ? (
-                      <div className="p-2.5 border border-[#EFE8DE] bg-white rounded-xl flex items-center justify-between gap-2 shadow-2xs">
-                        <div className="flex items-center gap-2 min-w-0">
-                          {createPaymentReceiptUrl.toLowerCase().includes('.pdf') ? (
-                            <div className="w-8 h-8 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
-                              <FileText className="w-4 h-4" />
-                            </div>
-                          ) : (
-                            <img
-                              src={createPaymentReceiptUrl}
-                              alt="Bukti Transfer"
-                              className="w-8 h-8 rounded-lg object-cover border border-[#EFE8DE] bg-white shrink-0"
-                              onError={(e) => {
-                                (e.currentTarget as any).style.display = 'none'
-                              }}
-                            />
-                          )}
-                          <div className="min-w-0">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                              <CheckCircle2 className="w-2.5 h-2.5" /> Bukti Terkompresi {createReceiptStats ? `(${createReceiptStats})` : ''}
-                            </span>
-                            <div>
-                              <a
-                                href={createPaymentReceiptUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-[11px] text-[#D9480F] hover:underline inline-flex items-center gap-1 font-semibold truncate max-w-[140px]"
-                              >
-                                Lihat Bukti <ExternalLink className="w-2.5 h-2.5 shrink-0" />
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => setCreatePaymentReceiptUrl('')}
-                            className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                            title="Hapus Bukti"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <label
-                        className={`w-full py-2 px-3 border border-dashed rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all ${
-                          isUploadingCreateReceipt
-                            ? 'border-[#D9480F] bg-orange-50/40 cursor-wait text-[#D9480F]'
-                            : 'border-orange-300 bg-orange-50/30 hover:bg-orange-50 text-[#D9480F] font-semibold text-xs'
-                        }`}
-                      >
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          disabled={isUploadingCreateReceipt}
-                          onChange={(e) => handleUploadPaymentProof(e, 'create')}
-                        />
-                        {isUploadingCreateReceipt ? (
-                          <div className="flex items-center gap-1.5 text-xs font-semibold">
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-[#D9480F]" />
-                            <span>{uploadCreateReceiptProgress || 'Mengompresi & mengunggah bukti...'}</span>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col items-center py-0.5">
-                            <div className="flex items-center gap-1.5">
-                              <UploadCloud className="w-3.5 h-3.5 text-[#D9480F]" />
-                              <span>Upload Bukti Pembayaran (Opsional)</span>
-                            </div>
-                            <span className="text-[10px] text-stone-400 font-normal">
-                              Otomatis dikompresi WebP (JPG, PNG, PDF)
-                            </span>
-                          </div>
-                        )}
-                      </label>
-                    )}
-                  </div>
+                  <PaymentProofUploader
+                    label="Upload Bukti Pembayaran (Opsional)"
+                    urls={createPaymentReceiptUrls}
+                    statsMap={createReceiptStats}
+                    isUploading={isUploadingCreateReceipt}
+                    uploadProgress={uploadCreateReceiptProgress}
+                    showManualUrl={showManualCreateReceiptUrl}
+                    onToggleManualUrl={() => setShowManualCreateReceiptUrl((prev) => !prev)}
+                    onAddManualUrl={(url) =>
+                      setCreatePaymentReceiptUrls((prev) =>
+                        prev.length < MAX_PAYMENT_PROOFS ? [...prev, url] : prev
+                      )
+                    }
+                    onUploadFiles={(e) => handleUploadPaymentProof(e, 'create')}
+                    onRemoveUrl={(idx) =>
+                      setCreatePaymentReceiptUrls((prev) => prev.filter((_, i) => i !== idx))
+                    }
+                  />
 
                   {/* Catatan Kunjungan / Briefing untuk Kasir & Tim */}
                   <div>
@@ -4064,7 +4196,7 @@ export default function EndorsementList({
                     }}
                   />
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-white rounded-2xl border border-[#EFE8DE]">
+                  <div className="space-y-3 p-3.5 bg-white rounded-2xl border border-[#EFE8DE]">
                     <div>
                       <label className="block text-[11px] font-semibold text-stone-600 mb-1">
                         Ringkasan Menu (Laporan)
@@ -4074,15 +4206,15 @@ export default function EndorsementList({
                         value={createMenuName}
                         onChange={(e) => setCreateMenuName(e.target.value)}
                         placeholder="e.g. 1x Combo #2, 2x Aqua"
-                        className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none"
+                        className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                       />
                     </div>
                     <div>
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between gap-2 mb-1">
                         <label className="block text-[11px] font-semibold text-stone-600">
                           Nominal HPP SS (Rp)
                         </label>
-                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded-md">
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded-md whitespace-nowrap">
                           Otomatis POS
                         </span>
                       </div>
@@ -4100,18 +4232,19 @@ export default function EndorsementList({
                   </div>
                 </div>
               </div>
+              </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4 mt-4 border-t border-[#EFE8DE] sticky bottom-0 bg-white/95 backdrop-blur-xs -mx-5 sm:-mx-6 -mb-5 sm:-mb-6 px-5 sm:px-6 py-3.5 z-10">
+              <div className="flex items-center justify-end gap-3 border-t border-[#EFE8DE] bg-[#FAF8F5] px-5 sm:px-6 py-3.5 flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
-                  className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-stone-600 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer"
+                  className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-stone-600 hover:bg-stone-200/60 rounded-xl transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  disabled={isPending}
+                  disabled={isPending || isUploadingCreateReceipt}
                   className="px-5 py-2.5 text-xs sm:text-sm font-bold bg-[#D9480F] hover:bg-[#B83808] text-white rounded-xl transition-all shadow-sm disabled:opacity-50 cursor-pointer"
                 >
                   {isPending ? 'Menyimpan...' : 'Simpan Jadwal'}
@@ -4130,8 +4263,8 @@ export default function EndorsementList({
             if (e.target === e.currentTarget) setEditingEndorsement(null)
           }}
         >
-          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-4xl xl:max-w-5xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh] my-auto">
-            <div className="p-5 sm:p-6 border-b border-[#EFE8DE] flex items-center justify-between bg-[#FAF8F5] flex-shrink-0">
+          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-5xl xl:max-w-6xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh] my-auto">
+            <div className="px-5 py-4 sm:px-6 sm:py-5 border-b border-[#EFE8DE] flex items-center justify-between bg-[#FAF8F5] flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center">
                   <Edit2 className="w-5 h-5" />
@@ -4144,6 +4277,7 @@ export default function EndorsementList({
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setEditingEndorsement(null)}
                 className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 rounded-xl transition-colors cursor-pointer"
               >
@@ -4151,7 +4285,8 @@ export default function EndorsementList({
               </button>
             </div>
 
-            <form onSubmit={handleUpdate} className="p-5 sm:p-6 overflow-y-auto flex-1 overscroll-contain">
+            <form onSubmit={handleUpdate} className="flex flex-col flex-1 min-h-0">
+              <div className="p-5 sm:p-6 overflow-y-auto flex-1 overscroll-contain">
               {errorMessage && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -4451,8 +4586,8 @@ export default function EndorsementList({
                       </div>
                     </div>
 
-                    {/* Bank & Payment Notes */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Bank & Payment Proof (Full width rows for clean readability) */}
+                    <div className="space-y-3">
                       <div>
                         <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
                           Rekening Transfer (Kustom)
@@ -4461,146 +4596,40 @@ export default function EndorsementList({
                           name="bankAccountCustom"
                           defaultValue={editingEndorsement.bankAccountCustom || editingEndorsement.kol.bankAccount || ''}
                           placeholder="e.g. BCA 123456 a.n ..."
-                          className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none bg-white"
+                          className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] bg-white"
                         />
                       </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider">
-                            Upload Bukti Pembayaran
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => setShowManualReceiptUrl(!showManualReceiptUrl)}
-                            className="text-[10px] text-stone-400 hover:text-[#D9480F] transition-colors underline cursor-pointer"
-                          >
-                            {showManualReceiptUrl ? 'Tutup URL' : '+ Link URL'}
-                          </button>
-                        </div>
 
-                        {/* Hidden input for form submission */}
-                        <input
-                          type="hidden"
-                          name="paymentReceiptUrl"
-                          value={editPaymentReceiptUrl}
-                        />
-                        <input
-                          type="hidden"
-                          name="paymentNotes"
-                          defaultValue={editingEndorsement.paymentNotes || ''}
-                        />
+                      <input
+                        type="hidden"
+                        name="paymentNotes"
+                        defaultValue={editingEndorsement.paymentNotes || ''}
+                      />
 
-                        {showManualReceiptUrl && (
-                          <div className="mb-2">
-                            <input
-                              type="url"
-                              placeholder="https://... (URL file/bukti transfer)"
-                              value={editPaymentReceiptUrl}
-                              onChange={(e) => setEditPaymentReceiptUrl(e.target.value)}
-                              className="w-full px-3 py-1.5 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none bg-white"
-                            />
-                          </div>
-                        )}
+                      <PaymentProofUploader
+                        label="Upload Bukti Pembayaran"
+                        urls={editPaymentReceiptUrls}
+                        statsMap={editReceiptStats}
+                        isUploading={isUploadingReceipt}
+                        uploadProgress={uploadReceiptProgress}
+                        showManualUrl={showManualReceiptUrl}
+                        onToggleManualUrl={() => setShowManualReceiptUrl((prev) => !prev)}
+                        onAddManualUrl={(url) =>
+                          setEditPaymentReceiptUrls((prev) =>
+                            prev.length < MAX_PAYMENT_PROOFS ? [...prev, url] : prev
+                          )
+                        }
+                        onUploadFiles={(e) => handleUploadPaymentProof(e, 'edit')}
+                        onRemoveUrl={(idx) =>
+                          setEditPaymentReceiptUrls((prev) => prev.filter((_, i) => i !== idx))
+                        }
+                      />
 
-                        {editPaymentReceiptUrl ? (
-                          <div className="p-2 border border-[#EFE8DE] bg-white rounded-xl flex items-center justify-between gap-2 shadow-2xs">
-                            <div className="flex items-center gap-2 min-w-0">
-                              {editPaymentReceiptUrl.toLowerCase().includes('.pdf') ? (
-                                <div className="w-8 h-8 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
-                                  <FileText className="w-4 h-4" />
-                                </div>
-                              ) : (
-                                <img
-                                  src={editPaymentReceiptUrl}
-                                  alt="Bukti Transfer"
-                                  className="w-8 h-8 rounded-lg object-cover border border-[#EFE8DE] bg-white shrink-0"
-                                  onError={(e) => {
-                                    (e.currentTarget as any).style.display = 'none'
-                                  }}
-                                />
-                              )}
-                              <div className="min-w-0">
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                                  <CheckCircle2 className="w-2.5 h-2.5" /> Bukti Terkompresi {editReceiptStats ? `(${editReceiptStats})` : ''}
-                                </span>
-                                <div>
-                                  <a
-                                    href={editPaymentReceiptUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-[11px] text-[#D9480F] hover:underline inline-flex items-center gap-1 font-semibold truncate max-w-[140px]"
-                                  >
-                                    Lihat Bukti <ExternalLink className="w-2.5 h-2.5 shrink-0" />
-                                  </a>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-1 shrink-0">
-                              <label
-                                className={`p-1.5 text-stone-500 hover:text-[#D9480F] hover:bg-orange-50 rounded-lg transition-colors cursor-pointer ${
-                                  isUploadingReceipt ? 'opacity-50 pointer-events-none' : ''
-                                }`}
-                                title="Ganti Bukti Transfer"
-                              >
-                                <input
-                                  type="file"
-                                  accept="image/*,application/pdf"
-                                  className="hidden"
-                                  disabled={isUploadingReceipt}
-                                  onChange={(e) => handleUploadPaymentProof(e, 'edit')}
-                                />
-                                <RefreshCw className="w-3.5 h-3.5" />
-                              </label>
-                              <button
-                                type="button"
-                                onClick={() => setEditPaymentReceiptUrl('')}
-                                className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                                title="Hapus Bukti"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <label
-                            className={`w-full py-2 px-3 border border-dashed rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all ${
-                              isUploadingReceipt
-                                ? 'border-[#D9480F] bg-orange-50/40 cursor-wait text-[#D9480F]'
-                                : 'border-orange-300 bg-orange-50/30 hover:bg-orange-50 text-[#D9480F] font-semibold text-xs'
-                            }`}
-                          >
-                            <input
-                              type="file"
-                              accept="image/*,application/pdf"
-                              className="hidden"
-                              disabled={isUploadingReceipt}
-                              onChange={(e) => handleUploadPaymentProof(e, 'edit')}
-                            />
-                            {isUploadingReceipt ? (
-                              <div className="flex items-center gap-1.5 text-xs font-semibold">
-                                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#D9480F]" />
-                                <span>{uploadReceiptProgress || 'Mengompresi & mengunggah bukti...'}</span>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center py-0.5">
-                                <div className="flex items-center gap-1.5">
-                                  <UploadCloud className="w-3.5 h-3.5 text-[#D9480F]" />
-                                  <span>Upload Bukti Pembayaran</span>
-                                </div>
-                                <span className="text-[10px] text-stone-400 font-normal">
-                                  Otomatis dikompresi WebP (JPG, PNG, PDF)
-                                </span>
-                              </div>
-                            )}
-                          </label>
-                        )}
-                        {editingEndorsement.paymentNotes && (
-                          <p className="text-[10px] text-stone-400 mt-1 truncate" title={editingEndorsement.paymentNotes}>
-                            Catatan: {editingEndorsement.paymentNotes}
-                          </p>
-                        )}
-                      </div>
+                      {editingEndorsement.paymentNotes && (
+                        <p className="text-[11px] text-stone-500 bg-white px-3 py-1.5 rounded-xl border border-[#EFE8DE]" title={editingEndorsement.paymentNotes}>
+                          <span className="font-semibold text-stone-700">Catatan:</span> {editingEndorsement.paymentNotes}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -4632,7 +4661,7 @@ export default function EndorsementList({
                     }}
                   />
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-white rounded-2xl border border-[#EFE8DE]">
+                  <div className="space-y-3 p-3.5 bg-white rounded-2xl border border-[#EFE8DE]">
                     <div>
                       <label className="block text-[11px] font-semibold text-stone-600 mb-1">
                         Ringkasan Menu (Laporan)
@@ -4642,15 +4671,15 @@ export default function EndorsementList({
                         value={editMenuName}
                         onChange={(e) => setEditMenuName(e.target.value)}
                         placeholder="e.g. 1x Combo #2, 2x Aqua"
-                        className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none"
+                        className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                       />
                     </div>
                     <div>
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between gap-2 mb-1">
                         <label className="block text-[11px] font-semibold text-stone-600">
                           Nominal HPP SS (Rp)
                         </label>
-                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded-md">
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded-md whitespace-nowrap">
                           Otomatis POS
                         </span>
                       </div>
@@ -4668,18 +4697,19 @@ export default function EndorsementList({
                   </div>
                 </div>
               </div>
+              </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4 mt-4 border-t border-[#EFE8DE] sticky bottom-0 bg-white/95 backdrop-blur-xs -mx-5 sm:-mx-6 -mb-5 sm:-mb-6 px-5 sm:px-6 py-3.5 z-10">
+              <div className="flex items-center justify-end gap-3 border-t border-[#EFE8DE] bg-[#FAF8F5] px-5 sm:px-6 py-3.5 flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingEndorsement(null)}
-                  className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-stone-600 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer"
+                  className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-stone-600 hover:bg-stone-200/60 rounded-xl transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  disabled={isPending}
+                  disabled={isPending || isUploadingReceipt}
                   className="px-5 py-2.5 text-xs sm:text-sm font-bold bg-[#D9480F] hover:bg-[#B83808] text-white rounded-xl transition-all shadow-sm disabled:opacity-50 cursor-pointer"
                 >
                   {isPending ? 'Menyimpan...' : 'Perbarui Endorsement'}

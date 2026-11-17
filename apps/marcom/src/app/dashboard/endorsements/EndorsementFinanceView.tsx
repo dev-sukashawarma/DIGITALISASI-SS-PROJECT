@@ -26,6 +26,7 @@ import {
 import { TikTokIcon } from '@/components/icons/SocialIcons'
 import { updatePaymentStatus, updateDraftStatus, batchUpdatePayments } from '@/app/actions/endorsements'
 import { SerializedEndorsement, getLocalDateString, MONTH_NAMES } from './EndorsementList'
+import { parseReceiptUrls } from '@/lib/opex-constants'
 
 interface EndorsementFinanceViewProps {
   endorsements: SerializedEndorsement[]
@@ -337,7 +338,8 @@ export default function EndorsementFinanceView({
       const bankInfo = (item.bankAccountCustom || item.kol.bankAccount || '').replace(/,/g, ' ')
       const menu = (item.menuGiven || '-').replace(/,/g, ' ')
       const notes = (item.paymentNotes || '-').replace(/,/g, ' ')
-      const proofUrl = (item.paymentReceiptUrl || '-').replace(/,/g, ' ')
+      const proofUrls = parseReceiptUrls(item.paymentReceiptUrl)
+      const proofUrl = proofUrls.length > 0 ? proofUrls.join(' | ').replace(/,/g, ' ') : '-'
 
       return [
         idx + 1,
@@ -932,19 +934,27 @@ export default function EndorsementFinanceView({
                         ) : (
                           <span className="text-stone-400 text-[11px] italic">Belum ada rekening</span>
                         )}
-                        {item.paymentReceiptUrl && (
-                          <div className="mt-1">
-                            <a
-                              href={item.paymentReceiptUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 hover:bg-emerald-100 transition-colors"
-                              title="Lihat Bukti Transfer"
-                            >
-                              <ExternalLink className="w-2.5 h-2.5 shrink-0" /> Bukti Transfer
-                            </a>
-                          </div>
-                        )}
+                        {item.paymentReceiptUrl && (() => {
+                          const urls = parseReceiptUrls(item.paymentReceiptUrl)
+                          if (urls.length === 0) return null
+                          return (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {urls.map((url, idx) => (
+                                <a
+                                  key={idx}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                                  title={`Lihat Bukti Transfer${urls.length > 1 ? ` #${idx + 1}` : ''}`}
+                                >
+                                  <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                                  {urls.length > 1 ? `Bukti #${idx + 1}` : 'Bukti Transfer'}
+                                </a>
+                              ))}
+                            </div>
+                          )
+                        })()}
                         {item.paymentNotes && (
                           <div className="text-[10px] text-amber-700 mt-1 italic">
                             Ket: {item.paymentNotes}

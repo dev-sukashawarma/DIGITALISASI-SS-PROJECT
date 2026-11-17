@@ -190,10 +190,10 @@ export default function EndorsementMenuSelector({
             >
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-stone-800 truncate">{item.name}</div>
-                <div className="text-[11px] text-stone-500 font-mono">
-                  <span className="text-stone-500">Harga: Rp {item.unitPrice.toLocaleString('id-ID')}</span>
+                <div className="text-[11px] text-stone-500 font-mono flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                  <span className="text-stone-500 whitespace-nowrap">Harga: Rp {item.unitPrice.toLocaleString('id-ID')}</span>
                   {item.hpp !== undefined && item.hpp > 0 && (
-                    <span className="text-[#D9480F] font-semibold bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200/70 ml-2">
+                    <span className="text-[#D9480F] font-semibold bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200/70 whitespace-nowrap">
                       HPP: Rp {item.hpp.toLocaleString('id-ID')}
                     </span>
                   )}

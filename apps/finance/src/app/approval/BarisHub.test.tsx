@@ -67,7 +67,9 @@ describe('BarisHub', () => {
     }
     pasang(i)
     const el = screen.getByTestId('rekening-tujuan')
-    expect(el).toHaveTextContent('BCA · 1234567890 (a.n. Budi)')
+    expect(el).toHaveTextContent('BCA')
+    expect(el).toHaveTextContent('1234567890')
+    expect(el).toHaveTextContent('a.n. Budi')
     fireEvent.click(screen.getByRole('button', { name: 'Salin nomor rekening 1234567890' }))
     expect(writeText).toHaveBeenCalledWith('1234567890')
   })

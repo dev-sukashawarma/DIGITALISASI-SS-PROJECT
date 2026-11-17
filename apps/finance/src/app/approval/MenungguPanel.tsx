@@ -12,7 +12,7 @@ import {
   type HubItem,
   type HubJenis,
 } from '@/lib/approval/hub'
-import { BarisHub, IKON_JENIS_HUB } from './BarisHub'
+import { BarisHub, GRID_BARIS_HUB, IKON_JENIS_HUB } from './BarisHub'
 
 type Saringan = 'semua' | HubJenis
 
@@ -85,6 +85,19 @@ export function MenungguPanel({
           </p>
           <p className="w-full text-xs text-suka-gray-500">{keterangan}</p>
         </header>
+        <div
+          className={`hidden lg:grid ${GRID_BARIS_HUB} items-center gap-x-3 border-b border-suka-brown/5 bg-suka-cream/25 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-suka-gray-500`}
+          aria-hidden="true"
+        >
+          <span />
+          <span>Pengaju</span>
+          <span>Waktu Pengajuan</span>
+          <span>Outlet</span>
+          <span>Kategori</span>
+          <span>Keterangan</span>
+          <span>Rekening Tujuan</span>
+          <span className="text-right">Nominal &amp; Aksi</span>
+        </div>
         <ul className="divide-y divide-suka-brown/5">
           {isi.map((i) => (
             <BarisHub key={i.key} item={i} now={now} bolehPutuskan={bolehPutuskan} onSetujui={onSetujui} onTolak={onTolak} />

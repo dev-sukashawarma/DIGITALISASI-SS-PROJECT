@@ -49,6 +49,7 @@ type Dasar = {
   key: string
   id: string
   judul: string
+  outlet?: string | null
   keterangan: string
   nominal: number
   menungguSejak: string
@@ -98,6 +99,7 @@ export function itemDariPettyCash(t: PettyCashTopup): HubItem | null {
     id: t.id,
     jenis,
     judul: t.outlet?.name ?? '-',
+    outlet: t.outlet?.name ?? null,
     keterangan: gabungKeterangan(t.outlet_staff?.name, potong(t.reason ?? t.description)),
     nominal: Number(t.amount) || 0,
     menungguSejak: t.created_at,
@@ -133,7 +135,8 @@ export function itemDariKasbon(k: KasbonMenunggu): HubItem {
     id: k.id,
     jenis: 'kasbon',
     judul: k.staff_nama || '-',
-    keterangan: gabungKeterangan(k.outlet_nama, potong(k.reason), cicilan > 1 ? `${cicilan}x cicilan` : null),
+    outlet: k.outlet_nama || null,
+    keterangan: gabungKeterangan(potong(k.reason), cicilan > 1 ? `${cicilan}x cicilan` : null),
     nominal: Number(k.amount) || 0,
     menungguSejak: k.approved_at ?? k.created_at,
     detailHref: null,
@@ -178,6 +181,7 @@ export function itemDariVoucher(v: OfficeVoucher): HubItem | null {
     id: v.id,
     jenis: 'dana_kantor',
     judul: `${v.division} · ${v.recipientName}`,
+    outlet: v.division || null,
     keterangan: gabungKeterangan(v.voucherNumber, potong(v.reason)),
     nominal: Number(v.realizedAmount ?? v.advanceAmount) || 0,
     menungguSejak: v.createdAt,

@@ -18,7 +18,7 @@ export async function fetchOutletsOperasional(
 ): Promise<Outlet[]> {
   let q = supabase
     .from('outlets')
-    .select('id, slug, name, address, lat, lng, type, is_active, status, marquee_warning_threshold, open_hour, close_hour, deleted_at')
+    .select('id, slug, name, address, lat, lng, type, is_active, status, marquee_warning_threshold, open_hour, close_hour, deleted_at, nonaktif_at')
     .neq('type', 'marketplace')
     .neq('id', TEST_OUTLET_ID)
   if (!opsi.termasukPersiapan) q = q.neq('status', 'pending')

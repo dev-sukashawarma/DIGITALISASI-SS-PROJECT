@@ -31,7 +31,7 @@ export default async function PettyCashOwnerPage({ searchParams }: { searchParam
 
   const { data: outlets = [] } = await supabase
     .from('outlets')
-    .select('id, slug, name, address, lat, lng, type, is_active, marquee_warning_threshold')
+    .select('id, slug, name, address, lat, lng, type, is_active, status, nonaktif_at, marquee_warning_threshold')
     .neq('id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
     .order('name')
 

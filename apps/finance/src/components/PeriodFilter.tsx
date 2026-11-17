@@ -9,6 +9,7 @@ import { presetRange } from '@/lib/period'
 import { Globe, Calendar, Monitor, Gift, Check, ChevronDown } from 'lucide-react'
 import { getChannel } from '@/lib/channels'
 import { OutletCombobox } from './OutletCombobox'
+import type { StatusTutupOutlet } from '@/lib/outletTutup'
 
 const SOURCES = ['all', 'pos', 'online', 'gofood', 'grabfood', 'shopeefood', 'tiktok', 'endors'] as const
 
@@ -173,7 +174,7 @@ export function PeriodFilter({
 }: {
   value: PeriodFilterValue
   onChange: (v: PeriodFilterValue) => void
-  outlets: { id: string; name: string }[]
+  outlets: ({ id: string; name: string; type?: string } & StatusTutupOutlet)[]
   lockedOutletId?: string | null
   hideSource?: boolean
 }) {
@@ -237,6 +238,7 @@ export function PeriodFilter({
             value={value.outletId}
             outlets={outlets || []}
             includeAll={!outlets || outlets.length > 1}
+            periodeMulai={value.from}
             onChange={(outletId) => onChange({ ...value, outletId })}
           />
         )}

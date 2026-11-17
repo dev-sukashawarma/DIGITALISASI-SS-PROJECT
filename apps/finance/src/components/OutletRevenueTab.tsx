@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import { useOutlets } from '@/hooks/useOutlets'
@@ -11,6 +11,7 @@ import NumberFlow from '@number-flow/react'
 import { fetchAllRows } from '@/lib/fetchAllRows'
 import { TargetCombobox } from '@/components/TargetCombobox'
 import { isExcludedOutlet } from '@/lib/outletFilters'
+import { outletTampilDiPeriode } from '@/lib/outletTutup'
 
 interface SalesItemRow {
   sales_date: string | null
@@ -52,6 +53,11 @@ export default function OutletRevenueTab() {
 
   const supabase = useMemo(() => createClient(), [])
   const { data: outlets = [] } = useOutlets()
+  // Outlet yang tutup sebelum bulan awal periode → pilihan kembali ke Semua Outlet.
+  useEffect(() => {
+    const terpilih = outlets.find(o => o.id === selectedOutletId)
+    if (terpilih && !outletTampilDiPeriode(terpilih, startDate)) setSelectedOutletId('all')
+  }, [outlets, selectedOutletId, startDate])
 
   const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value
@@ -370,7 +376,7 @@ export default function OutletRevenueTab() {
               onChange={handleOutletChange}
               options={[
                 { value: 'all', label: 'Semua Outlet' },
-                ...outlets.filter(o => !isExcludedOutlet(o)).map(o => ({ value: o.id, label: o.name }))
+                ...outlets.filter(o => !isExcludedOutlet(o) && (o.id === selectedOutletId || outletTampilDiPeriode(o, startDate))).map(o => ({ value: o.id, label: o.name }))
               ]}
               className="w-full"
             />

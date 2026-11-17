@@ -19,7 +19,7 @@ export function useOutlets(initialData?: Outlet[], opsi: { termasukPersiapan?: b
     queryFn: async () => {
       let q = supabase
         .from('outlets')
-        .select('id, slug, name, address, lat, lng, type, is_active')
+        .select('id, slug, name, address, lat, lng, type, is_active, status, nonaktif_at')
         // Outlet uji developer jangan masuk perhitungan (lihat @/lib/outletFilters).
         // Daftar ini memberi makan buku kas, rekap bulanan, waste, target
         // harian, bonus crew, dan pengeluaran — semuanya laporan uang.

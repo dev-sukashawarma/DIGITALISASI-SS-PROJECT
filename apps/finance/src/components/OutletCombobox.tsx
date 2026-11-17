@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Store, Search, Check, ChevronDown } from 'lucide-react'
 import { isTestOutlet } from '@/lib/outletFilters'
+import { outletTampilDiPeriode, type StatusTutupOutlet } from '@/lib/outletTutup'
 
 export function cleanOutletName(name: string) {
   const upper = (name || '').toUpperCase().replace(/^🛒\s*/, '').trim()
@@ -25,14 +26,18 @@ export function isMitraOutlet(o: { id?: string; name?: string; type?: string }) 
 }
 
 export function OutletCombobox({
-  value, outlets, onChange, className, includeAll = true, placeholder = 'Pilih outlet'
+  value, outlets, onChange, className, includeAll = true, placeholder = 'Pilih outlet', periodeMulai
 }: {
   value: string
-  outlets: { id: string; name: string; type?: string }[]
+  outlets: ({ id: string; name: string; type?: string } & StatusTutupOutlet)[]
   onChange: (id: string) => void
   className?: string
   includeAll?: boolean
   placeholder?: string
+  /** Awal periode (YYYY-MM-DD). Bila diisi, outlet yang sudah tutup sebelum
+   *  bulan periode ini disembunyikan, dan pilihan yang tersembunyi direset ke
+   *  "Semua Outlet". Lihat lib/outletTutup.ts. */
+  periodeMulai?: string | null
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -53,17 +58,24 @@ export function OutletCombobox({
 
   const mitraOptions = useMemo(() => {
     return outlets
-      .filter((o) => !isExcludedOutlet(o) && o.id !== 'all' && o.id !== 'ss-online' && isMitraOutlet(o))
+      .filter((o) => !isExcludedOutlet(o) && o.id !== 'all' && o.id !== 'ss-online' && isMitraOutlet(o) && outletTampilDiPeriode(o, periodeMulai))
       .map((o) => ({ id: o.id, name: cleanOutletName(o.name) }))
       .sort((a, b) => a.name.localeCompare(b.name))
-  }, [outlets])
+  }, [outlets, periodeMulai])
 
   const internalOptions = useMemo(() => {
     return outlets
-      .filter((o) => !isExcludedOutlet(o) && o.id !== 'all' && o.id !== 'ss-online' && !isMitraOutlet(o))
+      .filter((o) => !isExcludedOutlet(o) && o.id !== 'all' && o.id !== 'ss-online' && !isMitraOutlet(o) && outletTampilDiPeriode(o, periodeMulai))
       .map((o) => ({ id: o.id, name: cleanOutletName(o.name) }))
       .sort((a, b) => a.name.localeCompare(b.name))
-  }, [outlets])
+  }, [outlets, periodeMulai])
+
+  // Pilihan outlet yang tutup sebelum periode ini → kembali ke Semua Outlet.
+  useEffect(() => {
+    if (!periodeMulai || value === 'all' || value === 'ss-online') return
+    const terpilih = outlets.find((o) => o.id === value)
+    if (terpilih && !outletTampilDiPeriode(terpilih, periodeMulai)) onChange('all')
+  }, [periodeMulai, value, outlets, onChange])
 
   const filteredMitra = useMemo(() => {
     if (!query.trim()) return mitraOptions

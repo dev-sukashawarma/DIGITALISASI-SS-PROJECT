@@ -243,7 +243,7 @@ export default function OwnerDashboardView({
 
           {/* Leaderboard Kinerja Outlet (Full Width di atas saat filter 30 hari & semua outlet) */}
           {is30Days && !isReadOnly && filter.outletId === 'all' && (
-            <OutletLeaderboard entries={leaderboard || []} allOutlets={outlets} />
+            <OutletLeaderboard entries={leaderboard || []} allOutlets={outlets} periodeMulai={filter.from} />
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -261,7 +261,7 @@ export default function OwnerDashboardView({
 
           {/* Leaderboard Kinerja Outlet (posisi default bawah saat bukan filter 30 hari & semua outlet) */}
           {!is30Days && !isReadOnly && filter.outletId === 'all' && (
-            <OutletLeaderboard entries={leaderboard || []} allOutlets={outlets} />
+            <OutletLeaderboard entries={leaderboard || []} allOutlets={outlets} periodeMulai={filter.from} />
           )}
         </div>
       </div>

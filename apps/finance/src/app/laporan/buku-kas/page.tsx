@@ -71,6 +71,7 @@ import { deleteTransactionAction } from '@/app/actions/expenses'
 import { CATEGORY_META, isSalaryCategory, isLemburExpense, PENGELUARAN_CATEGORIES } from '@/lib/expenseCategories'
 import { rupiah } from '@/lib/format'
 import { isExcludedOutlet } from '@/lib/outletFilters'
+import { outletTampilDiPeriode } from '@/lib/outletTutup'
 import { generateOpexReportPDF } from '@/utils/opexPdfGenerator'
 import { BUKU_KAS_PARAMS } from '@/lib/bukuKasLink'
 import { calculateDateRangeProrata } from '@/lib/opexDateRangeProrata'
@@ -948,9 +949,15 @@ export default function BukuKasPage() {
     return stats
   }, [daftarTampil])
 
+  // Outlet yang tutup sebelum bulan awal periode disembunyikan dari pilihan
+  // (lib/outletTutup.ts); pilihan yang tersembunyi kembali ke Global.
   const validOutlets = useMemo(() => {
-    return outlets.filter(o => !isExcludedOutlet(o))
-  }, [outlets])
+    return outlets.filter(o => !isExcludedOutlet(o) && outletTampilDiPeriode(o, startDate))
+  }, [outlets, startDate])
+  useEffect(() => {
+    const terpilih = outlets.find(o => o.id === target)
+    if (terpilih && !outletTampilDiPeriode(terpilih, startDate)) setTarget('all')
+  }, [outlets, target, startDate])
 
   const selectOptions = useMemo(() => {
     const outletMitra = validOutlets.filter(o => mitraIds.has(o.id))

@@ -36,7 +36,7 @@ export default async function LaporanPettyCashPage({ searchParams }: { searchPar
 
   const { data: outlets } = await supabase
     .from('outlets')
-    .select('id, slug, name, address, lat, lng, type, is_active')
+    .select('id, slug, name, address, lat, lng, type, is_active, status, nonaktif_at')
     .neq('id', TEST_OUTLET_ID)
     .order('name')
 

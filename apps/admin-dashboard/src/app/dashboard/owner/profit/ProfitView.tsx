@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { BiayaRabPanel } from '@/components/BiayaRabPanel'
 import { useOutlets } from '@/hooks/useOutlets'
+import { outletTampilDiPeriode } from '@/lib/outletTutup'
 import { useSalesDaily } from '@/hooks/useSalesDaily'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useHpp } from '@/hooks/useHpp'
@@ -542,7 +543,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   const outletBreakdown = useMemo(() => {
     const map = new Map<string, { name: string; omzet: number; deductions: number; expense: number; hpp: number; waste: number }>()
 
-    outlets.filter(o => !isTestOutlet(o)).forEach(o => {
+    // Baris nol hanya untuk outlet yang masih tampil di periode ini; outlet tutup
+    // yang masih punya angka tetap muncul lewat data di bawah (lib/outletTutup.ts).
+    outlets.filter(o => !isTestOutlet(o) && outletTampilDiPeriode(o, filter.from)).forEach(o => {
       map.set(o.id, { name: o.name, omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 })
     })
 
@@ -673,7 +676,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         if (sortBy === 'omzet') return b.netRev - a.netRev
         return b.net - a.net
       })
-  }, [salesRows, expenseRows, hppRows, wasteRows, outlets, sortBy, managementFeeData, mitraIds, scope, closingMitra, closingInternalPerOutlet])
+  }, [salesRows, expenseRows, hppRows, wasteRows, outlets, filter.from, sortBy, managementFeeData, mitraIds, scope, closingMitra, closingInternalPerOutlet])
 
   // Informasi pembagian hasil (50:50) ketika memfilter satu outlet kemitraan yang sudah BEP
   const selectedMitraFeeInfo = !isAllOutlets && (scope === 'mitra' || mitraIds.has(filter.outletId))

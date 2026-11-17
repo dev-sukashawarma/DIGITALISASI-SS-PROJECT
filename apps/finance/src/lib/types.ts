@@ -117,6 +117,8 @@ export interface Outlet {
   lng: number
   type: 'internal' | 'mitra' | 'gudang' | 'office' | 'marketplace' | 'system' | 'test'
   is_active: boolean
+  status?: string | null
+  nonaktif_at?: string | null
   bank_name?: string | null
   bank_account_number?: string | null
   bank_account_name?: string | null

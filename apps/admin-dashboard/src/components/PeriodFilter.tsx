@@ -22,6 +22,7 @@ const SOURCE_LABELS: Record<string, string> = {
 }
 
 import { OutletCombobox, cleanOutletName } from './OutletCombobox'
+import type { StatusTutupOutlet } from '@/lib/outletTutup'
 
 function CustomDateRangePopover({
   from, to, onChange, isActive, isLoading
@@ -181,7 +182,7 @@ export function PeriodFilter({
 }: {
   value: PeriodFilterValue
   onChange: (v: PeriodFilterValue) => void
-  outlets: { id: string; name: string }[]
+  outlets: ({ id: string; name: string; type?: string } & StatusTutupOutlet)[]
   lockedOutletId?: string | null
   hideSource?: boolean
   /** Sembunyikan pemilih outlet sepenuhnya — untuk layar yang memang hanya
@@ -273,6 +274,7 @@ export function PeriodFilter({
               value={value.outletId}
               outlets={outlets || []}
               includeAll={!outlets || outlets.length > 1}
+              periodeMulai={value.from}
               onChange={(outletId) => onChange({ ...value, outletId: outletId as PeriodFilterValue['outletId'] })}
             />
           )}

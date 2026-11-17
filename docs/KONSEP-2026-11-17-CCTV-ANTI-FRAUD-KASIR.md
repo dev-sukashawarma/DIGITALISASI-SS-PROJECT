@@ -4,6 +4,7 @@
 **Tanggal:** 17 November 2026
 **Lingkup:** CCTV saja. Data POS sengaja **tidak** disambungkan di tahap ini.
 **Fokus kecurangan:** **mengambil uang dari laci kasir** (lihat bagian 3a).
+**Keputusan (17 Nov 2026):** sistem **dibangun sendiri**, dan video **tidak dikirim ke cloud vendor luar**. Produk komersial sejenis hanya dipakai sebagai pembanding (bagian 19).
 
 ---
 
@@ -36,6 +37,7 @@ Konsep ini membuat CCTV **menandai sendiri** kejadian janggal di area kasir, men
 4. **Jam harus akurat.** Jam kamera disinkronkan otomatis ke internet (NTP), dan selisihnya dicek rutin.
 5. **Patokan per outlet.** Outlet ramai dan outlet sepi tidak disamakan.
 6. **Mulai kecil.** Satu outlet uji coba dulu sebelum diperluas.
+7. **Video milik sendiri.** Video dan klip hanya diolah dan disimpan di perangkat milik sendiri: mini PC di outlet dan server milik perusahaan. Tidak ada layanan AI pihak ketiga yang menerima video. Konsekuensinya: kamera harus bisa ditarik streamnya secara lokal (RTSP/ONVIF), bukan lewat cloud merek kamera.
 
 ## 3a. Fokus: mengambil uang dari laci
 
@@ -193,7 +195,13 @@ Halaman "Perlu Dicek" (admin-dashboard)
 
 Pengolahan video dilakukan **di outlet**, supaya internet outlet tidak terbebani. Yang dikirim ke pusat hanya data kejadian dan klip pendek.
 
+**Server pusat = server milik sendiri** (VPS perusahaan), bukan cloud vendor CCTV atau AI. Lokasi data center VPS perlu dicek dan dicatat di sini sebelum pilot outlet.
+
+**Pemberitahuan ke AM lewat WhatsApp** memakai GOWA yang sudah dipakai untuk laporan WA Area Manager. Pesan berisi kode kejadian, outlet, jam, satu foto diam, dan tautan ke kartu bukti. Klip video tetap hanya bisa dibuka di halaman "Perlu Dicek" (perlu login), tidak dikirim lewat WhatsApp.
+
 ## 10. Kamera Bardi
+
+> **Hasil uji kantor 17 Nov 2026: kamera Bardi (PTZ IP Camera) TIDAK bisa dipakai.** Tidak ada RTSP/ONVIF lokal (semua port tertutup). Lewat cloud Tuya, stream HLS hanya berisi animasi "memuat", dan go2rtc menggantung. Selain itu jalur cloud Tuya bertentangan dengan prinsip 7. Uji berikutnya memakai IP camera ber-RTSP (lihat bagian 14). Isi bagian ini di bawah dipertahankan sebagai catatan riwayat.
 
 Bardi berbasis platform Tuya. Rekamannya ada di microSD atau cloud Bardi dan biasanya diakses lewat aplikasi, sehingga sistem tidak bisa langsung "minta klip jam sekian".
 
@@ -281,6 +289,8 @@ Selama pilot, **tidak ada teguran ke kasir** berdasarkan sistem ini. Pilot hanya
 
 ## 17. Tahap sesudahnya (di luar dokumen ini)
 
+**Kebersihan dapur (dengan kamera yang sama atau kamera dapur):** crew memegang makanan tanpa sarung tangan, rambut tidak tertutup, tanpa masker. Ini fitur standar produk komersial (bagian 19) dan relevan untuk crew shawarma. Dikerjakan setelah deteksi uang di laci berjalan.
+
 Setelah CCTV berjalan, data POS bisa disambungkan sehingga kejadian video bisa dicocokkan dengan transaksi. Contohnya: jumlah pembeli per 15 menit dibandingkan dengan jumlah order, atau laci terbuka dicocokkan dengan ada/tidaknya pembayaran tunai di detik yang sama. Itu dibahas di dokumen tersendiri.
 
 ## 18. Referensi pustaka dan riset
@@ -294,3 +304,18 @@ Setelah CCTV berjalan, data POS bisa disambungkan sehingga kejadian video bisa d
 - PoseLift, riset deteksi anomali berbasis pose di ritel — https://arxiv.org/html/2501.06591v1
 - RetailS, dataset pencurian di ritel — https://arxiv.org/pdf/2603.04723v1
 - Contoh produk komersial sejenis: StopLift — https://www.wikipedia.com/wiki/StopLift
+
+## 19. Pembanding produk komersial
+
+| Produk | Yang dideteksi | Arsitektur | Catatan untuk kita |
+|---|---|---|---|
+| Neuronetic Vision — Kitchen Hygiene Monitoring ([video](https://www.youtube.com/watch?v=lbZw0X0Ct1k)) | Sarung tangan, penutup rambut di area masak | Kamera IP → PC Windows di outlet → **AI di cloud vendor** → WhatsApp + dashboard | Peringatan WhatsApp dengan foto, kamera, jam. Banding antar-outlet |
+| VISTA by UrSpayce ([video](https://www.youtube.com/watch?v=1w5f8X1Z-fY)) | 35+ pemeriksaan: kebersihan, masker, keramaian, meja kotor, lama antre kasir, jumlah pengunjung, ANPR, absensi pengenalan wajah | Kamera yang ada → **platform cloud vendor** → dashboard | Setiap peringatan punya bukti, penanggung jawab, dan status selesai. Laporan untuk owner & area manager |
+
+**Pelajaran:**
+- Arsitektur kita (kamera → komputer di outlet → AI → peringatan + dashboard) sama dengan produk komersial. Keduanya juga tidak memakai GPU khusus.
+- Keduanya tetap butuh kamera yang streamnya bisa ditarik. Kamera Bardi kita kemungkinan juga tidak akan didukung.
+- **Tidak ada yang menyebut deteksi pengambilan uang dari laci.** Itu fokus utama kita.
+- Keduanya mengirim video ke cloud vendor di luar negeri. **Tidak dipakai** sesuai prinsip 7, hanya sebagai patokan fitur dan tampilan.
+- Yang diambil: pola peringatan WhatsApp + foto, alur "bukti → penanggung jawab → status selesai", dan fitur kebersihan dapur sebagai tahap lanjutan.
+- Absensi dengan pengenalan wajah tidak diambil. Kita sudah punya app `absensi`, dan sistem ini tetap tanpa pengenalan wajah.

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { useOutlets } from '@/hooks/useOutlets'
-import { saringOutletPeriode } from '@/lib/outletTutup'
+import { namaDenganKeteranganTutup, saringOutletPeriode } from '@/lib/outletTutup'
 import {
   useMonthlyBonusSummary,
   useMonthlyCrewBonus,
@@ -130,7 +130,7 @@ export default function CrewBonusPage() {
     return [
       { label: 'Semua Outlet', value: '', icon: <Store className="w-4 h-4 text-suka-orange" /> },
       ...outletsTampil.map((o) => ({
-        label: cleanOutletName(o.name),
+        label: namaDenganKeteranganTutup(cleanOutletName(o.name), o),
         value: o.id,
         icon: <Store className="w-4 h-4 text-suka-gray-400" />,
       })),

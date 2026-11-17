@@ -71,7 +71,7 @@ import { deleteTransactionAction } from '@/app/actions/expenses'
 import { CATEGORY_META, isSalaryCategory, isLemburExpense, PENGELUARAN_CATEGORIES } from '@/lib/expenseCategories'
 import { rupiah } from '@/lib/format'
 import { isExcludedOutlet } from '@/lib/outletFilters'
-import { outletTampilDiPeriode } from '@/lib/outletTutup'
+import { namaDenganKeteranganTutup, outletTampilDiPeriode } from '@/lib/outletTutup'
 import { generateOpexReportPDF } from '@/utils/opexPdfGenerator'
 import { BUKU_KAS_PARAMS } from '@/lib/bukuKasLink'
 import { calculateDateRangeProrata } from '@/lib/opexDateRangeProrata'
@@ -964,7 +964,7 @@ export default function BukuKasPage() {
     const outletInternal = validOutlets.filter(o => !mitraIds.has(o.id))
     // `groupLabel` menggambar garis pemisah berteks tepat di atas pilihan itu.
     const berkelompok = (daftar: typeof validOutlets, judul: string) =>
-      daftar.map((o, i) => ({ label: o.name, value: o.id, ...(i === 0 ? { groupLabel: judul } : {}) }))
+      daftar.map((o, i) => ({ label: namaDenganKeteranganTutup(o.name, o), value: o.id, ...(i === 0 ? { groupLabel: judul } : {}) }))
     return [
       { label: 'Global (HO & Semua Outlet)', value: 'all' },
       { label: 'Semua Outlet', value: 'ALL_OUTLETS' },

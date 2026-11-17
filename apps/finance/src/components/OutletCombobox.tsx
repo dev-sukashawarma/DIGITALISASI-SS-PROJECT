@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Store, Search, Check, ChevronDown } from 'lucide-react'
 import { isTestOutlet } from '@/lib/outletFilters'
-import { outletTampilDiPeriode, type StatusTutupOutlet } from '@/lib/outletTutup'
+import { keteranganTutup, outletTampilDiPeriode, type StatusTutupOutlet } from '@/lib/outletTutup'
 
 export function cleanOutletName(name: string) {
   const upper = (name || '').toUpperCase().replace(/^🛒\s*/, '').trim()
@@ -61,7 +61,7 @@ export function OutletCombobox({
   const mitraOptions = useMemo(() => {
     return outlets
       .filter((o) => !isExcludedOutlet(o) && o.id !== 'all' && o.id !== 'ss-online' && isMitraOutlet(o) && outletTampilDiPeriode(o, periodeMulai))
-      .map((o) => ({ id: o.id, name: cleanOutletName(o.name) }))
+      .map((o) => ({ id: o.id, name: cleanOutletName(o.name), tutup: keteranganTutup(o) }))
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [outlets, periodeMulai])
 
@@ -69,7 +69,7 @@ export function OutletCombobox({
   const internalOptions = useMemo(() => {
     return outlets
       .filter((o) => !isExcludedOutlet(o) && o.id !== 'all' && o.id !== 'ss-online' && !isMitraOutlet(o) && outletTampilDiPeriode(o, periodeMulai))
-      .map((o) => ({ id: o.id, name: cleanOutletName(o.name) }))
+      .map((o) => ({ id: o.id, name: cleanOutletName(o.name), tutup: keteranganTutup(o) }))
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [outlets, periodeMulai])
 
@@ -106,7 +106,7 @@ export function OutletCombobox({
     }
     if (value === 'ss-online') return 'SS ONLINE'
     const found = [...mitraOptions, ...internalOptions].find((o) => o.id === value)
-    if (found) return found.name
+    if (found) return found.tutup ? `${found.name} · ${found.tutup}` : found.name
     if (outlets && outlets.length === 1) return cleanOutletName(outlets[0].name)
     return placeholder
   }, [value, includeAll, outlets, mitraOptions, internalOptions, placeholder])
@@ -208,6 +208,11 @@ export function OutletCombobox({
                           }`}
                         >
                           <span className="truncate">{o.name}</span>
+                          {o.tutup && (
+                            <span className="ml-auto shrink-0 rounded-md bg-suka-gray-100 px-1.5 py-0.5 text-[9px] font-bold text-suka-gray-500">
+                              {o.tutup}
+                            </span>
+                          )}
                           {isActive && <Check className="w-3.5 h-3.5 shrink-0" />}
                         </button>
                       </li>
@@ -241,6 +246,11 @@ export function OutletCombobox({
                           }`}
                         >
                           <span className="truncate">{o.name}</span>
+                          {o.tutup && (
+                            <span className="ml-auto shrink-0 rounded-md bg-suka-gray-100 px-1.5 py-0.5 text-[9px] font-bold text-suka-gray-500">
+                              {o.tutup}
+                            </span>
+                          )}
                           {isActive && <Check className="w-3.5 h-3.5 shrink-0" />}
                         </button>
                       </li>

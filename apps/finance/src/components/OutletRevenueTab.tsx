@@ -11,7 +11,7 @@ import NumberFlow from '@number-flow/react'
 import { fetchAllRows } from '@/lib/fetchAllRows'
 import { TargetCombobox } from '@/components/TargetCombobox'
 import { isExcludedOutlet } from '@/lib/outletFilters'
-import { outletTampilDiPeriode } from '@/lib/outletTutup'
+import { namaDenganKeteranganTutup, outletTampilDiPeriode } from '@/lib/outletTutup'
 
 interface SalesItemRow {
   sales_date: string | null
@@ -376,7 +376,7 @@ export default function OutletRevenueTab() {
               onChange={handleOutletChange}
               options={[
                 { value: 'all', label: 'Semua Outlet' },
-                ...outlets.filter(o => !isExcludedOutlet(o) && (o.id === selectedOutletId || outletTampilDiPeriode(o, startDate))).map(o => ({ value: o.id, label: o.name }))
+                ...outlets.filter(o => !isExcludedOutlet(o) && (o.id === selectedOutletId || outletTampilDiPeriode(o, startDate))).map(o => ({ value: o.id, label: namaDenganKeteranganTutup(o.name, o) }))
               ]}
               className="w-full"
             />

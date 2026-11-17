@@ -10,7 +10,7 @@ import { Receipt, FileText, ExternalLink, Store, ChevronLeft, ChevronRight, Down
 import NumberFlow from '@number-flow/react'
 import { TargetCombobox } from '@/components/TargetCombobox'
 import { isExcludedOutlet } from '@/lib/outletFilters'
-import { outletTampilDiPeriode } from '@/lib/outletTutup'
+import { namaDenganKeteranganTutup, outletTampilDiPeriode } from '@/lib/outletTutup'
 
 const ITEMS_PER_PAGE = 50
 
@@ -455,7 +455,7 @@ export default function PettyCashExpensesTab() {
               onChange={handleOutletChange}
               options={[
                 { value: 'all', label: 'Semua Outlet' },
-                ...outlets.filter(o => !isExcludedOutlet(o) && (o.id === selectedOutletId || outletTampilDiPeriode(o, startDate))).map(o => ({ value: o.id, label: o.name }))
+                ...outlets.filter(o => !isExcludedOutlet(o) && (o.id === selectedOutletId || outletTampilDiPeriode(o, startDate))).map(o => ({ value: o.id, label: namaDenganKeteranganTutup(o.name, o) }))
               ]}
               className="w-full"
             />

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   batasTampilOutletTutup,
+  keteranganTutup,
   outletSudahTutup,
   outletTampilDiPeriode,
   saringOutletPeriode,
@@ -60,6 +61,18 @@ describe('outletTampilDiPeriode', () => {
 
   it('outlet tutup tanpa tanggal tutup tetap tampil', () => {
     expect(outletTampilDiPeriode({ is_active: false, status: 'inactive', nonaktif_at: null }, '2027-01-01')).toBe(true)
+  })
+})
+
+describe('keteranganTutup', () => {
+  it('menyebut tanggal tutup (WIB) untuk outlet tutup', () => {
+    expect(keteranganTutup(sawangan)).toBe('Tutup 8 Nov')
+    expect(keteranganTutup(sukmajaya)).toBe('Tutup 27 Okt')
+  })
+
+  it('kosong untuk outlet aktif atau tanpa tanggal tutup', () => {
+    expect(keteranganTutup(aktif)).toBeNull()
+    expect(keteranganTutup({ is_active: false, status: 'inactive', nonaktif_at: null })).toBeNull()
   })
 })
 

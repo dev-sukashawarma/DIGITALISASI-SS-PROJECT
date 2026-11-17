@@ -2,7 +2,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { outletTampilDiPeriode } from '@/lib/outletTutup'
+import { namaDenganKeteranganTutup, outletTampilDiPeriode } from '@/lib/outletTutup'
 import Link from 'next/link'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useMitraInvestments } from '@/hooks/useMitraInvestments'
@@ -298,7 +298,7 @@ export default function ExpensesPage() {
     const outletMitra = validOutlets.filter((o) => mitraIds.has(o.id))
     const outletInternal = validOutlets.filter((o) => !mitraIds.has(o.id))
     const berkelompok = (daftar: typeof validOutlets, judul: string) =>
-      daftar.map((o, i) => ({ label: o.name, value: o.id, ...(i === 0 ? { groupLabel: judul } : {}) }))
+      daftar.map((o, i) => ({ label: namaDenganKeteranganTutup(o.name, o), value: o.id, ...(i === 0 ? { groupLabel: judul } : {}) }))
     return [
       { label: 'Global (HO & Semua Outlet)', value: 'all' },
       { label: 'Semua Outlet', value: 'ALL_OUTLETS' },

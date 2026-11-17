@@ -46,6 +46,24 @@ export function outletTampilDiPeriode(o: StatusTutupOutlet, periodeMulai?: strin
   return periodeMulai <= batasTampilOutletTutup(o.nonaktif_at)
 }
 
+const BULAN_PENDEK = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+
+/**
+ * Keterangan untuk outlet tutup yang masih tampil di pemilih, mis. "Tutup 8 Nov".
+ * Null untuk outlet aktif atau yang tanggal tutupnya tidak tercatat.
+ */
+export function keteranganTutup(o: StatusTutupOutlet): string | null {
+  if (!outletSudahTutup(o) || !o.nonaktif_at) return null
+  const wib = new Date(new Date(o.nonaktif_at).getTime() + WIB_MS)
+  return `Tutup ${wib.getUTCDate()} ${BULAN_PENDEK[wib.getUTCMonth()]}`
+}
+
+/** Nama outlet + keterangan tutup bila ada, mis. "SAWANGAN · Tutup 8 Nov". */
+export function namaDenganKeteranganTutup(nama: string, o: StatusTutupOutlet): string {
+  const k = keteranganTutup(o)
+  return k ? `${nama} · ${k}` : nama
+}
+
 export function saringOutletPeriode<T extends StatusTutupOutlet>(outlets: T[], periodeMulai?: string | null): T[] {
   if (!periodeMulai) return outlets
   return outlets.filter((o) => outletTampilDiPeriode(o, periodeMulai))

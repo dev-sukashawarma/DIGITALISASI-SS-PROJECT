@@ -234,6 +234,78 @@ Server pusat, kapan pun dibutuhkan, adalah **server milik sendiri** (VPS perusah
 - Absensi crew (clock-in/clock-out per outlet), untuk mengisi "crew bertugas" (D2).
 - Jam buka/tutup outlet (`outlets.open_hour` / `close_hour`), untuk kejadian K2 (D7).
 
+## 9a. Topologi koneksi
+
+### Uji kantor (semua di jaringan lokal kantor)
+
+```
+┌─────────────────────── Jaringan lokal kantor ───────────────────────┐
+│                                                                     │
+│  [Kamera atas laci] ──┐                                             │
+│   (menghadap bawah)   ├──► [Router kantor] ──► [PC kantor]          │
+│  [Kamera konter] ─────┘     (LAN / WiFi)        go2rtc, Frigate,    │
+│   (serong belakang)                             klip, rekaman 30 hr │
+│                                                      │              │
+│                                                      ▼              │
+│                                             [Admin / developer]     │
+│                                              buka "Perlu Dicek"     │
+└─────────────────────────────────────────────────────────────────────┘
+        Tidak ada video yang keluar ke internet.
+```
+
+### Pilot BNR (video diolah dan disimpan di outlet)
+
+```
+┌──────────────────── Outlet BNR ────────────────────┐        ┌──── Kantor ────┐
+│                                                     │        │                │
+│  [Kamera atas laci] ──┐                             │        │ [Admin /       │
+│   PoE, menghadap bawah├──► [Switch PoE] ──┐         │        │  developer]    │
+│  [Kamera konter] ─────┘    listrik + data │         │        │       ▲        │
+│   PoE, serong                             ▼         │        │       │        │
+│                     [Router BNR] ◄── [Mini PC N100] │        └───────┼────────┘
+│                     internet outlet   Frigate, klip,│                │
+│                           │           rekaman 30 hr,│                │
+│                           │           Perlu Dicek,  │                │
+│                           │           Tailscale     │                │
+│        [UPS] menyalakan switch PoE + mini PC        │                │
+└───────────────────────────┼─────────────────────────┘                │
+                            └ ─ ─ ─ ─ ─ Internet, VPN Tailscale ─ ─ ─ ─┘
+                              (hanya halaman & klip yang dibuka, bukan video penuh)
+```
+
+- Router BNR **tidak perlu diubah** dan tidak ada port yang dibuka ke publik. Tailscale dipasang di mini PC dan PC kantor.
+- Arus video kamera hanya berputar di dalam outlet (kamera → switch → mini PC), jadi internet POS tidak terbebani.
+
+### 20+ outlet (tiap outlet mengolah sendiri, pusat mengumpulkan hasil)
+
+```
+ [Outlet BNR]   [Outlet Empang]   [Outlet lain]   [Outlet ke-20+]
+ kamera, PoE,   kamera, PoE,      ...             kamera, PoE,
+ mini PC, UPS   mini PC, UPS                      mini PC, UPS
+      ╲              │                 │              ╱
+       ╲ ─ ─ ─ ─ VPN terenkripsi: kartu, foto, klip pendek ─ ─ ╱
+                              ▼
+               [Server pusat milik sendiri]
+               dashboard semua outlet, penilaian,
+               salinan klip Mencurigakan/Investigasi,
+               kirim zona & model ke outlet
+                 ▲                        │
+                 │ dibaca                 ▼
+   [Data sistem yang ada]        [Admin / developer]
+   absensi, jam outlet           Perlu Dicek gabungan
+```
+
+| Di mana | Tugas | Yang disimpan |
+|---|---|---|
+| Tiap outlet | Deteksi, buat kartu, rekam terus | Rekaman penuh 30 hari (D16) + semua klip kartu |
+| Jalur VPN | Kirim kartu, foto, status kesehatan kamera | Tidak menyimpan |
+| Server pusat | Dashboard gabungan, catatan penilaian, kirim pengaturan zona & pembaruan model, pantau kesehatan (K6) | Data kartu, foto, penilaian, salinan klip Mencurigakan/Investigasi |
+| Data sistem yang ada | Absensi & jam buka/tutup outlet | Hanya dibaca |
+
+Syarat skala 20+ outlet: perangkat **seragam** di semua outlet (supaya model bisa dipakai bersama), pengaturan dikirim dari pusat (tanpa datang ke outlet), dan setiap mini PC melapor rutin ke pusat. Server pusat **tidak mengolah video**, jadi tidak perlu GPU.
+
+Perkiraan kasar perangkat 20 outlet: 20 × ±Rp 6,7–7,7 jt (bagian 14a) ≈ **±Rp 134–154 jt**, belum termasuk tambahan penyimpanan di server pusat. Angka ini bisa turun bila kamera konter di sebagian outlet cukup memakai CCTV yang sudah ada (asal mendukung RTSP).
+
 ## 10. Kamera Bardi
 
 > **Hasil uji kantor 17 Nov 2026: kamera Bardi (PTZ IP Camera) TIDAK bisa dipakai.** Tidak ada RTSP/ONVIF lokal (semua port tertutup). Lewat cloud Tuya, stream HLS hanya berisi animasi "memuat", dan go2rtc menggantung. Selain itu jalur cloud Tuya bertentangan dengan prinsip 7. Uji berikutnya memakai IP camera ber-RTSP (lihat bagian 14). Isi bagian ini di bawah dipertahankan sebagai catatan riwayat.
@@ -378,9 +450,36 @@ Kamera PoE menerima **listrik dan data lewat satu kabel LAN**, jadi tidak perlu 
 | Barang | Harga | Kapan perlu |
 |---|---|---|
 | PC kantor yang sudah ada | Rp 0 | Uji kantor |
-| Mini PC Intel N100 16 GB / 512 GB (mis. Beelink S12 Pro) | ±Rp 3,2–3,55 jt | BNR, bila dipilih mengolah di outlet (D15) |
+| Mini PC Intel N100 (lihat tabel "Mini PC: baru vs bekas" di bawah) | ±Rp 2,1–3,55 jt | BNR, bila dipilih mengolah di outlet (D15) |
 | UPS kecil untuk mini PC + switch | ±Rp 0,8–1,2 jt | BNR |
-| Harddisk/SSD ±2 TB untuk rekaman penuh 30 hari (D16) | Harga belum dicek | BNR, dipasang di mini PC. Mini PC 512 GB saja tidak cukup untuk rekaman penuh |
+| Penyimpanan ±2 TB untuk rekaman penuh 30 hari (D16) | ±Rp 0,9–2,6 jt | BNR. Lihat tabel "Penyimpanan" di bawah. Mini PC 512 GB saja tidak cukup |
+
+### Mini PC: baru vs bekas
+
+| Pilihan | Harga | Catatan |
+|---|---|---|
+| MSI Cubi N ADL N100 **barebone** (baru) | ±Rp 2,1 jt | Belum termasuk RAM dan SSD |
+| GK3 Plus N100 8 GB / 256 GB (baru) | ±Rp 2,6 jt | Cukup untuk 2 kamera, penyimpanan rekaman ditambah terpisah |
+| T9 Plus / BMAX B4 Plus N100 8 GB / 128–512 GB (baru) | ±Rp 2,8–3,0 jt | |
+| Beelink S12 Pro / EQ12 N100 16 GB / 500 GB (baru) | ±Rp 3,2–3,55 jt | ⚠️ Revisi baru S12 Pro **tidak punya slot 2,5 inci**. Penambahan penyimpanan lewat slot M.2 kedua (PCIe 3.0 x1, cukup untuk video) |
+| Mini PC N100 **bekas** | Tidak ditemukan | Pencarian tidak menemukan listing bekas yang jelas |
+| Lenovo ThinkCentre Tiny M720q / M920q **bekas** (Intel gen 8) | Harga Indonesia tidak ditemukan | Banyak dijual bekas korporat. Sebagai patokan, di Eropa M720q i3/16 GB refurbished ±€289. iGPU Intel juga bisa dipakai Frigate |
+| PC tower kantor **bekas** | Belum dicek | Kelebihannya: muat harddisk 3,5 inci khusus CCTV di dalamnya |
+
+### Penyimpanan rekaman penuh (±2 TB)
+
+| Pilihan | Harga | Catatan |
+|---|---|---|
+| **SSD NVMe 2 TB** (Lexar NM610 Pro, Team MP33 Pro, ADATA Legend 900, dll.) | ±Rp 1,8–2,6 jt | **Disarankan untuk mini PC**: masuk ke slot M.2 kedua. Daya tahan tulis cukup (±8–16 TB per tahun untuk 2 kamera) |
+| HDD khusus CCTV 3,5 inci 2 TB (WD Purple / Seagate SkyHawk), baru | ±Rp 0,9–2,6 jt (selisih harga antar penjual besar) | Dirancang untuk rekam 24 jam. **Tidak muat di mini PC**: butuh PC tower atau rumah harddisk eksternal berlistrik sendiri |
+| HDD 3,5 inci 2 TB biasa (Toshiba P300, WD Blue, Seagate Barracuda), baru | ±Rp 1,0–1,2 jt | Murah, tapi bukan untuk rekam 24 jam terus-menerus |
+| HDD eksternal USB 2,5 inci 2 TB (WD My Passport, Toshiba Canvio) | ±Rp 1,2–1,3 jt | Mudah dipasang, tapi bukan untuk rekam 24 jam dan bisa tercabut |
+| HDD **bekas** 2 TB | ±Rp 1,2 jt (hanya ketemu satu, sepaket dengan DVR bekas) | ❌ **Tidak disarankan** untuk rekaman bukti: harddisk adalah bagian yang paling cepat rusak, dan umur pemakaiannya tidak diketahui. Kalau terpaksa, cek SMART dan jam pemakaian dulu |
+
+**Saran kombinasi BNR:**
+- Mini PC N100 baru 8 GB (±Rp 2,6–3 jt) + SSD NVMe 2 TB di slot kedua (±Rp 1,8–2 jt) ≈ **Rp 4,4–5 jt**. Ringkas dan tanpa bagian berputar.
+- Alternatif hemat: **PC tower bekas** + HDD CCTV 3,5 inci baru. Lebih besar dan lebih boros listrik, tapi harddisk khusus CCTV muat langsung di dalamnya.
+- Harddisk **bekas** tidak dipakai untuk rekaman bukti.
 | microSD di kamera (cadangan rekaman) | ±Rp 100–200 rb | Opsional |
 | ~~Google Coral USB~~ | ±Rp 2,8 jt | **Tidak perlu.** N100 cukup untuk 1–2 kamera, dan produknya dicatat sudah dihentikan oleh sebagian penjual |
 
@@ -392,7 +491,7 @@ Kamera PoE menerima **listrik dan data lewat satu kabel LAN**, jadi tidak perlu 
 | **A' — Dahua PoE** | 2× Dahua IPC-HDW1230T1-A-S5 + switch PoE + kabel | **±Rp 1,45–1,55 jt** | Perangkat sama dengan BNR (tinggal dipindah), kabel lebih stabil. Tanpa switch (pakai adaptor 12V) bisa lebih murah |
 | B' — Hikvision PoE 4 MP | 2× DS-2CD1343G0E-I + switch PoE + kabel | ±Rp 2,6–2,8 jt | Gambar lebih tajam untuk kamera konter |
 
-**Perkiraan total BNR** (kamera PoE + switch + kabel + mini PC + UPS): **±Rp 5,5–6,5 jt** dengan Dahua 2 MP. Mini PC bisa tidak dibeli bila hasil uji kantor menunjukkan video BNR boleh diolah di PC kantor (D15).
+**Perkiraan total BNR** (2 kamera Dahua 2 MP ±Rp 0,95 jt + switch PoE ±Rp 0,37 jt + kabel ±Rp 0,15 jt + mini PC N100 8 GB ±Rp 2,6–3 jt + SSD 2 TB ±Rp 1,8–2 jt + UPS ±Rp 0,8–1,2 jt): **±Rp 6,7–7,7 jt**. Angka ini naik dari perkiraan sebelumnya (±Rp 5,5–6,5 jt) karena penyimpanan rekaman penuh 30 hari (D16) kini ikut dihitung. Mini PC bisa tidak dibeli bila hasil uji kantor menunjukkan video BNR boleh diolah di PC kantor (D15).
 
 Sumber harga: listing Tokopedia (TP-Link Indonesia, Bandar CCTV Surabaya, Saber Technology, Delta Vision, Maxprovision, Millennium Central CCTV, Sanjayacomtronix, Beelink Official), Nale, dan Dinomarket, diakses 17 Nov 2026.
 

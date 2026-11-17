@@ -25,6 +25,7 @@
 | D13 | Outlet pilot | **SUKA SHAWARMA BNR.** |
 | D14 | Cek HR/legal untuk pilot tanpa pemberitahuan | Owner menjawab **"ya"** (17 Nov 2026). Bentuk persetujuan HR/legal sebaiknya dilampirkan sebelum pilot BNR dimulai. |
 | D15 | Tempat mengolah & menyimpan video | **Perangkat lokal dulu, VPS nanti.** Uji kantor: PC kantor. Pilot BNR: mini PC di BNR, diakses dari kantor lewat VPN terenkripsi (Tailscale). Server pusat baru dibutuhkan saat sistem dipakai banyak outlet. **Perangkat di BNR diputuskan setelah uji kantor**: mini PC N100, PC/laptop bekas, atau diolah di PC kantor (tetap butuh alat jembatan VPN di BNR). Dasarnya beban PC dan besar arus video yang terukur saat uji. |
+| D16 | Rekaman penuh (bukan hanya klip kartu) | **Disimpan 30 hari di outlet**, lalu terhapus otomatis. Tidak dikirim ke pusat. Klip kartu tetap mengikuti D5. |
 
 ---
 
@@ -254,10 +255,22 @@ Jalan yang mungkin, **belum diverifikasi untuk model yang dipakai outlet**:
 | Klip "Mencurigakan" | 1 tahun |
 | Klip "Investigasi" | Sampai kasus selesai |
 | Data aktivitas zona per menit (tanpa video) | Bisa disimpan lama, dipakai untuk belajar |
+| **Rekaman penuh semua kamera (D16)** | **30 hari, di outlet** (harddisk mini PC), lalu terhapus otomatis |
 
 - Setiap klip diberi sidik digital (hash) saat disimpan, supaya terbukti tidak diedit.
 - Setiap kali klip dibuka atau diunduh, tercatat siapa dan kapan.
-- Rekaman penuh tetap di kamera/NVR outlet dengan masa simpan bawaannya. Sistem tidak menyalin seluruh rekaman.
+- **Rekaman penuh disimpan 30 hari di outlet (D16).** Frigate merekam terus dan menghapus otomatis rekaman yang lebih tua dari 30 hari. Admin/developer bisa memutar ulang hari mana pun dalam 30 hari terakhir dari kantor lewat VPN, misalnya saat ada laporan uang hilang yang tidak tertangkap sistem.
+- **Rekaman penuh tidak dikirim ke pusat.** Untuk 20 outlet × 2 kamera, ukurannya ±26–52 TB per bulan dan tiap outlet harus terus mengunggah 2–4 Mbps selama 24 jam. Yang disalin ke pusat hanya klip "Mencurigakan" dan "Investigasi", jadi klip itu tetap aman walaupun rekaman penuhnya sudah terhapus atau mini PC rusak.
+- **Batas 30 hari disengaja.** Rekaman penuh berarti seluruh jam kerja karyawan terekam. Batas yang jelas mengurangi risiko kalau terjadi kebocoran dan lebih mudah dipertanggungjawabkan dari sisi UU PDP.
+
+**Perkiraan ukuran rekaman penuh** (kamera 2 MP, gambar penuh):
+
+| Format | Per kamera per hari (24 jam) | 2 kamera, 30 hari (24 jam) | 2 kamera, 30 hari (jam operasional ±10 jam) |
+|---|---|---|---|
+| H.264 (±2 Mbps) | ±21 GB | ±1,3 TB | ±540 GB |
+| H.265 (±1 Mbps) | ±11 GB | ±650 GB | ±270 GB |
+
+**Harddisk ±2 TB per outlet** sudah cukup untuk 30 hari dengan sisa ruang. Kamera dipasang memakai **H.265** bila didukung (Dahua dan Hikvision di bagian 14a mendukung).
 
 ## 12. Privasi dan aspek hukum
 
@@ -367,6 +380,7 @@ Kamera PoE menerima **listrik dan data lewat satu kabel LAN**, jadi tidak perlu 
 | PC kantor yang sudah ada | Rp 0 | Uji kantor |
 | Mini PC Intel N100 16 GB / 512 GB (mis. Beelink S12 Pro) | ±Rp 3,2–3,55 jt | BNR, bila dipilih mengolah di outlet (D15) |
 | UPS kecil untuk mini PC + switch | ±Rp 0,8–1,2 jt | BNR |
+| Harddisk/SSD ±2 TB untuk rekaman penuh 30 hari (D16) | Harga belum dicek | BNR, dipasang di mini PC. Mini PC 512 GB saja tidak cukup untuk rekaman penuh |
 | microSD di kamera (cadangan rekaman) | ±Rp 100–200 rb | Opsional |
 | ~~Google Coral USB~~ | ±Rp 2,8 jt | **Tidak perlu.** N100 cukup untuk 1–2 kamera, dan produknya dicatat sudah dihentikan oleh sebagian penjual |
 

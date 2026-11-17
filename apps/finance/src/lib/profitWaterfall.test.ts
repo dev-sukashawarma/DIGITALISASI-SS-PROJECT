@@ -1,0 +1,441 @@
+import { describe, expect, it } from 'vitest'
+import { buildProfitWaterfall } from './profitWaterfall'
+import { computeProfit, computeCompanyProfit } from './profit'
+
+const INPUT = {
+  grossRevenue: 100_000_000,
+  deductions: 8_000_000,
+  hpp: 40_000_000,
+  waste: 2_000_000,
+  opexMonthly: 25_000_000,
+  opexPettyCash: 5_000_000,
+  centralExpense: 7_000_000,
+  includeCentral: true,
+}
+
+describe('buildProfitWaterfall', () => {
+  it('Pendapatan Lain-lain menambah laba bersih perusahaan, sama dengan computeCompanyProfit', () => {
+    const { labaBersih } = computeProfit(
+      INPUT.grossRevenue, INPUT.deductions, INPUT.hpp, INPUT.opexMonthly + INPUT.opexPettyCash, INPUT.waste,
+    )
+    const { labaPerusahaan } = computeCompanyProfit(labaBersih, INPUT.centralExpense, 150_000)
+    const steps = buildProfitWaterfall({ ...INPUT, pendapatanLain: 150_000 })
+    expect(steps.find((s) => s.key === 'pendapatan_lain')?.amount).toBe(150_000)
+    expect(steps.find((s) => s.kind === 'total')?.amount).toBe(labaPerusahaan)
+  })
+
+  it('mendarat persis di laba bersih versi computeProfit + computeCompanyProfit', () => {
+    const { labaBersih } = computeProfit(
+      INPUT.grossRevenue,
+      INPUT.deductions,
+      INPUT.hpp,
+      INPUT.opexMonthly + INPUT.opexPettyCash,
+      INPUT.waste,
+    )
+    const { labaPerusahaan } = computeCompanyProfit(labaBersih, INPUT.centralExpense)
+
+    const steps = buildProfitWaterfall(INPUT)
+    const total = steps.find((s) => s.kind === 'total')
+    expect(total?.amount).toBe(labaPerusahaan)
+  })
+
+  it('setiap subtotal sama dengan jumlah berjalan baris di atasnya', () => {
+    const steps = buildProfitWaterfall(INPUT)
+    let running = 0
+    for (const step of steps) {
+      if (step.kind === 'subtotal' || step.kind === 'total') {
+        expect(step.amount).toBe(running)
+      } else {
+        running += step.amount
+      }
+    }
+  })
+
+  it('mengikuti definisi resmi: waste TIDAK mengurangi laba kotor', () => {
+    const steps = buildProfitWaterfall(INPUT)
+    const labaKotor = steps.find((s) => s.key === 'laba_kotor')
+    const { labaKotor: expected } = computeProfit(
+      INPUT.grossRevenue,
+      INPUT.deductions,
+      INPUT.hpp,
+      0,
+      INPUT.waste,
+    )
+    expect(labaKotor?.amount).toBe(expected)
+  })
+
+  it('menghilangkan baris biaya pusat saat tidak ikut dihitung', () => {
+    const steps = buildProfitWaterfall({ ...INPUT, includeCentral: false })
+    expect(steps.some((s) => s.key === 'biaya_pusat')).toBe(false)
+
+    const { labaBersih } = computeProfit(
+      INPUT.grossRevenue,
+      INPUT.deductions,
+      INPUT.hpp,
+      INPUT.opexMonthly + INPUT.opexPettyCash,
+      INPUT.waste,
+    )
+    expect(steps.find((s) => s.kind === 'total')?.amount).toBe(labaBersih)
+  })
+
+  it('pengurangan bertanda negatif, omzet dasar positif', () => {
+    const steps = buildProfitWaterfall(INPUT)
+    expect(steps.find((s) => s.key === 'omzet_kotor')?.amount).toBe(100_000_000)
+    expect(steps.find((s) => s.key === 'potongan')?.amount).toBe(-8_000_000)
+    expect(steps.find((s) => s.key === 'waste')?.amount).toBe(-2_000_000)
+  })
+
+  it('menghitung porsi tiap baris terhadap omzet kotor', () => {
+    const steps = buildProfitWaterfall(INPUT)
+    expect(steps.find((s) => s.key === 'omzet_kotor')?.pctOfGross).toBe(100)
+    expect(steps.find((s) => s.key === 'hpp')?.pctOfGross).toBe(-40)
+  })
+
+  it('tidak membagi nol saat belum ada penjualan', () => {
+    const steps = buildProfitWaterfall({
+      grossRevenue: 0,
+      deductions: 0,
+      hpp: 0,
+      waste: 0,
+      opexMonthly: 1_000_000,
+      opexPettyCash: 0,
+      centralExpense: 0,
+      includeCentral: false,
+    })
+    for (const step of steps) expect(Number.isFinite(step.pctOfGross)).toBe(true)
+    expect(steps.find((s) => s.kind === 'total')?.amount).toBe(-1_000_000)
+  })
+
+  it('tetap utuh saat rugi (angka negatif)', () => {
+    const steps = buildProfitWaterfall({ ...INPUT, grossRevenue: 10_000_000, includeCentral: true })
+    const total = steps.find((s) => s.kind === 'total')
+    expect(total?.amount).toBeLessThan(0)
+  })
+})
+
+describe('rincian Beban Bulanan Outlet', () => {
+  const RINCIAN = [
+    { label: 'Gaji Crew Outlet', amount: -18_000_000 },
+    { label: 'Biaya Sewa Outlet', amount: -5_000_000 },
+    { label: 'PLN', amount: -2_000_000 },
+  ]
+
+  it('menempel pada baris beban bulanan, bukan baris lain', () => {
+    const steps = buildProfitWaterfall({ ...INPUT, opexMonthly: 25_000_000, opexMonthlyBreakdown: RINCIAN })
+    expect(steps.find((s) => s.key === 'opex_bulanan')?.breakdown).toEqual(RINCIAN)
+    for (const s of steps.filter((s) => s.key !== 'opex_bulanan')) {
+      expect(s.breakdown).toBeUndefined()
+    }
+  })
+
+  it('jumlah rinciannya sama dengan baris induknya', () => {
+    const steps = buildProfitWaterfall({ ...INPUT, opexMonthly: 25_000_000, opexMonthlyBreakdown: RINCIAN })
+    const induk = steps.find((s) => s.key === 'opex_bulanan')!
+    const jumlah = induk.breakdown!.reduce((s, r) => s + r.amount, 0)
+    expect(jumlah).toBe(induk.amount)
+  })
+
+  it('tidak mengubah laba bersih sama sekali', () => {
+    const tanpa = buildProfitWaterfall(INPUT)
+    const dengan = buildProfitWaterfall({ ...INPUT, opexMonthlyBreakdown: RINCIAN })
+    expect(dengan.find((s) => s.kind === 'total')?.amount).toBe(
+      tanpa.find((s) => s.kind === 'total')?.amount,
+    )
+  })
+
+  it('tak ada rincian saat daftarnya kosong atau tak diberikan', () => {
+    expect(buildProfitWaterfall(INPUT).find((s) => s.key === 'opex_bulanan')?.breakdown).toBeUndefined()
+    expect(
+      buildProfitWaterfall({ ...INPUT, opexMonthlyBreakdown: [] }).find((s) => s.key === 'opex_bulanan')
+        ?.breakdown,
+    ).toBeUndefined()
+  })
+})
+
+describe('management fee di waterfall', () => {
+  it('menambahkan fee_manajemen_mitra dan menaikkan laba bersih saat ada managementFeeIncome', () => {
+    const feeIncome = 3_000_000
+    const steps = buildProfitWaterfall({ ...INPUT, managementFeeIncome: feeIncome })
+    
+    const feeStep = steps.find((s) => s.key === 'fee_manajemen_mitra')
+    expect(feeStep).toBeDefined()
+    expect(feeStep?.amount).toBe(feeIncome)
+
+    const baseTotal = buildProfitWaterfall(INPUT).find((s) => s.kind === 'total')!.amount
+    const withFeeTotal = steps.find((s) => s.kind === 'total')!.amount
+    expect(withFeeTotal).toBe(baseTotal + feeIncome)
+
+    // Running sum check
+    let running = 0
+    for (const step of steps) {
+      if (step.kind === 'subtotal' || step.kind === 'total') {
+        expect(step.amount).toBe(running)
+      } else {
+        running += step.amount
+      }
+    }
+  })
+
+  it('mengurangi fee_manajemen_pusat dan memotong laba bersih saat ada managementFeeExpense', () => {
+    const feeExpense = 2_500_000
+    const steps = buildProfitWaterfall({ ...INPUT, managementFeeExpense: feeExpense, includeCentral: false })
+    
+    const feeStep = steps.find((s) => s.key === 'fee_manajemen_pusat')
+    expect(feeStep).toBeDefined()
+    expect(feeStep?.amount).toBe(-feeExpense)
+
+    const baseTotal = buildProfitWaterfall({ ...INPUT, includeCentral: false }).find((s) => s.kind === 'total')!.amount
+    const withFeeTotal = steps.find((s) => s.kind === 'total')!.amount
+    expect(withFeeTotal).toBe(baseTotal - feeExpense)
+
+    // Running sum check
+    let running = 0
+    for (const step of steps) {
+      if (step.kind === 'subtotal' || step.kind === 'total') {
+        expect(step.amount).toBe(running)
+      } else {
+        running += step.amount
+      }
+    }
+  })
+
+  it('menambahkan margin_pasokan_mitra dan menaikkan laba bersih saat ada mitraHppMarginIncome', () => {
+    const marginIncome = 4_500_000
+    const steps = buildProfitWaterfall({ ...INPUT, mitraHppMarginIncome: marginIncome })
+    
+    const marginStep = steps.find((s) => s.key === 'margin_pasokan_mitra')
+    expect(marginStep).toBeDefined()
+    expect(marginStep?.amount).toBe(marginIncome)
+
+    const baseTotal = buildProfitWaterfall(INPUT).find((s) => s.kind === 'total')!.amount
+    const withMarginTotal = steps.find((s) => s.kind === 'total')!.amount
+    expect(withMarginTotal).toBe(baseTotal + marginIncome)
+
+    // Running sum check
+    let running = 0
+    for (const step of steps) {
+      if (step.kind === 'subtotal' || step.kind === 'total') {
+        expect(step.amount).toBe(running)
+      } else {
+        running += step.amount
+      }
+    }
+  })
+})
+
+describe('transaksi antar-kantong pusat <-> mitra', () => {
+  const FEE = 12_201_380
+
+  it('fee yang diakui DAN dibebankan saling menghapus — laba bersih sama seperti tanpa fee sama sekali', () => {
+    // Inilah kasus tampilan gabungan: kedua kantong ada di dalam layar.
+    const tanpaFee = buildProfitWaterfall(INPUT)
+    const denganKeduanya = buildProfitWaterfall({
+      ...INPUT,
+      managementFeeIncome: FEE,
+      managementFeeExpense: FEE,
+    })
+    const total = (steps: ReturnType<typeof buildProfitWaterfall>) =>
+      steps.find((s) => s.kind === 'total')!.amount
+
+    expect(total(denganKeduanya)).toBe(total(tanpaFee))
+  })
+
+  it('kedua sisi fee tetap TAMPIL sebagai baris — saling hapus, bukan hilang', () => {
+    const steps = buildProfitWaterfall({
+      ...INPUT,
+      managementFeeIncome: FEE,
+      managementFeeExpense: FEE,
+    })
+    expect(steps.find((s) => s.key === 'fee_manajemen_mitra')?.amount).toBe(FEE)
+    expect(steps.find((s) => s.key === 'fee_manajemen_pusat')?.amount).toBe(-FEE)
+  })
+
+  it('beban fee berada DI ATAS Pendapatan Bersih, berpasangan dengan pendapatannya', () => {
+    const steps = buildProfitWaterfall({
+      ...INPUT,
+      managementFeeIncome: FEE,
+      managementFeeExpense: FEE,
+    })
+    const i = (k: string) => steps.findIndex((s) => s.key === k)
+    expect(i('fee_manajemen_pusat')).toBeGreaterThan(i('fee_manajemen_mitra'))
+    expect(i('fee_manajemen_pusat')).toBeLessThan(i('pendapatan_bersih'))
+  })
+
+  it('beban fee memotong LABA KOTOR, bukan cuma laba bersih', () => {
+    // Pembeda dari perilaku lama: dulu beban fee duduk di bawah bersama opex,
+    // jadi Laba Kotor tak tersentuh olehnya. Test ini gagal pada kode lama.
+    const dasar = buildProfitWaterfall(INPUT)
+    const dgnBeban = buildProfitWaterfall({ ...INPUT, managementFeeExpense: FEE })
+    const lk = (steps: ReturnType<typeof buildProfitWaterfall>) =>
+      steps.find((s) => s.key === 'laba_kotor')!.amount
+    expect(lk(dgnBeban)).toBe(lk(dasar) - FEE)
+  })
+
+  it('Omzet Kotor tidak ikut naik oleh fee maupun margin', () => {
+    const steps = buildProfitWaterfall({
+      ...INPUT,
+      managementFeeIncome: FEE,
+      managementFeeExpense: FEE,
+      mitraHppMarginIncome: 27_287_790,
+    })
+    expect(steps.find((s) => s.key === 'omzet_kotor')!.amount).toBe(INPUT.grossRevenue)
+  })
+
+  it('identitas all = internal + mitra tertutup pada laba bersih', () => {
+    // internal: punya pendapatan fee, tanpa bebannya
+    const internal = buildProfitWaterfall({ ...INPUT, managementFeeIncome: FEE })
+    // mitra: punya beban fee, tanpa pendapatannya
+    const mitra = buildProfitWaterfall({ ...INPUT, managementFeeExpense: FEE })
+    // all: keduanya
+    const all = buildProfitWaterfall({ ...INPUT, managementFeeIncome: FEE, managementFeeExpense: FEE })
+    const total = (steps: ReturnType<typeof buildProfitWaterfall>) =>
+      steps.find((s) => s.kind === 'total')!.amount
+    const dasar = total(buildProfitWaterfall(INPUT))
+
+    // (internal - dasar) + (mitra - dasar) = (all - dasar)
+    expect((total(internal) - dasar) + (total(mitra) - dasar)).toBe(total(all) - dasar)
+  })
+})
+
+describe('rincian channel omzet kotor dan potongan merchant', () => {
+  const OMZET_CHANNELS = [
+    { label: 'Kasir Offline (POS)', amount: 60_000_000 },
+    { label: 'ShopeeFood', amount: 25_000_000 },
+    { label: 'GoFood', amount: 15_000_000 },
+  ]
+  const POTONGAN_CHANNELS = [
+    { label: 'ShopeeFood', amount: -5_000_000 },
+    { label: 'GoFood', amount: -3_000_000 },
+  ]
+
+  it('menempelkan rincian channel pada omzet_kotor dan potongan saat diberikan', () => {
+    const steps = buildProfitWaterfall({
+      ...INPUT,
+      grossRevenueBreakdown: OMZET_CHANNELS,
+      deductionsBreakdown: POTONGAN_CHANNELS,
+    })
+
+    const omzetStep = steps.find((s) => s.key === 'omzet_kotor')
+    expect(omzetStep?.breakdown).toEqual(OMZET_CHANNELS)
+    expect(omzetStep?.breakdown?.reduce((s, r) => s + r.amount, 0)).toBe(INPUT.grossRevenue)
+
+    const potonganStep = steps.find((s) => s.key === 'potongan')
+    expect(potonganStep?.breakdown).toEqual(POTONGAN_CHANNELS)
+    expect(potonganStep?.breakdown?.reduce((s, r) => s + r.amount, 0)).toBe(-INPUT.deductions)
+  })
+
+  it('tidak ada breakdown jika tidak disediakan atau array kosong', () => {
+    const steps = buildProfitWaterfall({
+      ...INPUT,
+      grossRevenueBreakdown: [],
+      deductionsBreakdown: [],
+    })
+
+    expect(steps.find((s) => s.key === 'omzet_kotor')?.breakdown).toBeUndefined()
+    expect(steps.find((s) => s.key === 'potongan')?.breakdown).toBeUndefined()
+  })
+})
+
+describe('joint expense pada opex waterfall', () => {
+  const JOINT = 3_355_008
+
+  it('menyisipkan baris joint_expense saat nilainya > 0', () => {
+    const steps = buildProfitWaterfall({
+      ...INPUT,
+      jointExpense: JOINT,
+    })
+
+    const jointStep = steps.find((s) => s.key === 'joint_expense')
+    expect(jointStep).toBeDefined()
+    expect(jointStep?.label).toBe('Joint Expense')
+    expect(jointStep?.amount).toBe(-JOINT)
+    expect(jointStep?.kind).toBe('deduction')
+    expect(jointStep?.pctOfGross).toBeCloseTo((-JOINT / INPUT.grossRevenue) * 100, 4)
+
+    // Memastikan total berjalan tetap tepat
+    let running = 0
+    for (const step of steps) {
+      if (step.kind === 'subtotal' || step.kind === 'total') {
+        expect(step.amount).toBe(running)
+      } else {
+        running += step.amount
+      }
+    }
+  })
+
+  it('tidak memunculkan baris joint_expense saat nilainya 0 atau tidak diset', () => {
+    const stepsZero = buildProfitWaterfall({
+      ...INPUT,
+      jointExpense: 0,
+    })
+    expect(stepsZero.some((s) => s.key === 'joint_expense')).toBe(false)
+
+    const stepsDefault = buildProfitWaterfall(INPUT)
+    expect(stepsDefault.some((s) => s.key === 'joint_expense')).toBe(false)
+  })
+
+  it('laba bersih terpangkas tepat sebesar jointExpense', () => {
+    const tanpaJoint = buildProfitWaterfall(INPUT)
+    const denganJoint = buildProfitWaterfall({
+      ...INPUT,
+      jointExpense: JOINT,
+    })
+
+    const netTanpa = tanpaJoint.find((s) => s.kind === 'total')!.amount
+    const netDengan = denganJoint.find((s) => s.kind === 'total')!.amount
+    expect(netDengan).toBe(netTanpa - JOINT)
+  })
+})
+
+describe('lembur kas toko pada opex waterfall', () => {
+  const LEMBUR = 2_363_000
+
+  it('menyisipkan baris opex_lembur saat nilainya > 0', () => {
+    const steps = buildProfitWaterfall({
+      ...INPUT,
+      opexLembur: LEMBUR,
+    })
+
+    const lemburStep = steps.find((s) => s.key === 'opex_lembur')
+    expect(lemburStep).toBeDefined()
+    expect(lemburStep?.label).toBe('Lembur Kas Toko (Petty Cash)')
+    expect(lemburStep?.amount).toBe(-LEMBUR)
+    expect(lemburStep?.kind).toBe('deduction')
+    expect(lemburStep?.pctOfGross).toBeCloseTo((-LEMBUR / INPUT.grossRevenue) * 100, 4)
+
+    // Memastikan total berjalan tetap tepat
+    let running = 0
+    for (const step of steps) {
+      if (step.kind === 'subtotal' || step.kind === 'total') {
+        expect(step.amount).toBe(running)
+      } else {
+        running += step.amount
+      }
+    }
+  })
+
+  it('tidak memunculkan baris opex_lembur saat nilainya 0 atau tidak diset', () => {
+    const stepsZero = buildProfitWaterfall({
+      ...INPUT,
+      opexLembur: 0,
+    })
+    expect(stepsZero.some((s) => s.key === 'opex_lembur')).toBe(false)
+
+    const stepsDefault = buildProfitWaterfall(INPUT)
+    expect(stepsDefault.some((s) => s.key === 'opex_lembur')).toBe(false)
+  })
+
+  it('laba bersih terpangkas tepat sebesar opexLembur', () => {
+    const tanpaLembur = buildProfitWaterfall(INPUT)
+    const denganLembur = buildProfitWaterfall({
+      ...INPUT,
+      opexLembur: LEMBUR,
+    })
+
+    const netTanpa = tanpaLembur.find((s) => s.kind === 'total')!.amount
+    const netDengan = denganLembur.find((s) => s.kind === 'total')!.amount
+    expect(netDengan).toBe(netTanpa - LEMBUR)
+  })
+})
+
+

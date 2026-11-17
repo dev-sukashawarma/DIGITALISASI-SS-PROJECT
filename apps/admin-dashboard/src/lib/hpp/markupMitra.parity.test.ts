@@ -26,6 +26,7 @@ const BERBASIS_TANGGAL = [
   'apps/admin-dashboard/src/lib/hpp/fetchHpp.ts',
   'apps/admin-dashboard/src/lib/posReport/compute.ts',
   'apps/admin-dashboard/src/app/actions/mitraPnl.ts',
+  'apps/finance/src/lib/hpp/fetchHpp.ts',
   'apps/finance/src/lib/posReport/compute.ts',
   'apps/manager/src/app/page.tsx',
   'apps/manager/src/app/reports/page.tsx',

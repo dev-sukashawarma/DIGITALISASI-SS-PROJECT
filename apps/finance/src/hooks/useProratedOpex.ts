@@ -9,12 +9,19 @@ import {
   type ProratedExpenseResult,
 } from '@/lib/opexProrata'
 import { getProrataAuxiliaryDataAction, type ProrataAuxiliaryData } from '@/app/actions/prorataAuxiliary'
+import { susunBarisGajiKantor, gabungGajiKantor } from '@/lib/gajiKantorPusat'
+import { getJakartaCurrentMonthInfo } from '@/lib/opexProrata'
 
 interface UseProratedOpexOptions {
   filter: PeriodFilterValue
   rawExpenses: ExpenseRow[]
   outlets?: { id: string; name: string; is_active?: boolean }[]
   enabled?: boolean
+  /**
+   * Tambahkan gaji staf kantor pusat (slip HR) sebagai baris biaya pusat.
+   * Hanya untuk Laba Rugi yang memuat biaya pusat — JANGAN dinyalakan di scope mitra.
+   */
+  includeOfficePayroll?: boolean
 }
 
 /**
@@ -30,6 +37,7 @@ export function useProratedOpex({
   rawExpenses,
   outlets = [],
   enabled = true,
+  includeOfficePayroll = false,
 }: UseProratedOpexOptions): ProratedExpenseResult & { loading: boolean } {
   const shouldFetch = enabled && Boolean(filter.from && filter.to)
 
@@ -42,7 +50,7 @@ export function useProratedOpex({
 
   // Kalkulasi prorata murni menggunakan data pelengkap dari server action
   const calculationResult = useMemo(() => {
-    return calculateProratedExpenses({
+    const hasil = calculateProratedExpenses({
       filter,
       rawExpenses,
       payrollRecords: auxData?.payrollRecords || [],
@@ -53,7 +61,17 @@ export function useProratedOpex({
       managerAssignments: auxData?.managerAssignments || [],
       operationalOutletIds: auxData?.operationalOutletIds || [],
     })
-  }, [filter, rawExpenses, auxData, outlets])
+    // Biaya pusat hanya tampil saat semua outlet digabung, jadi gaji kantor ikut syarat yang sama.
+    if (!includeOfficePayroll || (filter.outletId && filter.outletId !== 'all')) return hasil
+    const barisGajiKantor = susunBarisGajiKantor({
+      from: filter.from,
+      to: filter.to,
+      officePayrollRecords: auxData?.officePayrollRecords || [],
+      officeStaffMonthlyTotal: auxData?.officeStaffMonthlyTotal || 0,
+      currentMonthFirstDay: getJakartaCurrentMonthInfo().firstDay,
+    })
+    return { ...hasil, rows: gabungGajiKantor(hasil.rows, barisGajiKantor) }
+  }, [filter, rawExpenses, auxData, outlets, includeOfficePayroll])
 
   return {
     ...calculationResult,

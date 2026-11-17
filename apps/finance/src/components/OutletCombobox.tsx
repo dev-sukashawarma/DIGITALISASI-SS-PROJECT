@@ -1,5 +1,4 @@
 'use client'
-
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Store, Search, Check, ChevronDown } from 'lucide-react'
 import { isTestOutlet } from '@/lib/outletFilters'
@@ -21,8 +20,9 @@ export function isExcludedOutlet(o: { id?: string; name?: string; type?: string 
 }
 
 export function isMitraOutlet(o: { id?: string; name?: string; type?: string }) {
-  // Status mitra hanya dari jenis outlet, bukan nama (2026-11-13).
-  return (o.type || '').toLowerCase() === 'mitra'
+  const typeLower = (o.type || '').toLowerCase()
+  const nameUpper = (o.name || '').toUpperCase()
+  return typeLower === 'mitra' || nameUpper.includes('MITRA')
 }
 
 export function OutletCombobox({
@@ -44,6 +44,7 @@ export function OutletCombobox({
   const rootRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
+  // 1. Top Options: Semua Outlet & SS ONLINE (tanpa icon keranjang)
   const topOptions = useMemo(() => {
     const list: { id: string; name: string }[] = []
     if (includeAll) {
@@ -56,6 +57,7 @@ export function OutletCombobox({
     return list
   }, [includeAll, outlets])
 
+  // 2. Outlet Mitra
   const mitraOptions = useMemo(() => {
     return outlets
       .filter((o) => !isExcludedOutlet(o) && o.id !== 'all' && o.id !== 'ss-online' && isMitraOutlet(o) && outletTampilDiPeriode(o, periodeMulai))
@@ -63,6 +65,7 @@ export function OutletCombobox({
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [outlets, periodeMulai])
 
+  // 3. Outlet Internal
   const internalOptions = useMemo(() => {
     return outlets
       .filter((o) => !isExcludedOutlet(o) && o.id !== 'all' && o.id !== 'ss-online' && !isMitraOutlet(o) && outletTampilDiPeriode(o, periodeMulai))
@@ -77,24 +80,36 @@ export function OutletCombobox({
     if (terpilih && !outletTampilDiPeriode(terpilih, periodeMulai)) onChange('all')
   }, [periodeMulai, value, outlets, onChange])
 
+  // Filter based on search query
+  const q = query.trim().toLowerCase()
+  const filteredTop = useMemo(() => {
+    if (!q) return topOptions
+    return topOptions.filter(o => o.name.toLowerCase().includes(q))
+  }, [topOptions, q])
+
   const filteredMitra = useMemo(() => {
-    if (!query.trim()) return mitraOptions
-    const q = query.toLowerCase()
+    if (!q) return mitraOptions
     return mitraOptions.filter(o => o.name.toLowerCase().includes(q))
-  }, [mitraOptions, query])
+  }, [mitraOptions, q])
 
   const filteredInternal = useMemo(() => {
-    if (!query.trim()) return internalOptions
-    const q = query.toLowerCase()
+    if (!q) return internalOptions
     return internalOptions.filter(o => o.name.toLowerCase().includes(q))
-  }, [internalOptions, query])
+  }, [internalOptions, q])
 
-  const selectedName = useMemo(() => {
-    if (value === 'all') return 'Semua Cabang'
+  // Determine Selected Label
+  const selectedLabel = useMemo(() => {
+    if (value === 'all') {
+      if (includeAll) return 'Semua Outlet'
+      if (outlets && outlets.length === 1) return cleanOutletName(outlets[0].name)
+      return 'Semua Outlet'
+    }
     if (value === 'ss-online') return 'SS ONLINE'
-    const found = [...mitraOptions, ...internalOptions].find(o => o.id === value)
-    return found ? found.name : placeholder
-  }, [value, mitraOptions, internalOptions, placeholder])
+    const found = [...mitraOptions, ...internalOptions].find((o) => o.id === value)
+    if (found) return found.name
+    if (outlets && outlets.length === 1) return cleanOutletName(outlets[0].name)
+    return placeholder
+  }, [value, includeAll, outlets, mitraOptions, internalOptions, placeholder])
 
   useEffect(() => {
     if (!open) return
@@ -102,10 +117,14 @@ export function OutletCombobox({
     const onClickOutside = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         setOpen(false)
+        setQuery('')
       }
     }
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') {
+        setOpen(false)
+        setQuery('')
+      }
     }
     document.addEventListener('mousedown', onClickOutside)
     document.addEventListener('keydown', onKeyDown)
@@ -116,104 +135,130 @@ export function OutletCombobox({
   }, [open])
 
   return (
-    <div ref={rootRef} className={`relative ${className || 'w-full sm:w-auto'}`}>
+    <div ref={rootRef} className={`relative w-full sm:w-auto ${className || ''}`}>
       <button
         type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full sm:w-auto flex items-center gap-2 pl-9 pr-8 py-2.5 sm:py-2 bg-white/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] focus:ring-2 focus:ring-suka-orange/20 text-xs font-bold text-suka-brown outline-none cursor-pointer transition-all relative sm:min-w-[170px]"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full sm:w-auto flex items-center gap-2 pl-9 pr-8 py-2.5 sm:py-2 bg-suka-cream/30 border border-suka-gray-200 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 rounded-xl text-xs font-bold text-suka-brown outline-none cursor-pointer transition-all relative min-w-[150px] sm:min-w-[180px]"
       >
-        <Store className="w-4 h-4 text-suka-brown/50 absolute left-3 top-1/2 -translate-y-1/2" />
-        <span className="truncate text-left flex-1">{selectedName}</span>
-        <ChevronDown className={`w-3.5 h-3.5 text-suka-brown/40 absolute right-3 top-1/2 -translate-y-1/2 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/50">
+          <Store className="w-4 h-4" />
+        </span>
+        <span className="truncate text-left flex-1">{selectedLabel}</span>
+        <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-suka-brown/40 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1.5 w-full sm:min-w-[240px] bg-white border border-suka-gray-200 rounded-2xl shadow-xl shadow-suka-brown/10 z-[9999] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-          <div className="p-2 border-b border-suka-gray-100">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-suka-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                ref={searchRef}
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Cari outlet..."
-                className="w-full pl-8 pr-3 py-1.5 bg-suka-gray-50 rounded-xl text-xs outline-none focus:ring-1 focus:ring-suka-orange font-medium text-suka-ink"
-              />
-            </div>
+        <div className="absolute z-20 mt-1.5 w-full sm:w-64 left-0 bg-white border border-suka-gray-200 rounded-xl shadow-lg shadow-suka-brown/10 overflow-hidden">
+          <div className="relative p-2 border-b border-suka-gray-100">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-suka-brown/40" />
+            <input
+              ref={searchRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Cari outlet..."
+              className="w-full pl-7 pr-2 py-1.5 text-xs font-semibold text-suka-brown bg-suka-cream/40 rounded-lg outline-none focus:ring-2 focus:ring-suka-orange/15 placeholder:text-suka-brown/30 placeholder:font-medium"
+            />
           </div>
+          <ul className="max-h-72 overflow-y-auto py-1">
+            {/* Top Options (Semua Outlet & SS ONLINE) */}
+            {filteredTop.map((o) => {
+              const isActive = o.id === value
+              return (
+                <li key={o.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(o.id)
+                      setOpen(false)
+                      setQuery('')
+                    }}
+                    className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold text-left transition-colors ${
+                      isActive ? 'bg-suka-orange/10 text-suka-orange' : 'text-suka-brown hover:bg-suka-cream/60'
+                    }`}
+                  >
+                    <span className="truncate">{o.name}</span>
+                    {isActive && <Check className="w-3.5 h-3.5 shrink-0" />}
+                  </button>
+                </li>
+              )
+            })}
 
-          <div className="max-h-60 overflow-y-auto p-1 text-xs">
-            {topOptions.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => {
-                  onChange(opt.id)
-                  setOpen(false)
-                  setQuery('')
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left font-bold transition-colors ${
-                  value === opt.id ? 'bg-suka-orange/10 text-suka-orange' : 'text-suka-brown hover:bg-suka-cream/60'
-                }`}
-              >
-                <span>{opt.name}</span>
-                {value === opt.id && <Check className="w-3.5 h-3.5 shrink-0" />}
-              </button>
-            ))}
-
+            {/* Separator / Header: Outlet Mitra */}
             {filteredMitra.length > 0 && (
-              <div className="mt-1 pt-1 border-t border-suka-gray-100">
-                <div className="px-3 py-1 text-[10px] font-bold text-suka-gray-400 uppercase tracking-wider">
-                  Outlet Mitra
+              <li>
+                <div className="px-3 pt-2.5 pb-1 text-[10px] font-extrabold text-suka-brown/50 uppercase tracking-wider border-t border-suka-gray-100 flex items-center justify-between">
+                  <span>Outlet Mitra</span>
+                  <span className="text-[9px] font-semibold text-suka-gray-400">({filteredMitra.length})</span>
                 </div>
-                {filteredMitra.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => {
-                      onChange(opt.id)
-                      setOpen(false)
-                      setQuery('')
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left font-medium transition-colors ${
-                      value === opt.id ? 'bg-suka-orange/10 text-suka-orange font-bold' : 'text-suka-ink hover:bg-suka-cream/60'
-                    }`}
-                  >
-                    <span>{opt.name}</span>
-                    {value === opt.id && <Check className="w-3.5 h-3.5 shrink-0" />}
-                  </button>
-                ))}
-              </div>
+                <ul>
+                  {filteredMitra.map((o) => {
+                    const isActive = o.id === value
+                    return (
+                      <li key={o.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onChange(o.id)
+                            setOpen(false)
+                            setQuery('')
+                          }}
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold text-left transition-colors ${
+                            isActive ? 'bg-suka-orange/10 text-suka-orange' : 'text-suka-brown hover:bg-suka-cream/60'
+                          }`}
+                        >
+                          <span className="truncate">{o.name}</span>
+                          {isActive && <Check className="w-3.5 h-3.5 shrink-0" />}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </li>
             )}
 
+            {/* Separator / Header: Outlet Internal */}
             {filteredInternal.length > 0 && (
-              <div className="mt-1 pt-1 border-t border-suka-gray-100">
-                <div className="px-3 py-1 text-[10px] font-bold text-suka-gray-400 uppercase tracking-wider">
-                  Outlet Internal
+              <li>
+                <div className="px-3 pt-2.5 pb-1 text-[10px] font-extrabold text-suka-brown/50 uppercase tracking-wider border-t border-suka-gray-100 flex items-center justify-between">
+                  <span>Outlet Internal</span>
+                  <span className="text-[9px] font-semibold text-suka-gray-400">({filteredInternal.length})</span>
                 </div>
-                {filteredInternal.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => {
-                      onChange(opt.id)
-                      setOpen(false)
-                      setQuery('')
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left font-medium transition-colors ${
-                      value === opt.id ? 'bg-suka-orange/10 text-suka-orange font-bold' : 'text-suka-ink hover:bg-suka-cream/60'
-                    }`}
-                  >
-                    <span>{opt.name}</span>
-                    {value === opt.id && <Check className="w-3.5 h-3.5 shrink-0" />}
-                  </button>
-                ))}
-              </div>
+                <ul>
+                  {filteredInternal.map((o) => {
+                    const isActive = o.id === value
+                    return (
+                      <li key={o.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onChange(o.id)
+                            setOpen(false)
+                            setQuery('')
+                          }}
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold text-left transition-colors ${
+                            isActive ? 'bg-suka-orange/10 text-suka-orange' : 'text-suka-brown hover:bg-suka-cream/60'
+                          }`}
+                        >
+                          <span className="truncate">{o.name}</span>
+                          {isActive && <Check className="w-3.5 h-3.5 shrink-0" />}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </li>
             )}
-          </div>
+
+            {filteredTop.length === 0 && filteredMitra.length === 0 && filteredInternal.length === 0 && (
+              <li className="px-3 py-4 text-xs text-suka-brown/40 font-medium italic text-center">
+                Outlet tidak ditemukan
+              </li>
+            )}
+          </ul>
         </div>
       )}
     </div>
   )
 }
+

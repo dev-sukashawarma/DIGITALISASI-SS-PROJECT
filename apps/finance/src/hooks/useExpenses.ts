@@ -24,6 +24,7 @@ export function useExpenses(filter: PeriodFilterValue, initialData?: ExpenseRow[
         { event: '*', schema: 'public', table: 'expenses' },
         () => {
           queryClient.invalidateQueries({ queryKey: ['expenses'] })
+          queryClient.invalidateQueries({ queryKey: ['profit'] })
         }
       )
       .on(
@@ -31,6 +32,7 @@ export function useExpenses(filter: PeriodFilterValue, initialData?: ExpenseRow[
         { event: '*', schema: 'public', table: 'petty_cash_expenses' },
         () => {
           queryClient.invalidateQueries({ queryKey: ['expenses'] })
+          queryClient.invalidateQueries({ queryKey: ['profit'] })
         }
       )
       .subscribe()

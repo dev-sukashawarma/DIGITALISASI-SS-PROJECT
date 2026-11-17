@@ -119,16 +119,47 @@ export interface Outlet {
   is_active: boolean
   status?: string | null
   nonaktif_at?: string | null
+  deleted_at?: string | null
+  marquee_warning_threshold?: number
+  open_hour?: string | null
+  close_hour?: string | null
   bank_name?: string | null
   bank_account_number?: string | null
   bank_account_name?: string | null
 }
 
-export type SalesSource = 'gojek' | 'grab' | 'shopee' | 'pos' | 'manual'
+export type SalesSource =
+  | 'gojek'
+  | 'grab'
+  | 'shopee'
+  | 'pos'
+  | 'manual'
+  | 'online'
+  | 'gofood'
+  | 'grabfood'
+  | 'shopeefood'
+  | 'tiktok'
+  | 'tiktok_shop'
+  | 'shopee_shop'
+  | 'endors'
+  | 'app'
 
 export interface PeriodFilterValue {
   from: string                  // 'YYYY-MM-DD' inklusif
   to: string                    // 'YYYY-MM-DD' inklusif
   outletId: string | 'all'
-  source: SalesSource | 'all'
+  source: SalesSource | 'all' | (string & {})
+}
+
+export interface SalesSummaryRow {
+  outlet_id: string
+  outlet_name: string
+  sales_source: SalesSource
+  sales_date: string            // 'YYYY-MM-DD'
+  omzet: number
+  jumlah_order_completed: number
+  jumlah_order_all: number
+  total_deductions?: number
+  platform_fee?: number
+  total_qty?: number
 }

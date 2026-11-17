@@ -16,7 +16,33 @@ export function useKasbonMenunggu(enabled: boolean) {
     queryFn: async () => {
       const { data, error } = await supabase.rpc('finance_kasbon_menunggu')
       if (error) throw error
-      return ((data ?? []) as KasbonMenunggu[]).map((k) => ({ ...k, amount: Number(k.amount) || 0 }))
+      const rows = ((data ?? []) as KasbonMenunggu[]).map((k) => ({ ...k, amount: Number(k.amount) || 0 }))
+      // Fallback jika migrasi RPC finance_kasbon_menunggu belum diterapkan ke DB:
+      // peran admin/owner/developer bisa membaca staff_financials langsung.
+      if (rows.length > 0 && rows.some((r) => r.bank_account_number === undefined)) {
+        const staffIds = [...new Set(rows.map((r) => r.staff_id).filter(Boolean))]
+        if (staffIds.length > 0) {
+          const { data: finRows } = await supabase
+            .from('staff_financials')
+            .select('staff_id, bank_name, bank_account_number, bank_account_name')
+            .in('staff_id', staffIds)
+          if (finRows && finRows.length > 0) {
+            const byStaff = new Map(
+              (finRows as { staff_id: string; bank_name: string | null; bank_account_number: string | null; bank_account_name: string | null }[])
+                .map((f) => [f.staff_id, f]),
+            )
+            for (const r of rows) {
+              const f = byStaff.get(r.staff_id)
+              if (f) {
+                r.bank_name = f.bank_name
+                r.bank_account_number = f.bank_account_number
+                r.bank_account_name = f.bank_account_name
+              }
+            }
+          }
+        }
+      }
+      return rows
     },
   })
 }

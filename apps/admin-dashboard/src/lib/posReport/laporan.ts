@@ -25,6 +25,7 @@ import {
   filterTableData,
 } from '@/lib/posReport/compute'
 import { computeExportReport } from '@/lib/posReport/ekspor'
+import { buildHistoriTransaksiExport } from '@/lib/posReport/eksporHistori'
 
 /** Cakupan outlet pemanggil. 'all' = akses penuh (owner/admin/... atau kunci Hermes). */
 export type CakupanLaporan = { supabase: any; scopeKey: string; allowedOutletIds: 'all' | string[] }
@@ -251,9 +252,7 @@ async function getPreparedReport(rawReq: PosReportRequest, scope: CakupanLaporan
   return { req, prepared }
 }
 
-export async function laporanPosUntukScope(rawReq: PosReportRequest, scope: CakupanLaporan) {
-  const { req, prepared } = await getPreparedReport(rawReq, scope)
-
+function getDerivedTable(prepared: any, req: ReturnType<typeof sanitizeRequest>) {
   const filterKey = JSON.stringify([req.paymentMethod, req.search, req.receiptFilter])
   let derived = prepared.derived.get(filterKey)
   if (!derived) {
@@ -267,6 +266,12 @@ export async function laporanPosUntukScope(rawReq: PosReportRequest, scope: Caku
     if (prepared.derived.size >= 20) prepared.derived.delete(prepared.derived.keys().next().value)
     prepared.derived.set(filterKey, derived)
   }
+  return derived
+}
+
+export async function laporanPosUntukScope(rawReq: PosReportRequest, scope: CakupanLaporan) {
+  const { req, prepared } = await getPreparedReport(rawReq, scope)
+  const derived = getDerivedTable(prepared, req)
 
   const { tableRows } = derived
   const totalPages = Math.max(1, Math.ceil(tableRows.length / req.pageSize))
@@ -309,6 +314,19 @@ export async function eksporLaporanPosUntukScope(rawReq: PosReportRequest, scope
     })
   }
   return prepared.exportReport
+}
+
+/** Data ekspor PDF Histori Transaksi Detail (seluruh baris terfilter, tanpa paginasi). */
+export async function eksporHistoriTransaksiUntukScope(rawReq: PosReportRequest, scope: CakupanLaporan) {
+  const { req, prepared } = await getPreparedReport(rawReq, scope)
+  const derived = getDerivedTable(prepared, req)
+  return buildHistoriTransaksiExport({
+    tableRows: derived.tableRows,
+    footer: derived.footer,
+    outlets: prepared.outlets,
+    periode: { from: prepared.from, to: req.to },
+    isSSOnlineSelected: prepared.isSSOnlineSelected,
+  })
 }
 
 export function clearMenuMemo() {

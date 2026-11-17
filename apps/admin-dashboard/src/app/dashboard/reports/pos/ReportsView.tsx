@@ -9,7 +9,13 @@ import {
   Clock, RefreshCw, Loader2
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { getPosReport, getPosReportExport, invalidatePosReportDays, refreshPosReportRange } from '@/app/actions/posReport'
+import {
+  getPosReport,
+  getPosReportExport,
+  getPosTransactionHistoryExport,
+  invalidatePosReportDays,
+  refreshPosReportRange,
+} from '@/app/actions/posReport'
 import { extractOrderPackages, type ShiftRow } from '@/lib/posReport/compute'
 import { addDaysStr, orderDatesFromRealtime, refreshDelayMs } from '@/lib/ownerDashboardCache'
 import { cleanItemName } from '@/lib/order-item-name'
@@ -448,7 +454,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
   // Ekspor PDF & Excel: data per outlet × channel × menu dihitung di server
   // (lib/posReport/ekspor, rumus sama dengan kartu KPI) dan baru diminta saat
   // tombol ditekan. Pustaka PDF/Excel dimuat dinamis agar halaman tetap ringan.
-  const [exporting, setExporting] = useState<null | 'pdf' | 'excel'>(null)
+  const [exporting, setExporting] = useState<null | 'pdf' | 'excel' | 'historyPdf'>(null)
 
   const exportChannelLabel = () => {
     if (selectedChannels.includes('all')) return isSSOnlineSelected ? 'Semua Platform' : 'Semua Channel'
@@ -477,6 +483,37 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
     } catch (err) {
       console.error('export error:', err)
       alert('Gagal menyiapkan file ekspor. Coba lagi sebentar.')
+    } finally {
+      setExporting(null)
+    }
+  }
+
+  const downloadHistoryPdf = async () => {
+    if (!reportRequest || exporting) return
+    setExporting('historyPdf')
+    try {
+      const activeSearch = searchQuery.trim()
+      const data = await getPosTransactionHistoryExport({ ...reportRequest, search: activeSearch })
+      if (!data || data.totalMatching === 0) {
+        alert('Tidak ada transaksi yang cocok dengan filter ini.')
+        return
+      }
+      const paymentLabel =
+        selectedPaymentMethod === 'all'
+          ? 'Semua Metode Bayar'
+          : availablePaymentMethods.find((m) => m.key === selectedPaymentMethod)?.label || selectedPaymentMethod.toUpperCase()
+      const { buatPdfHistoriTransaksi } = await import('@/lib/posReport/eksporHistoriPdf')
+      await buatPdfHistoriTransaksi(data, {
+        cabang: selectedOutletName,
+        channel: exportChannelLabel(),
+        paymentLabel,
+        receiptLabel: isSSOnlineSelected ? '-' : RECEIPT_FILTER_LABEL[selectedReceiptFilter],
+        search: activeSearch,
+        multiOutlet: selectedOutlets.includes('all') || selectedOutlets.length > 1,
+      })
+    } catch (err) {
+      console.error('history pdf export error:', err)
+      alert('Gagal menyiapkan PDF histori transaksi. Coba lagi sebentar.')
     } finally {
       setExporting(null)
     }
@@ -1118,6 +1155,18 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                     onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                   />
                 </div>
+
+                {/* Tombol Export PDF Histori Transaksi Detail */}
+                <button
+                  type="button"
+                  onClick={downloadHistoryPdf}
+                  disabled={filteredTableCount === 0 || !!exporting}
+                  title="Unduh PDF Histori Transaksi Detail sesuai filter aktif"
+                  className="flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm shadow-rose-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                >
+                  {exporting === 'historyPdf' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                  <span>{exporting === 'historyPdf' ? 'Menyiapkan…' : 'Export PDF'}</span>
+                </button>
               </div>
             </div>
 

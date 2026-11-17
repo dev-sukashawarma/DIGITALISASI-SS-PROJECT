@@ -1,7 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { Building2, ClipboardCheck, Coins, ExternalLink, Receipt, Send, Truck, Wallet, type LucideIcon } from 'lucide-react'
+import { Building2, Check, ClipboardCheck, Coins, Copy, ExternalLink, Landmark, Receipt, Send, Truck, Wallet, type LucideIcon } from 'lucide-react'
 import { rupiah, relativeTime, tanggalWaktu } from '@/lib/format'
 import { isLama, JENIS_LABEL, type HubItem, type HubJenis } from '@/lib/approval/hub'
 
@@ -39,9 +40,19 @@ export function BarisHub({
   onSetujui: (i: HubItem) => void
   onTolak: (i: HubItem) => void
 }) {
+  const [salin, setSalin] = useState(false)
   const lama = isLama(item.menungguSejak, now)
   const bisaTolak = item.jenis !== 'serah_am'
   const Ikon = IKON_JENIS_HUB[item.jenis]
+
+  const salinRekening = () => {
+    const no = item.rekeningTujuan?.nomor
+    if (!no || typeof navigator === 'undefined' || !navigator.clipboard) return
+    void navigator.clipboard.writeText(no).then(() => {
+      setSalin(true)
+      setTimeout(() => setSalin(false), 1500)
+    })
+  }
 
   return (
     <li className="grid grid-cols-[2.25rem_1fr] gap-x-3 gap-y-3 px-4 py-3.5 sm:grid-cols-[2.25rem_1fr_auto] sm:items-center">
@@ -74,6 +85,29 @@ export function BarisHub({
             </>
           )}
         </div>
+        {item.rekeningTujuan && (
+          <div
+            data-testid="rekening-tujuan"
+            className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-suka-gray-600"
+          >
+            <Landmark size={12} className="shrink-0 text-suka-orange" aria-hidden="true" />
+            <span>
+              {item.rekeningTujuan.bank ? `${item.rekeningTujuan.bank} · ` : 'Rek. '}
+              <span className="font-mono font-semibold text-suka-ink">{item.rekeningTujuan.nomor}</span>
+              {item.rekeningTujuan.atasNama ? ` (a.n. ${item.rekeningTujuan.atasNama})` : ''}
+            </span>
+            <button
+              type="button"
+              onClick={salinRekening}
+              aria-label={`Salin nomor rekening ${item.rekeningTujuan.nomor}`}
+              title="Salin nomor rekening"
+              className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[11px] font-medium text-suka-gray-400 hover:bg-suka-cream hover:text-suka-brown focus-visible:outline-2 focus-visible:outline-suka-orange"
+            >
+              {salin ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+              {salin && <span className="text-emerald-600">Disalin</span>}
+            </button>
+          </div>
+        )}
         <div className="mt-1 flex items-center gap-2.5 text-xs">
           <span
             data-testid="umur-hub"

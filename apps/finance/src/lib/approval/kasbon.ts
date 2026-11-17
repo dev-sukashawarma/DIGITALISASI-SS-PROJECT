@@ -14,6 +14,9 @@ export interface KasbonMenunggu {
   approved_by: string | null
   penyetuju_nama: string | null
   created_at: string
+  bank_name?: string | null
+  bank_account_number?: string | null
+  bank_account_name?: string | null
 }
 
 export const ALASAN_PENYETUJU_SAMA = 'Anda menyetujui kasbon ini di HR, pencairan harus oleh orang lain'

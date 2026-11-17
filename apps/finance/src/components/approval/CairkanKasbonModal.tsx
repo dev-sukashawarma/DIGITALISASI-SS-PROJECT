@@ -58,6 +58,16 @@ export function CairkanKasbonModal({ isOpen, kasbon, locations, userId, onClose,
           <div><b>{kasbon.staff_nama ?? '-'}</b>{kasbon.outlet_nama ? ` · ${kasbon.outlet_nama}` : ''}</div>
           <div>Nominal disetujui HR: <b>{rupiah(nominal)}</b>{cicilan > 1 ? ` · ${cicilan}x cicilan` : ''}</div>
           {kasbon.reason && <div className="text-suka-gray-600">Alasan: {kasbon.reason}</div>}
+          {kasbon.bank_account_number && (
+            <div className="text-suka-gray-700">
+              Rekening tujuan:{' '}
+              <b>
+                {kasbon.bank_name ? `${kasbon.bank_name} · ` : ''}
+                <span className="font-mono">{kasbon.bank_account_number}</span>
+              </b>
+              {kasbon.bank_account_name ? ` (a.n. ${kasbon.bank_account_name})` : ''}
+            </div>
+          )}
           {kasbon.approval_note && <div className="text-suka-gray-600">Catatan HR: {kasbon.approval_note}</div>}
           {kasbon.penyetuju_nama && <div className="text-xs text-suka-gray-500">Disetujui HR oleh {kasbon.penyetuju_nama}</div>}
         </div>

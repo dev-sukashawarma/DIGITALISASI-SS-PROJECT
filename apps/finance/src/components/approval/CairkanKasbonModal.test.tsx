@@ -69,4 +69,19 @@ describe('CairkanKasbonModal', () => {
     expect((screen.getByRole('button', { name: 'Cairkan' }) as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getByText('Anda menyetujui kasbon ini di HR, pencairan harus oleh orang lain')).toBeTruthy()
   })
+
+  it('menampilkan rekening tujuan karyawan bila tersedia', () => {
+    render(
+      <CairkanKasbonModal
+        isOpen
+        kasbon={{ ...kasbon, bank_name: 'BCA', bank_account_number: '1122334455', bank_account_name: 'Budi' }}
+        locations={locations}
+        userId="fin1"
+        onClose={() => {}}
+        onCairkan={vi.fn(async () => {})}
+      />,
+    )
+    expect(screen.getByText(/1122334455/)).toBeTruthy()
+    expect(screen.getByText(/BCA/)).toBeTruthy()
+  })
 })

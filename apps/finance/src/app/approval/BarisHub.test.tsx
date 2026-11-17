@@ -56,4 +56,24 @@ describe('BarisHub', () => {
     expect(screen.getByRole('button', { name: 'Setujui' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Tolak' })).toBeDisabled()
   })
+
+  it('menampilkan nomor rekening tujuan dan tombol salin bila tersedia', () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+
+    const i = {
+      ...item('petty_cash', '2026-11-06T10:00:00Z'),
+      rekeningTujuan: { bank: 'BCA', nomor: '1234567890', atasNama: 'Budi' },
+    }
+    pasang(i)
+    const el = screen.getByTestId('rekening-tujuan')
+    expect(el).toHaveTextContent('BCA · 1234567890 (a.n. Budi)')
+    fireEvent.click(screen.getByRole('button', { name: 'Salin nomor rekening 1234567890' }))
+    expect(writeText).toHaveBeenCalledWith('1234567890')
+  })
+
+  it('tidak menampilkan baris rekening tujuan bila kosong', () => {
+    pasang(item('po', '2026-11-06T10:00:00Z'))
+    expect(screen.queryByTestId('rekening-tujuan')).toBeNull()
+  })
 })

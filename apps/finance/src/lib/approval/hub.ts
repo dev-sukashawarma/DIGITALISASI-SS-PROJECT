@@ -39,6 +39,12 @@ export const JENIS_LABEL: Record<HubJenis, string> = {
 /** Pengajuan yang menunggu lebih lama dari ini ditandai merah. */
 export const AMBANG_LAMA_JAM = 24
 
+export type RekeningTujuan = {
+  bank: string | null
+  nomor: string
+  atasNama: string | null
+}
+
 type Dasar = {
   key: string
   id: string
@@ -47,6 +53,7 @@ type Dasar = {
   nominal: number
   menungguSejak: string
   detailHref: string | null
+  rekeningTujuan?: RekeningTujuan | null
 }
 
 export type HubItem = Dasar &
@@ -68,6 +75,20 @@ function potong(teks: string | null | undefined, maks = 60): string {
   return t.length > maks ? `${t.slice(0, maks - 1)}…` : t
 }
 
+export function buatRekeningTujuan(
+  bank?: string | null,
+  nomor?: string | null,
+  atasNama?: string | null,
+): RekeningTujuan | null {
+  const no = (nomor ?? '').trim()
+  if (!no) return null
+  return {
+    bank: bank?.trim() || null,
+    nomor: no,
+    atasNama: atasNama?.trim() || null,
+  }
+}
+
 export function itemDariPettyCash(t: PettyCashTopup): HubItem | null {
   const jenis =
     t.status === 'forwarded_to_finance' ? 'petty_cash' : t.status === 'approved_by_finance' ? 'serah_am' : null
@@ -81,6 +102,7 @@ export function itemDariPettyCash(t: PettyCashTopup): HubItem | null {
     nominal: Number(t.amount) || 0,
     menungguSejak: t.created_at,
     detailHref: null,
+    rekeningTujuan: buatRekeningTujuan(t.bank_name, t.bank_account_number, t.bank_account_name),
     data: t,
   }
 }
@@ -115,6 +137,7 @@ export function itemDariKasbon(k: KasbonMenunggu): HubItem {
     nominal: Number(k.amount) || 0,
     menungguSejak: k.approved_at ?? k.created_at,
     detailHref: null,
+    rekeningTujuan: buatRekeningTujuan(k.bank_name, k.bank_account_number, k.bank_account_name),
     data: k,
   }
 }

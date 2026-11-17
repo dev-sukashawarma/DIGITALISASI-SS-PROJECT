@@ -7,9 +7,11 @@ import type { OfficeVoucher } from '@/lib/officeVoucher'
 import {
   itemDariPettyCash,
   itemDariPengeluaranPettyCash,
+  itemDariKasbon,
   itemDariPo,
   itemDariBayarVendor,
   itemDariVoucher,
+  buatRekeningTujuan,
   urutkanHub,
   hitungPerJenis,
   isLama,
@@ -280,6 +282,57 @@ describe('totalPerJenis', () => {
       po: 1500,
       bayar_vendor: 0,
       dana_kantor: 0,
+    })
+  })
+})
+
+describe('rekeningTujuan', () => {
+  it('petty cash dan serah_am memuat rekening tujuan bila nomor rekening ada', () => {
+    const t = topup('forwarded_to_finance', {
+      bank_name: 'BCA',
+      bank_account_number: '1234567890',
+      bank_account_name: 'Budi Santoso',
+    })
+    expect(itemDariPettyCash(t)?.rekeningTujuan).toEqual({
+      bank: 'BCA',
+      nomor: '1234567890',
+      atasNama: 'Budi Santoso',
+    })
+    expect(itemDariPettyCash(topup('forwarded_to_finance'))?.rekeningTujuan).toBeNull()
+  })
+
+  it('kasbon memuat rekening tujuan staf bila nomor rekening ada', () => {
+    const k = itemDariKasbon({
+      id: 'k1',
+      staff_id: 's1',
+      staff_nama: 'Siti',
+      outlet_nama: 'EMPANG',
+      amount: 500000,
+      amount_requested: 500000,
+      reason: 'keperluan',
+      installment_months: 1,
+      approval_note: null,
+      approved_at: '2026-11-13T03:00:00Z',
+      approved_by: 'hr1',
+      penyetuju_nama: 'HR',
+      created_at: '2026-11-12T03:00:00Z',
+      bank_name: 'Mandiri',
+      bank_account_number: '9988776655',
+      bank_account_name: 'Siti Aminah',
+    })
+    expect(k.rekeningTujuan).toEqual({
+      bank: 'Mandiri',
+      nomor: '9988776655',
+      atasNama: 'Siti Aminah',
+    })
+  })
+
+  it('buatRekeningTujuan mengabaikan nomor kosong atau spasi saja', () => {
+    expect(buatRekeningTujuan('BCA', '   ', 'Budi')).toBeNull()
+    expect(buatRekeningTujuan(null, ' 0955353124 ', '')).toEqual({
+      bank: null,
+      nomor: '0955353124',
+      atasNama: null,
     })
   })
 })

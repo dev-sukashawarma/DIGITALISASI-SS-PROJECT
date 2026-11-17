@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { toast } from 'sonner'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
+import BigOrderBadge from '@/components/BigOrderBadge'
 
 export default function VoidsView({ initialVoids }: { initialVoids: any[] }) {
   const router = useRouter()
@@ -87,6 +88,7 @@ export default function VoidsView({ initialVoids }: { initialVoids: any[] }) {
                     <td className="px-6 py-4 text-right font-semibold text-red-600">
                       <div className="flex flex-col items-end gap-1">
                         <span>-{v.total_amount?.toLocaleString('id-ID')}</span>
+                        <BigOrderBadge order={v} />
                         <ScheduledPromoBadge names={v.scheduled_promo_names} />
                       </div>
                     </td>

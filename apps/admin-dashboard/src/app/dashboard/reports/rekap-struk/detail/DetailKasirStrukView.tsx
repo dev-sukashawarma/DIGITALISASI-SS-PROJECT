@@ -37,6 +37,8 @@ import { extractOrderPackages } from '@/lib/posReport/compute'
 import { receiptChips } from '@/lib/posReport/receiptReprint'
 import ReceiptChipBadge from '@/app/dashboard/reports/pos/ReceiptReprintBadge'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
+import BigOrderBadge from '@/components/BigOrderBadge'
+import { isBigOrder } from '@/lib/big-order'
 import { Select } from '@/components/ui/Select'
 
 const wibDateFormatter = new Intl.DateTimeFormat('id-ID', {
@@ -607,9 +609,12 @@ export default function DetailKasirStrukView({
                         {rowNo}
                       </td>
                       <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-stone-100 text-[#2C1810] font-extrabold text-xs tabular-nums">
-                          #{order.order_number}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-stone-100 text-[#2C1810] font-extrabold text-xs tabular-nums">
+                            #{order.order_number}
+                          </span>
+                          <BigOrderBadge order={order} />
+                        </div>
                       </td>
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="font-bold text-[#2C1810] text-xs">
@@ -625,6 +630,7 @@ export default function DetailKasirStrukView({
                           salesSource={order.sales_source}
                           customerName={order.customer_name}
                           isEndorse={order.is_endorse}
+                          isBigOrder={isBigOrder(order)}
                         />
                       </td>
                       <td className="py-3.5 px-4 text-xs font-semibold text-stone-700">

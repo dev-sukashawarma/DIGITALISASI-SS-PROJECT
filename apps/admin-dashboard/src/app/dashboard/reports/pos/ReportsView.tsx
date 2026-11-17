@@ -18,6 +18,8 @@ import {
 } from '@/lib/posReport/receiptReprint'
 import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
+import BigOrderBadge from '@/components/BigOrderBadge'
+import { isBigOrder } from '@/lib/big-order'
 import ReceiptChipBadge from './ReceiptReprintBadge'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
 import { resolveOrderSource } from '@/lib/order-source'
@@ -1160,12 +1162,14 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                       const pkgs = extractOrderPackages(order);
                       const rewardItem = order.order_items.find(i => i.is_promo_reward)
                       const buyOneGetOneName = rewardItem?.promo_name
+                      const orderIsBigOrder = isBigOrder(order)
                       
                       return (
                         <tr key={order.id} className="hover:bg-amber-50/50 transition-colors">
                           <td className="px-5 py-4 font-bold text-gray-900">
                             <div className="flex flex-wrap items-center gap-1.5">
                               <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md">#{order.order_number || 'ECOM'}</span>
+                              <BigOrderBadge active={orderIsBigOrder} />
                               <ScheduledPromoBadge names={order.scheduled_promo_names} />
                               {buyOneGetOneName && <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[10px] font-bold">BUY {rewardItem?.promo_buy_quantity ?? 1} GET {rewardItem?.promo_get_quantity ?? 1}</span>}
                               {receiptChips(order).map((chip) => (
@@ -1246,7 +1250,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                               className="hover:scale-105 active:scale-95 transition-all text-left inline-flex focus:outline-none cursor-pointer"
                               title="Klik untuk memfilter transaksi berdasarkan sumber ini"
                             >
-                              <OrderSourceBadge channel={order.channel} salesSource={order.sales_source} customerName={order.customer_name} isEndorse={order.is_endorse} size="sm" />
+                              <OrderSourceBadge channel={order.channel} salesSource={order.sales_source} customerName={order.customer_name} isEndorse={order.is_endorse} isBigOrder={orderIsBigOrder} size="sm" />
                             </button>
                           </td>
                           {!isSSOnlineSelected && (
@@ -1296,8 +1300,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                                 )}
                                 <div className="font-bold text-gray-900 text-base">{formatRupiah(order.total_amount)}</div>
                                 {offlineDiscount > 0 && (
-                                  <div className="text-[11px] font-medium text-red-500 mt-1">
-                                    (Diskon: -{formatRupiah(offlineDiscount)})
+                                  <div className={`text-[11px] font-medium mt-1 ${orderIsBigOrder ? 'text-emerald-700 font-bold' : 'text-red-500'}`}>
+                                    ({orderIsBigOrder ? 'Diskon Big Order 15%' : 'Diskon'}: -{formatRupiah(offlineDiscount)})
                                   </div>
                                 )}
                                 {appSubsidy > 0 && (

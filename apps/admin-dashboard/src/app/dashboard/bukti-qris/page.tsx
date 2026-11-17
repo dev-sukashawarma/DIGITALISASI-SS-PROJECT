@@ -10,6 +10,8 @@ import { PeriodFilter } from '@/components/PeriodFilter'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { useOutlets } from '@/hooks/useOutlets'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
+import BigOrderBadge from '@/components/BigOrderBadge'
+import { isBigOrder } from '@/lib/big-order'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 
 export default function BuktiQrisPage() {
@@ -47,6 +49,12 @@ export default function BuktiQrisPage() {
             order_number,
             customer_name,
             total_amount,
+            discount_amount,
+            order_type,
+            notes,
+            sales_source,
+            channel,
+            is_endorse,
             created_at,
             payment_proof_url,
             status,
@@ -157,8 +165,9 @@ export default function BuktiQrisPage() {
                 <div key={order.id} className="p-4 sm:p-5 hover:bg-suka-gray-50 md:bg-white md:border md:border-suka-gray-200 md:rounded-2xl transition-all flex flex-col gap-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <div className="flex items-center gap-2 mb-1.5">
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
                         <span className="font-bold text-suka-ink text-base">#{order.order_number}</span>
+                        <BigOrderBadge order={order} />
                         <ScheduledPromoBadge names={order.scheduled_promo_names} />
                       </div>
                       <div className="text-sm text-suka-gray-600 mb-1">
@@ -171,7 +180,17 @@ export default function BuktiQrisPage() {
                     
                     <div className="text-right">
                       <div className="text-[11px] font-semibold text-suka-gray-400 uppercase tracking-wider mb-0.5">Total</div>
+                      {Number(order.discount_amount) > 0 && (
+                        <div className="text-[11px] text-suka-gray-400 line-through font-medium">
+                          {formatRupiah(Number(order.total_amount) + Number(order.discount_amount))}
+                        </div>
+                      )}
                       <div className="font-bold text-suka-orange">{formatRupiah(order.total_amount)}</div>
+                      {Number(order.discount_amount) > 0 && (
+                        <div className={`text-[10px] font-bold mt-0.5 ${isBigOrder(order) ? 'text-emerald-700' : 'text-red-500'}`}>
+                          {isBigOrder(order) ? 'Diskon Big Order 15%' : 'Diskon'}: -{formatRupiah(order.discount_amount)}
+                        </div>
+                      )}
                     </div>
                   </div>
                   

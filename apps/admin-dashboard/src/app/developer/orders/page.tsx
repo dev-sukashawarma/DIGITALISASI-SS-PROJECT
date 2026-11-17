@@ -6,6 +6,7 @@ import { Search, ShoppingCart, Loader2, Calendar } from 'lucide-react'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { format } from 'date-fns'
+import BigOrderBadge from '@/components/BigOrderBadge'
 
 export default function GlobalOrdersPage() {
   const [orders, setOrders] = useState<any[]>([])
@@ -130,6 +131,7 @@ export default function GlobalOrdersPage() {
                               ENDORSE
                             </span>
                           )}
+                          <BigOrderBadge order={order} />
                         </div>
                         <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
                           {order.order_source || 'Unknown'}

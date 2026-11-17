@@ -7,6 +7,7 @@ import { Target, TrendingUp, Store, Receipt, ArrowRight, AlertCircle, ShoppingBa
 import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
+import BigOrderBadge from '@/components/BigOrderBadge'
 
 interface OrderItem {
   menu_item_name: string
@@ -159,7 +160,7 @@ export default function SalesMonitoringPage() {
       // 2. Fetch Recent Orders (Any status to see real-time queue)
       const { data: recent } = await supabase
         .from('orders')
-        .select('id, order_number, created_at, status, total_amount, scheduled_promo_names')
+        .select('id, order_number, created_at, status, total_amount, discount_amount, order_type, notes, sales_source, channel, is_endorse, scheduled_promo_names')
         .eq('outlet_id', outletId)
         .gte('created_at', fromStart)
         .lte('created_at', toEnd)
@@ -349,8 +350,9 @@ export default function SalesMonitoringPage() {
                       <span className="font-extrabold text-slate-900 text-xs">{formatTime(order.created_at)}</span>
                     </div>
                     <div>
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
                         <h4 className="font-bold text-slate-900 text-sm">#{order.order_number}</h4>
+                        <BigOrderBadge order={order} />
                         <ScheduledPromoBadge names={order.scheduled_promo_names} />
                         {order.status === 'completed' ? (
                           <span className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">

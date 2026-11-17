@@ -714,6 +714,13 @@ export function filterRekapStrukOrders({
   }
 }
 
-export function getSourceLabel(order: Pick<OrderRow, 'channel' | 'sales_source' | 'customer_name' | 'is_endorse'>): string {
-  return resolveOrderSource(order.channel, order.sales_source, order.customer_name, order.is_endorse).label
+export function getSourceLabel(order: Pick<OrderRow, 'channel' | 'sales_source' | 'customer_name' | 'is_endorse' | 'order_type' | 'notes' | 'discount_amount' | 'total_amount'>): string {
+  const base = resolveOrderSource(order.channel, order.sales_source, order.customer_name, order.is_endorse).label
+  if (
+    order.order_type === 'big_order' ||
+    (order.notes && /big\s*order/i.test(order.notes))
+  ) {
+    return `${base} (Big Order -15%)`
+  }
+  return base
 }

@@ -11,7 +11,9 @@
 const ORDER_FIELDS = [
   'id', 'order_number', 'status', 'payment_method', 'total_amount', 'discount_amount',
   'promo_subsidy', 'created_at', 'outlet_id', 'channel', 'sales_source', 'customer_name',
-  'cashier_name', 'external_order_id', 'is_endorse', 'raw_data',
+  'cashier_name', 'external_order_id', 'is_endorse',
+  'customer_receipt_print_count', 'kitchen_receipt_print_count',
+  'customer_receipt_skipped', 'kitchen_receipt_skipped', 'raw_data',
 ] as const
 
 const ITEM_FIELDS = [
@@ -20,7 +22,9 @@ const ITEM_FIELDS = [
   'original_unit_price', 'package_choices', 'menu_items',
 ] as const
 
-export const DAY_CODEC_VERSION = 1
+// v2: + hitungan cetak struk (label "dicetak Nx" di Histori Transaksi).
+// v3: + flag struk dilewati (label "tidak dicetak" / "dicetak susulan").
+export const DAY_CODEC_VERSION = 3
 
 export type EncodedDay = { v: number; o: any[][] }
 
@@ -44,7 +48,11 @@ function unpack(row: any[], fields: readonly string[], keepUndefined: Set<string
   return obj
 }
 
-const ORDER_OPTIONAL = new Set(['raw_data'])
+// Hitungan cetak & flag lewati hanya ada di order POS; baris SS Online tidak punya kolom ini.
+const ORDER_OPTIONAL = new Set([
+  'raw_data', 'customer_receipt_print_count', 'kitchen_receipt_print_count',
+  'customer_receipt_skipped', 'kitchen_receipt_skipped',
+])
 const ITEM_OPTIONAL = new Set(['menu_items'])
 
 export function encodeDay(orders: any[]): EncodedDay {

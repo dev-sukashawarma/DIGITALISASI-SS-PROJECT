@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import {
   Info,
   X,
@@ -230,14 +231,12 @@ interface AdminFeeBreakdownTooltipProps {
     grossRevenue?: number;
   };
   isPosKasirOnly?: boolean;
-  adminUrl?: string;
 }
 
 export default function AdminFeeBreakdownTooltip({
   selectedChannels,
   analytics,
   isPosKasirOnly,
-  adminUrl,
 }: AdminFeeBreakdownTooltipProps) {
   const [isOpen, setIsOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -275,7 +274,6 @@ export default function AdminFeeBreakdownTooltip({
 
   const currentMeta = PLATFORM_DETAILS[activeTab] || PLATFORM_DETAILS.gofood;
   const isSettled = (analytics?.totalRealAdmin ?? 0) > 0;
-  const uploadLink = adminUrl ? `${adminUrl}/dashboard/platform-settlement` : '/dashboard/platform-settlement';
 
   if (isPosKasirOnly) {
     return null;
@@ -369,14 +367,12 @@ export default function AdminFeeBreakdownTooltip({
                 </strong>
               </span>
             </div>
-            <a
-              href={uploadLink}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/dashboard/platform-settlement"
               className="text-[10px] text-rose-400 hover:text-rose-300 underline font-semibold flex items-center gap-0.5"
             >
               Upload ↗
-            </a>
+            </Link>
           </div>
 
           {/* Rincian Kolom Potongan Sesuai File Asli */}

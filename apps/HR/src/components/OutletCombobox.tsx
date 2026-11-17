@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Store, Search, Check, ChevronDown } from 'lucide-react'
-import { isTestOutlet } from '@/lib/outletFiltersPenjualan'
+import { isTestOutlet } from '@/lib/outletFilters'
 
 export function cleanOutletName(name: string) {
   const upper = (name || '').toUpperCase().replace(/^🛒\s*/, '').trim()
@@ -19,9 +19,8 @@ export function isExcludedOutlet(o: { id?: string; name?: string; type?: string 
 }
 
 export function isMitraOutlet(o: { id?: string; name?: string; type?: string }) {
-  const typeLower = (o.type || '').toLowerCase()
-  const nameUpper = (o.name || '').toUpperCase()
-  return typeLower === 'mitra' || nameUpper.includes('MITRA')
+  // Status mitra hanya dari jenis outlet, bukan nama (2026-11-13).
+  return (o.type || '').toLowerCase() === 'mitra'
 }
 
 export function OutletCombobox({

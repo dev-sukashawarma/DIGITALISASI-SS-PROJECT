@@ -33,6 +33,7 @@ export default async function PenjualanReportPage() {
     outlets: isSingleOutlet ? [visibleOutlets[0].id] : ['all'],
     channels: ['all'],
     paymentMethod: 'all',
+    receiptFilter: 'all',
     search: '',
     page: 1,
     pageSize: 10,

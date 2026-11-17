@@ -3,7 +3,8 @@ import { readFileSync } from 'fs'
 import { resolve } from 'path'
 
 // Halaman Rangkuman Penjualan HR adalah SALINAN dari admin-dashboard
-// (/dashboard/reports/pos). Kalau rumus/tampilan admin diubah tanpa HR,
+// (/dashboard/reports/pos); finance (/laporan/penjualan) punya tes kembar —
+// ketiganya wajib identik. Kalau rumus/tampilan admin diubah tanpa HR,
 // angka di dua dashboard tak lagi sama — tes ini gagal supaya keduanya
 // diubah bersamaan. Perbedaan yang disengaja dinormalkan di bawah.
 const HR = resolve(__dirname, '../..')

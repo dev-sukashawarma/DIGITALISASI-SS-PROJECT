@@ -101,6 +101,7 @@ export default function MultiSelectDropdown({
             </div>
           </div>
           <div className="max-h-60 overflow-y-auto p-2 space-y-1">
+            {/* Opsi Semua */}
             <button
               type="button"
               onClick={() => toggleOption('all')}

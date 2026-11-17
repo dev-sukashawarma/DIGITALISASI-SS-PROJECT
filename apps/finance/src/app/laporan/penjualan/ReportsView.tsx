@@ -2,7 +2,6 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import Link from 'next/link'
 import {
   FileText, Calendar, ChevronDown, ChevronUp, Award, Banknote, Store,
   QrCode, CreditCard, Package, Search, CheckCircle2, XCircle, Printer, Wallet, Filter, X, FileSpreadsheet,
@@ -11,13 +10,17 @@ import {
 import { createClient } from '@/lib/supabase'
 import { getPosReport, getPosReportExport, invalidatePosReportDays, refreshPosReportRange } from '@/app/actions/posReport'
 import { extractOrderPackages, type ShiftRow } from '@/lib/posReport/compute'
-import { orderDatesFromRealtime, refreshDelayMs } from '@/lib/ownerDashboardCache'
+import { addDaysStr, orderDatesFromRealtime, refreshDelayMs } from '@/lib/ownerDashboardCache'
 import { cleanItemName } from '@/lib/order-item-name'
-import { formatRupiah } from '@/lib/format'
+import {
+  RECEIPT_FILTERS, RECEIPT_FILTER_LABEL, receiptChips, toReceiptFilter, type ReceiptFilter,
+} from '@/lib/posReport/receiptReprint'
+import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
+import ReceiptChipBadge from './ReceiptReprintBadge'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
 import { resolveOrderSource } from '@/lib/order-source'
-import AdminFeeBreakdownTooltip from '@/components/AdminFeeBreakdownTooltip'
+import AdminFeeBreakdownTooltip from '@/components/profit/AdminFeeBreakdownTooltip'
 
 function formatLastUpdated(dateIso?: string) {
   if (!dateIso) return ''
@@ -35,17 +38,16 @@ function formatLastUpdated(dateIso?: string) {
   }
 }
 
-import type { Outlet } from '@/lib/types'
+import type { Outlet } from '@/pos-types'
 import MultiSelectDropdown from '@/components/MultiSelectDropdown'
 import BranchFilter from '@/components/BranchFilter'
 import { splitOutletsByType } from '@/lib/marketplaceOutlets'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
-import { isTikTokGoOrder } from '@/lib/posReportKpi'
+
+type DateRangeType = 'today' | 'yesterday' | '7days' | 'thisMonth' | 'lastMonth' | 'all' | 'custom'
 
 // Halaman upload settlement hanya ada di admin-dashboard.
 const ADMIN_URL = process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD || 'https://admin.sukashawarma.com'
-
-type DateRangeType = 'today' | 'yesterday' | '7days' | 'thisMonth' | 'lastMonth' | 'all' | 'custom'
 
 const RANGE_LABELS: Record<DateRangeType, string> = {
   today: 'Hari Ini',
@@ -93,6 +95,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
   const [selectedChannels, setSelectedChannels] = useState<string[]>(['all'])
   const isPosKasirOnly = !selectedChannels.includes('all') && selectedChannels.length > 0 && selectedChannels.every(c => c === 'pos_kasir' || c === 'pos_pawoon')
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all')
+  const [selectedReceiptFilter, setSelectedReceiptFilter] = useState<ReceiptFilter>('all')
   const [refreshing, setRefreshing] = useState(false)
   // Kerangka (skeleton) hanya saat belum ada data sama sekali; pembaruan
   // berikutnya (ganti halaman, cari, realtime) tidak mengosongkan layar.
@@ -107,27 +110,16 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
   const [customEndDate, setCustomEndDate] = useState<string>('')
 
   const dateStrRange = useMemo(() => {
-    const fmt = (d: Date) => {
-      const m = String(d.getMonth() + 1).padStart(2, '0')
-      const day = String(d.getDate()).padStart(2, '0')
-      return `${d.getFullYear()}-${m}-${day}`
-    }
-    const today = new Date()
-    if (range === 'today') return { from: fmt(today), to: fmt(today) }
+    if (range === 'today') return { from: todayJakarta, to: todayJakarta }
     if (range === 'yesterday') {
-      const y = new Date()
-      y.setDate(y.getDate() - 1)
-      return { from: fmt(y), to: fmt(y) }
+      const y = addDaysStr(todayJakarta, -1)
+      return { from: y, to: y }
     }
     if (range === '7days') {
-      const s = new Date()
-      s.setDate(s.getDate() - 7)
-      return { from: fmt(s), to: fmt(today) }
+      return { from: addDaysStr(todayJakarta, -7), to: todayJakarta }
     }
     if (range === 'thisMonth') {
-      const s = new Date()
-      s.setDate(1)
-      return { from: fmt(s), to: fmt(today) }
+      return { from: `${todayJakarta.slice(0, 8)}01`, to: todayJakarta }
     }
     if (range === 'lastMonth') {
       const jkt = new Date(Date.now() + 7 * 3600 * 1000)
@@ -149,8 +141,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
       if (!customStartDate || !customEndDate) return { from: '', to: '' }
       return { from: customStartDate, to: customEndDate }
     }
-    return { from: '2000-01-01', to: fmt(today) }
-  }, [range, customStartDate, customEndDate])
+    return { from: '2000-01-01', to: todayJakarta }
+  }, [range, customStartDate, customEndDate, todayJakarta])
 
   const isPast = useMemo(() => {
     if (range === 'yesterday' || range === '7days' || range === 'lastMonth') {
@@ -194,27 +186,30 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
     setActivePettyCashTab('pengeluaran')
     setLoadingShiftExpenses(true)
     const supabase = createClient()
-    
+    const endTimeIso = shift.end_time || new Date().toISOString()
+
     const expensesPromise = supabase
       .from('petty_cash_expenses')
       .select('id, outlet_id, category, description, amount, receipt_url, created_at')
       .eq('outlet_id', shift.outlet_id)
+      // Daftar ini ikut dijumlahkan jadi total shift, jadi hanya yang sudah disetujui & belum ter-void
+      // yang dihitung agar totalnya cocok dengan get_petty_cash_balance() di DB.
       .eq('status', 'approved')
       .is('deleted_at', null)
       .gte('created_at', shift.start_time)
-      .lte('created_at', shift.end_time || new Date().toISOString())
+      .lte('created_at', endTimeIso)
       .order('created_at', { ascending: true })
 
     const topupsPromise = supabase
       .from('petty_cash_topups')
-      .select('*')
+      .select('id, outlet_id, description, status, amount, created_at')
       .eq('outlet_id', shift.outlet_id)
       .gte('created_at', shift.start_time)
-      .lte('created_at', shift.end_time || new Date().toISOString())
+      .lte('created_at', endTimeIso)
       .order('created_at', { ascending: true })
-      
+
     const [expRes, topRes] = await Promise.all([expensesPromise, topupsPromise])
-    
+
     setShiftExpenses(expRes.data || [])
     setShiftTopups(topRes.data || [])
     setLoadingShiftExpenses(false)
@@ -232,12 +227,13 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
       outlets: selectedOutlets,
       channels: selectedChannels,
       paymentMethod: selectedPaymentMethod,
+      receiptFilter: selectedReceiptFilter,
       search: debouncedSearch,
       page: currentPage,
       pageSize: itemsPerPage,
       isPawoonVisible,
     }
-  }, [dateStrRange, selectedOutlets, selectedChannels, selectedPaymentMethod, debouncedSearch, currentPage, isPawoonVisible])
+  }, [dateStrRange, selectedOutlets, selectedChannels, selectedPaymentMethod, selectedReceiptFilter, debouncedSearch, currentPage, isPawoonVisible])
 
   const fetchOrders = useCallback(async () => {
     if (!reportRequest) return
@@ -347,6 +343,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
   useEffect(() => {
     if (isSSOnlineSelected) {
       setSelectedPaymentMethod('all')
+      // Order SS Online tidak lewat tablet kasir, jadi tidak punya data struk.
+      setSelectedReceiptFilter('all')
       if (selectedChannels.some(ch => ch !== 'all' && ch !== 'tiktok_shop' && ch !== 'shopee_shop')) {
         setSelectedChannels(['all'])
       }
@@ -416,6 +414,19 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
     
     return result
   }, [itemBreakdownData, itemBreakdownFilter, itemBreakdownSearch, itemBreakdownSortColumn, itemBreakdownSortDirection])
+
+  const itemBreakdownFooter = useMemo(() => {
+    let totalQty = 0
+    let totalHpp = 0
+    let totalGross = 0
+    for (let i = 0; i < filteredItemBreakdownData.length; i++) {
+      const curr = filteredItemBreakdownData[i]
+      totalQty += curr.qty
+      totalHpp += curr.totalHpp
+      totalGross += curr.grossRevenue
+    }
+    return { totalQty, totalHpp, totalGross }
+  }, [filteredItemBreakdownData])
 
   const [itemBreakdownPage, setItemBreakdownPage] = useState(1)
   const paginatedItemBreakdown = filteredItemBreakdownData.slice((itemBreakdownPage - 1) * itemsPerPage, itemBreakdownPage * itemsPerPage)
@@ -651,8 +662,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
         </div>
       ) : (
         <>
-          {/* ── 5 KPI Cards (Alur Kas & Potongan Platform + Profitabilitas P&L) ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 xl:gap-5">
+          {/* ── 4 KPI Cards (Alur Kas & Potongan Platform + Profitabilitas P&L) ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-5">
             {/* 1. Gross Revenue — omzet SEBELUM potongan (net + promo/diskon). */}
             <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
@@ -688,7 +699,6 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                       selectedChannels={selectedChannels}
                       analytics={analytics}
                       isPosKasirOnly={isPosKasirOnly}
-                      adminUrl={ADMIN_URL}
                     />
                   </div>
                   <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-xs shrink-0">
@@ -743,7 +753,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                       * Est. komisi: {formatRupiah(analytics.estimatedCommission)}
                     </span>
                   ) : null}
-                  <Link
+                  <a
                     href={`${ADMIN_URL}/dashboard/platform-settlement`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -751,41 +761,13 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                     title="Upload file settlement GoBiz/Grab/Shopee/TikTok"
                   >
                     Upload Settlement ↗
-                  </Link>
+                  </a>
                 </div>
               </div>
             </div>
 
-            {/* 3. Estimasi Dana Masuk Bank (Net Disbursement) */}
-            <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-indigo-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
-              <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
-              <div className="relative z-10">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
-                    {isSSOnlineSelected
-                      ? 'Net Pencairan Marketplace'
-                      : isPosKasirOnly
-                        ? 'Net Penerimaan Kasir'
-                        : 'Estimasi Masuk Bank'}
-                  </p>
-                  <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-xs">
-                    Masuk Bank
-                  </span>
-                </div>
-                <p className="text-2xl sm:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">
-                  {formatRupiah(analytics.netDisbursement ?? Math.max(0, analytics.grossRevenue - (analytics.totalAdminFee ?? (analytics.totalDeductions + (analytics.totalCommission ?? 0)))))}
-                </p>
-                <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
-                  {isSSOnlineSelected
-                    ? 'Dana bersih yang ditransfer platform ke rekening bank'
-                    : isPosKasirOnly
-                      ? 'Total uang fisik kas laci & QRIS yang diterima'
-                      : 'Uang bersih yang cair ke rekening (Gross Omset - Admin Fee)'}
-                </p>
-              </div>
-            </div>
 
-            {/* 4. Total COGS (HPP Bahan Baku) — WAJIB TETAP ADA */}
+            {/* 3. Total COGS (HPP Bahan Baku) — WAJIB TETAP ADA */}
             <div className="bg-gradient-to-br from-slate-600 to-slate-800 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-slate-600/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
@@ -809,7 +791,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
               </div>
             </div>
 
-            {/* 5. Gross Profit (Laba Kotor) — WAJIB TETAP ADA */}
+            {/* 4. Gross Profit (Laba Kotor) — WAJIB TETAP ADA */}
             <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-emerald-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
@@ -821,7 +803,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                   {formatRupiah(analytics.realGrossProfit ?? analytics.grossProfit)}
                 </p>
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
-                  Laba kotor riil kas setelah HPP & Admin Fee (Masuk Bank - Total COGS)
+                  Laba kotor setelah HPP & Admin Fee
                 </p>
                 <div className="mt-3 flex items-center justify-between gap-2 flex-wrap text-[11px] text-white/80 font-medium">
                   {analytics.grossRevenue > 0 && (
@@ -1037,9 +1019,20 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}
+                  {!isSSOnlineSelected && selectedReceiptFilter !== 'all' && (
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedReceiptFilter('all'); setCurrentPage(1); }}
+                      className="inline-flex items-center gap-1.5 text-xs bg-rose-100 hover:bg-rose-200 text-rose-800 font-semibold px-2.5 py-1 rounded-full transition-all shadow-xs cursor-pointer"
+                      title="Klik untuk hapus filter status struk"
+                    >
+                      <span>Struk: <strong className="font-bold">{RECEIPT_FILTER_LABEL[selectedReceiptFilter]}</strong></span>
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
                 <p className="text-gray-400 text-xs mt-0.5">
-                  {selectedChannels.includes('all') && selectedPaymentMethod === 'all'
+                  {selectedChannels.includes('all') && selectedPaymentMethod === 'all' && selectedReceiptFilter === 'all'
                     ? 'Semua transaksi sukses pada periode ini' 
                     : `Menampilkan transaksi terfilter (${filteredTableCount} transaksi)`}
                 </p>
@@ -1087,6 +1080,28 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                       <option value="all">Semua Metode Bayar</option>
                       {availablePaymentMethods.map(pm => (
                         <option key={pm.key} value={pm.key}>{pm.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Dropdown Status Struk (order SS Online tidak punya data struk) */}
+                {!isSSOnlineSelected && (
+                  <div className="relative flex-1 sm:flex-none min-w-[170px]">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                      <Printer className="h-4 w-4 text-rose-500" />
+                    </div>
+                    <select
+                      value={selectedReceiptFilter}
+                      onChange={(e) => {
+                        setSelectedReceiptFilter(toReceiptFilter(e.target.value))
+                        setCurrentPage(1)
+                      }}
+                      title="Status struk dari tablet kasir; order dari APK lama tidak punya data ini"
+                      className="block w-full pl-9 pr-8 py-2 border border-gray-200 rounded-xl leading-5 bg-gray-50 text-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white transition-colors text-sm cursor-pointer shadow-2xs"
+                    >
+                      {RECEIPT_FILTERS.map((key) => (
+                        <option key={key} value={key}>{RECEIPT_FILTER_LABEL[key]}</option>
                       ))}
                     </select>
                   </div>
@@ -1157,6 +1172,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                               <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md">#{order.order_number || 'ECOM'}</span>
                               <ScheduledPromoBadge names={order.scheduled_promo_names} />
                               {buyOneGetOneName && <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[10px] font-bold">BUY {rewardItem?.promo_buy_quantity ?? 1} GET {rewardItem?.promo_get_quantity ?? 1}</span>}
+                              {receiptChips(order).map((chip) => (
+                                <ReceiptChipBadge key={chip.kind} orderId={order.id} chip={chip} />
+                              ))}
                             </div>
                           </td>
                           <td className="px-5 py-4 text-gray-500 font-medium text-xs">
@@ -1288,18 +1306,11 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                                 )}
                                 {appSubsidy > 0 && (
                                   (order as any).settlement_promo_merchant !== undefined && (order as any).settlement_promo_merchant !== appSubsidy ? (
-                                    <>
-                                      {(order as any).settlement_promo_merchant > 0 && (
-                                        <div className="text-[11px] font-medium text-rose-600 mt-1">
-                                          (Promo Toko: -{formatRupiah((order as any).settlement_promo_merchant)})
-                                        </div>
-                                      )}
-                                      {(order as any).platform_subsidy > 0 && (
-                                        <div className="text-[11px] font-medium text-emerald-600 mt-0.5" title="Disubsidi platform (bukan beban resto)">
-                                          (Subsidi {isTikTokGoOrder(order) ? 'TikTok' : 'Gojek'}: +{formatRupiah((order as any).platform_subsidy)})
-                                        </div>
-                                      )}
-                                    </>
+                                    (order as any).settlement_promo_merchant > 0 ? (
+                                      <div className="text-[11px] font-medium text-rose-600 mt-1">
+                                        (Promo Toko: -{formatRupiah((order as any).settlement_promo_merchant)})
+                                      </div>
+                                    ) : null
                                   ) : (
                                     <div className="text-[11px] font-medium text-orange-600 mt-1">
                                       (Diskon Promo: -{formatRupiah(appSubsidy)})
@@ -1317,7 +1328,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                 <tfoot className="bg-amber-50/50">
                   {(() => {
                     // Total seluruh hasil filter (bukan satu halaman) — dihitung di server.
-                    const { totalGross, totalNet, totalOfflineDiscount, totalAppSubsidy, totalPlatformSubsidy = 0, totalEcommerceDiscount, totalItems } = tableFooter;
+                    const { totalGross, totalNet, totalOfflineDiscount, totalAppSubsidy, totalEcommerceDiscount, totalItems } = tableFooter;
                     
                     return (
                       <>
@@ -1376,16 +1387,6 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                                 </td>
                                 <td className="px-5 py-3 text-right text-sm font-bold text-orange-600 whitespace-nowrap">
                                   - {formatRupiah(totalAppSubsidy)}
-                                </td>
-                              </tr>
-                            )}
-                            {totalPlatformSubsidy > 0 && (
-                              <tr>
-                                <td colSpan={7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-emerald-600">
-                                  Disubsidi Platform (GoFood &amp; TikTok Go — Bukan Beban Resto)
-                                </td>
-                                <td className="px-5 py-3 text-right text-sm font-bold text-emerald-600 whitespace-nowrap">
-                                  + {formatRupiah(totalPlatformSubsidy)}
                                 </td>
                               </tr>
                             )}
@@ -1550,14 +1551,14 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                       </td>
                       <td className="px-5 py-3 text-center">
                         <span className="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-md text-xs">
-                          {filteredItemBreakdownData.reduce((acc, curr) => acc + curr.qty, 0)} Item
+                          {itemBreakdownFooter.totalQty} Item
                         </span>
                       </td>
                       <td className="px-5 py-3 text-right text-base text-rose-700 col-span-2" colSpan={2}>
-                        {formatRupiah(filteredItemBreakdownData.reduce((acc, curr) => acc + curr.totalHpp, 0))}
+                        {formatRupiah(itemBreakdownFooter.totalHpp)}
                       </td>
                       <td className="px-5 py-3 text-right text-base text-amber-700">
-                        {formatRupiah(filteredItemBreakdownData.reduce((acc, curr) => acc + curr.grossRevenue, 0))}
+                        {formatRupiah(itemBreakdownFooter.totalGross)}
                       </td>
                     </tr>
                   </tfoot>

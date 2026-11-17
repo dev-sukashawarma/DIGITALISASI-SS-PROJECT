@@ -6,12 +6,18 @@ import { join } from 'node:path'
 const sumber = readFileSync(join(__dirname, 'posReport.ts'), 'utf8')
 
 describe('posReport.ts = pintu server action', () => {
-  it('hanya mengekspor empat fungsi yang memeriksa sesi', () => {
+  it('hanya mengekspor fungsi yang memeriksa sesi', () => {
     const ekspor = [...sumber.matchAll(/export\s+async\s+function\s+(\w+)/g)].map((m) => m[1]).sort()
-    expect(ekspor).toEqual(['getPosReport', 'getPosReportExport', 'invalidatePosReportDays', 'refreshPosReportRange'])
+    expect(ekspor).toEqual([
+      'getPosReport',
+      'getPosReportExport',
+      'getReceiptPrintLog',
+      'invalidatePosReportDays',
+      'refreshPosReportRange',
+    ])
   })
-  it('getPosReport & getPosReportExport selalu memanggil resolveCallerScope()', () => {
-    for (const nama of ['getPosReport', 'getPosReportExport']) {
+  it('getPosReport, getPosReportExport, & getReceiptPrintLog selalu memanggil resolveCallerScope()', () => {
+    for (const nama of ['getPosReport', 'getPosReportExport', 'getReceiptPrintLog']) {
       const badan = sumber.split(`export async function ${nama}(`)[1]?.split('\nexport ')[0] ?? ''
       expect(badan).toContain('resolveCallerScope()')
     }

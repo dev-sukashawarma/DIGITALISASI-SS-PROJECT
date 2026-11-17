@@ -115,24 +115,50 @@ export function isShopeeFoodOrder(order: { channel?: string | null; sales_source
   )
 }
 
+const JAKARTA_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Jakarta',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+const WIB_OFFSET_MS = 7 * 3600 * 1000
+const YEAR_2000_MS = 946_684_800_000
+const jakartaDateStrCache = new Map<string, string>()
+
 /** Format tanggal YYYY-MM-DD dalam zona waktu Jakarta (WIB). */
 export function getOrderJakartaDateStr(dateOrIso?: string | Date | null): string {
   if (!dateOrIso) return ''
-  try {
-    const d = typeof dateOrIso === 'string' ? new Date(dateOrIso) : dateOrIso
-    if (isNaN(d.getTime())) {
+  if (typeof dateOrIso === 'string') {
+    const hit = jakartaDateStrCache.get(dateOrIso)
+    if (hit !== undefined) return hit
+    let res = ''
+    try {
+      const ms = Date.parse(dateOrIso)
+      if (isNaN(ms)) {
+        const match = dateOrIso.match(/^(\d{4}-\d{2}-\d{2})/)
+        res = match ? match[1] : ''
+      } else if (ms >= YEAR_2000_MS) {
+        res = new Date(ms + WIB_OFFSET_MS).toISOString().slice(0, 10)
+      } else {
+        res = JAKARTA_DATE_FORMATTER.format(new Date(ms))
+      }
+    } catch {
       const match = String(dateOrIso).match(/^(\d{4}-\d{2}-\d{2})/)
-      return match ? match[1] : ''
+      res = match ? match[1] : ''
     }
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Jakarta',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(d)
+    if (jakartaDateStrCache.size > 25_000) jakartaDateStrCache.clear()
+    jakartaDateStrCache.set(dateOrIso, res)
+    return res
+  }
+  try {
+    const ms = dateOrIso.getTime()
+    if (isNaN(ms)) return ''
+    if (ms >= YEAR_2000_MS) {
+      return new Date(ms + WIB_OFFSET_MS).toISOString().slice(0, 10)
+    }
+    return JAKARTA_DATE_FORMATTER.format(dateOrIso)
   } catch {
-    const match = String(dateOrIso).match(/^(\d{4}-\d{2}-\d{2})/)
-    return match ? match[1] : ''
+    return ''
   }
 }
 

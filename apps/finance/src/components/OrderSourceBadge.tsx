@@ -1,6 +1,9 @@
 import { Globe, Monitor, Gift } from 'lucide-react'
 import { resolveOrderSource } from '@/lib/order-source'
 
+// Badge sumber pesanan untuk halaman admin (Laporan & Overview).
+// Tampilan konsisten dgn halaman Owner & papan Kasir crew. Logika resolusi
+// sumber ada di lib/order-source.ts (pure, dipakai juga oleh agregasi analitik).
 export default function OrderSourceBadge({
   channel,
   salesSource,

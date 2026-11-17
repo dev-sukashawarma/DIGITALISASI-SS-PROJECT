@@ -242,7 +242,7 @@ function sheetRingkasan(wb: any, data: PosExportReport, sub: string, daftarSheet
     { kol: ['D', 'E'], label: `DIBATALKAN (${persen(rasio(t.batal, t.trx + t.batal))})`, nilai: t.batal, fmt: INT },
     { kol: ['F', 'F'], label: 'RATA-RATA / TRANSAKSI', nilai: rasio(t.gross, t.trx), fmt: RP },
     { kol: ['G', 'H'], label: 'OMZET BERSIH (GROSS − POTONGAN)', nilai: t.gross - t.potongan, fmt: RP },
-    { kol: ['I', 'J'], label: 'SUBSIDI PLATFORM (BUKAN BEBAN)', nilai: t.subsidi, fmt: RP },
+    { kol: ['I', 'J'], label: 'OUTLET AKTIF', nilai: t.outletCount, fmt: INT },
   ]
   ws.getRow(9).height = 16
   ws.getRow(10).height = 26
@@ -316,7 +316,7 @@ function sheetRingkasan(wb: any, data: PosExportReport, sub: string, daftarSheet
   judulBagian('Keterangan')
   const catatan = [
     'Gross Revenue = nilai kotor pesanan selesai sebelum diskon & potongan (sama dengan kartu di layar).',
-    'Potongan Merchant = diskon offline + promo Food Apps yang ditanggung merchant. Subsidi platform tidak termasuk.',
+    'Potongan Merchant = diskon offline + promo Food Apps yang ditanggung merchant.',
     'Total COGS = HPP resep yang berlaku pada tanggal pesanan × qty (outlet mitra +10%).',
     'Gross Profit = Gross Revenue − (Total COGS + Potongan Merchant). Margin GP = Gross Profit ÷ Gross Revenue.',
     'Rincian per item membagi omzet & potongan pesanan secara proporsional ke tiap item.',
@@ -356,7 +356,6 @@ export function susunWorkbookLaporan(ExcelJS: any, data: PosExportReport, ctx: K
       { key: 'qty', header: 'Item Terjual', width: 12, jenis: 'angka', total: 'sum' },
       ...kolomUang({ netto: true, kontribusi: true }),
       { key: 'aov', header: 'Rata-rata / Transaksi', width: 15, jenis: 'rp', total: ref => `IFERROR(${ref('gross')}/${ref('trx')},0)` },
-      { key: 'subsidi', header: 'Subsidi Platform', width: 15, jenis: 'rp', total: 'sum' },
     ],
     baris: data.outlets.map((o, i) => ({ no: i + 1, ...o, ...lengkapi(o), aov: rasio(o.gross, o.trx) })),
   })

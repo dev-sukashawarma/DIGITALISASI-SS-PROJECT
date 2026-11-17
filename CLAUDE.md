@@ -3780,7 +3780,7 @@ Tidak ada modul bersama. Kalau satu diubah sendirian, Dashboard Kemitraan / Rang
 
 - **DB:** `get_mitra_item_hpp` **dan** `get_owner_dashboard_summary` yang **menduplikasi markup inline** (2 CASE: `item_cogs` + `item_markup`), bukan memanggil fungsinya. `get_mitra_orders_summary` memanggil fungsi → ikut otomatis.
 - **admin-dashboard:** `lib/hpp/fetchHpp.ts`, `lib/posReport/compute.ts`, `app/actions/mitraPnl.ts`, `dashboard/resep/HppDashboardView.tsx`, `OutletPricingView.tsx`
-- **finance:** `lib/posReport/compute.ts` (**byte-identik** dengan admin — SALIN, jangan edit dua kali; dijaga `compute.parity.test.ts`), `lib/eom/kasir.ts` (hanya memisahkan grup + label)
+- **finance:** `lib/posReport/compute.ts` (**byte-identik** dengan admin — SALIN, jangan edit dua kali; dijaga `rangkumanPenjualan.parity.test.ts`). **HR juga punya salinannya** (`apps/HR/src/lib/posReport/compute.ts`) — markup mitra wajib ikut diubah di sana, `lib/eom/kasir.ts` (hanya memisahkan grup + label)
 - **manager:** `app/page.tsx`, `app/reports/page.tsx`, `app/resep/*` · **bot:** `lib/server/telemetriNyata.ts`
 
 **Penjaga baru:** `apps/admin-dashboard/src/lib/hpp/markupMitra.parity.test.ts` (14 test) menggagalkan CI kalau salah satu berkas menyimpang. Kontrol negatifnya diuji (satu berkas sengaja dirusak → test gagal menyebut berkasnya).
@@ -3924,5 +3924,17 @@ Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawa
 
 ---
 
-**Last updated:** 2026-11-13  
+## Session 2026-11-17: Rangkuman Penjualan identik di admin, finance, HR
+
+**Status:** di `main`. Deploy otomatis ketiga app.
+
+- Halaman admin `/dashboard/reports/pos` disalin ke HR `/penjualan` (menu Laporan; owner/admin/admin_hr/developer) dan finance `/laporan/penjualan` disamakan ulang (finance tertinggal: filter struk, subsidi masih tampil di ekspor, optimasi cache).
+- **Admin = sumber.** Setiap perubahan Rangkuman Penjualan di admin WAJIB disalin ke finance & HR. `rangkumanPenjualan.parity.test.ts` di finance & HR membandingkan ±35 berkas (posReport/*, server action, filter, komponen) dengan admin dan menggagalkan CI bila menyimpang.
+- Perbedaan yang disengaja: `page.tsx` per app (penjaga peran: HR daftar peran, finance via `resolveCallerScope`); tombol Upload Settlement di finance/HR membuka admin di tab baru; HR memakai `lib/outletFiltersPenjualan.ts` (salinan outletFilters admin) karena `lib/outletFilters.ts` HR milik `@suka/hr-rumus`.
+- `OutletCombobox` ketiga app kini menentukan mitra dari `outlets.type` saja (perbaikan finance 13 Nov dibawa ke admin & HR).
+- ⚠️ Branch `feat/sembunyi-outlet-tutup` (belum merge) mengubah `OutletCombobox` admin+finance dengan aturan nama lagi + menambah `lib/outletTutup.ts`: saat merge, pertahankan aturan `type === 'mitra'`, salin `OutletCombobox.tsx` & `outletTutup.ts` ke HR, lalu tambahkan `lib/outletTutup.ts` ke daftar kedua tes paritas.
+
+---
+
+**Last updated:** 2026-11-17  
 **Owner:** Dev Suka Shawarma

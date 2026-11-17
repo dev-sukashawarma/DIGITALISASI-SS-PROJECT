@@ -12,8 +12,8 @@
  * Penjualan marketplace sendiri tidak ada di tabel `orders`; ia hidup di
  * `ecommerce_sales` dengan channel_id berupa UUID ecommerce_channels di bawah.
  *
- * Salinan identik ada di apps/admin-dashboard/src/lib/hpp/kanalSsOnline.ts dan di
- * fungsi DB get_mitra_item_hpp_base — ubah ketiganya bersamaan.
+ * Salinan identik ada di admin-dashboard, finance, dan HR (src/lib/hpp/kanalSsOnline.ts,
+ * dijaga tes paritas) serta di fungsi DB get_mitra_item_hpp_base — ubah semuanya bersamaan.
  */
 
 export const KANAL_SS_ONLINE: ReadonlySet<string> = new Set([

@@ -24,8 +24,15 @@ const FILE = path.join(process.cwd(), '.next', 'cache', 'fetch-cache', 'report-d
 
 let gens: Record<string, number> | null = null
 let lastMtime = 0
+let lastStatAt = 0
+const STAT_INTERVAL_MS = 1_000
 
-function load(): Record<string, number> {
+function load(forceStat = false): Record<string, number> {
+  const now = Date.now()
+  if (gens && !forceStat && now - lastStatAt < STAT_INTERVAL_MS) {
+    return gens
+  }
+  lastStatAt = now
   try {
     const stat = fs.statSync(FILE)
     if (gens && stat.mtimeMs <= lastMtime) return gens
@@ -52,13 +59,17 @@ export function daysGeneration(dates: string[]): string {
 /** Naikkan generasi tanggal-tanggal ini dan simpan ke disk. */
 export function bumpDayGenerations(dates: string[]) {
   if (!dates || dates.length === 0) return
-  const g = load()
+  const g = load(true)
   for (const d of dates) g[d] = (g[d] ?? 0) + 1
   try {
     fs.mkdirSync(path.dirname(FILE), { recursive: true })
     const tmp = `${FILE}.${process.pid}.tmp`
     fs.writeFileSync(tmp, JSON.stringify(g))
     fs.renameSync(tmp, FILE) // tulis-lalu-ganti-nama: berkas tak pernah setengah jadi
+    try {
+      lastMtime = fs.statSync(FILE).mtimeMs
+      lastStatAt = Date.now()
+    } catch { /* abaikan */ }
   } catch (e) {
     console.error('[dayGenerations] gagal menyimpan generasi tanggal:', e)
   }

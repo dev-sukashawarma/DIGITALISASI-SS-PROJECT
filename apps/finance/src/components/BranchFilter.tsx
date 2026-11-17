@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { ChevronDown, Search, Check, Store } from 'lucide-react'
+import type { Outlet } from '@/pos-types'
 import { isExcludedOutlet, isMitraOutlet, cleanOutletName } from './OutletCombobox'
 
 interface BranchFilterProps {
-  outlets: { id: string; name: string; type?: string }[]
+  outlets: (Outlet | { id: string; name: string; type?: string })[]
   selectedOutlet: string
   onChange: (id: string) => void
   className?: string
@@ -102,10 +103,10 @@ export default function BranchFilter({ outlets, selectedOutlet, onChange, classN
             </div>
           </div>
           <div className="max-h-72 overflow-y-auto p-1.5 space-y-1">
+            {/* Top Options (Semua Cabang, SS ONLINE) */}
             {filteredTop.map(o => (
               <button
                 key={o.id}
-                type="button"
                 onClick={() => {
                   onChange(o.id)
                   setIsOpen(false)
@@ -122,6 +123,7 @@ export default function BranchFilter({ outlets, selectedOutlet, onChange, classN
               </button>
             ))}
 
+            {/* Separator / Header: Outlet Mitra */}
             {filteredMitra.length > 0 && (
               <div className="pt-2">
                 <div className="px-3 py-1 text-[10px] font-extrabold text-gray-400 uppercase tracking-wider border-t border-gray-100 flex items-center justify-between">
@@ -131,7 +133,6 @@ export default function BranchFilter({ outlets, selectedOutlet, onChange, classN
                 {filteredMitra.map(o => (
                   <button
                     key={o.id}
-                    type="button"
                     onClick={() => {
                       onChange(o.id)
                       setIsOpen(false)
@@ -150,6 +151,7 @@ export default function BranchFilter({ outlets, selectedOutlet, onChange, classN
               </div>
             )}
 
+            {/* Separator / Header: Outlet Internal */}
             {filteredInternal.length > 0 && (
               <div className="pt-2">
                 <div className="px-3 py-1 text-[10px] font-extrabold text-gray-400 uppercase tracking-wider border-t border-gray-100 flex items-center justify-between">
@@ -159,7 +161,6 @@ export default function BranchFilter({ outlets, selectedOutlet, onChange, classN
                 {filteredInternal.map(o => (
                   <button
                     key={o.id}
-                    type="button"
                     onClick={() => {
                       onChange(o.id)
                       setIsOpen(false)

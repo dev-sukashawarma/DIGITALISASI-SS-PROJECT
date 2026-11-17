@@ -1,9 +1,12 @@
-# Konsep: CCTV Anti-Fraud Kasir ("Kasir Watch")
+# Project Silent Eye: Konsep CCTV Anti-Fraud Kasir
+
+> Nama kode **Project Silent Eye**: mengawasi diam-diam tanpa mengganggu kerja. Sebelumnya disebut "Kasir Watch".
 
 **Status:** Konsep, belum disetujui owner. Belum ada kode, database, atau perangkat yang disentuh.
 **Tanggal:** 17 November 2026
 **Lingkup:** CCTV saja. Data POS sengaja **tidak** disambungkan di tahap ini.
 **Fokus kecurangan:** **mengambil uang dari laci kasir** (lihat bagian 3a).
+**Fitur opsional (17 Nov 2026):** **SOP kebersihan crew**, misalnya penutup rambut dan masker (lihat bagian 3b). Fokus utama tetap laci kasir. Fitur ini dikerjakan setelah deteksi laci berjalan, bila disetujui.
 **Keputusan (17 Nov 2026):** sistem **dibangun sendiri**, dan video **tidak dikirim ke cloud vendor luar**. Produk komersial sejenis hanya dipakai sebagai pembanding (bagian 19).
 
 ### Keputusan owner (17 Nov 2026)
@@ -25,6 +28,7 @@
 | D13 | Outlet pilot | **SUKA SHAWARMA BNR.** |
 | D14 | Cek HR/legal untuk pilot tanpa pemberitahuan | Owner menjawab **"ya"** (17 Nov 2026). Bentuk persetujuan HR/legal sebaiknya dilampirkan sebelum pilot BNR dimulai. |
 | D15 | Tempat mengolah & menyimpan video | **Perangkat lokal dulu, VPS nanti.** Uji kantor: PC kantor. Pilot BNR: mini PC di BNR, diakses dari kantor lewat VPN terenkripsi (Tailscale). Server pusat baru dibutuhkan saat sistem dipakai banyak outlet. **Perangkat di BNR diputuskan setelah uji kantor**: mini PC N100, PC/laptop bekas, atau diolah di PC kantor (tetap butuh alat jembatan VPN di BNR). Dasarnya beban PC dan besar arus video yang terukur saat uji. |
+| D17 | Bahasa Silent Eye Agent | **Python** (ekosistem AI: RF-DETR, MediaPipe, PyOD, paho-mqtt, supabase-py). |
 | D16 | Rekaman penuh (bukan hanya klip kartu) | **Disimpan 30 hari di outlet**, lalu terhapus otomatis. Tidak dikirim ke pusat. Klip kartu tetap mengikuti D5. |
 
 ---
@@ -84,6 +88,26 @@ Kecurangan yang paling dikhawatirkan adalah **uang diambil dari laci kasir**. Mo
 
 Dengan SOP ini, setiap pelanggaran langsung menjadi kejadian yang terlihat di kamera, bahkan sebelum model canggih dipakai.
 
+## 3b. Fitur opsional: SOP kebersihan crew
+
+> **Opsional.** Fokus utama sistem tetap pengambilan uang dari laci kasir (bagian 3a). Fitur ini baru dikerjakan setelah deteksi laci berjalan, dan hanya bila disetujui.
+
+Bila diaktifkan, sistem juga memantau kepatuhan SOP kebersihan di **area racik shawarma**:
+
+| Pelanggaran SOP | Tingkat kesulitan deteksi | Catatan |
+|---|---|---|
+| Tanpa penutup rambut (haircap) | Mudah | Terlihat jelas dari atas dan samping |
+| Tanpa masker | Mudah | Model deteksi masker sudah umum |
+| Tanpa celemek / seragam | Sedang | Model dilatih dengan seragam crew sendiri |
+| Main HP di area racik | Sedang | Butuh sudut kamera yang cukup dekat |
+| Tanpa sarung tangan saat memegang makanan | Lebih sulit | Sarung tangan plastik tipis sulit terlihat di kamera |
+
+**Yang dibutuhkan:**
+- **1 kamera tambahan** yang menghadap area racik. Kamera atas laci tidak melihat area masak. Biaya ±Rp 0,48 jt per outlet (Dahua 2 MP) atau ±Rp 0,28 jt (Tapo C110) untuk uji kantor.
+- **Model khusus.** Model deteksi orang standar (YOLO) tidak mengenali penutup rambut, masker, atau sarung tangan. Model harus dilatih atau disetel ulang dengan rekaman crew kita sendiri (Tahap C). Untuk uji kantor bisa dimulai dengan model deteksi alat pelindung diri yang tersedia publik, lalu diukur akurasinya.
+
+**Alurnya sama dengan kejadian laci:** kartu bukti, penilaian admin/developer (D1), masa simpan klip (D5), dan crew bertugas dari absensi (D2). Sistem tetap **tanpa pengenalan wajah**.
+
 ## 4. Zona kamera
 
 Kamera kasir dibagi menjadi zona yang digambar sekali per outlet:
@@ -127,7 +151,14 @@ Kamera kasir dibagi menjadi zona yang digambar sekali per outlet:
 | K13 | Uang atau benda dipindah dari laci ke bawah konter | Uang disembunyikan untuk diambil belakangan | C |
 | K14 | Uang dihitung di luar jangkauan kamera atas laci | Melanggar SOP hitung uang di bawah kamera | A (laci kosong orang lama saat jam hitung) → C |
 
+| K15 | Crew di area racik tanpa penutup rambut | SOP kebersihan (bagian 3b) | C |
+| K16 | Crew di area racik tanpa masker | SOP kebersihan | C |
+| K17 | Crew tanpa celemek / seragam | SOP kebersihan | C |
+| K18 | HP dipegang di area racik | SOP kebersihan | C |
+| K19 | Memegang makanan tanpa sarung tangan | SOP kebersihan, paling sulit dideteksi | C → D |
+
 **Prioritas untuk modus mengambil uang:** K1, K2, K3, K5 (Tahap A) dulu, lalu K12 dan K9 sebagai target utama Tahap C.
+**Prioritas SOP kebersihan (opsional, setelah laci berjalan):** K15 dan K16 dulu karena paling mudah, lalu K17–K19.
 
 Ambang setiap kejadian (berapa detik, berapa lama "kosong lama") ditetapkan saat uji coba, berdasarkan rekaman nyata outlet uji.
 
@@ -304,7 +335,7 @@ Server pusat, kapan pun dibutuhkan, adalah **server milik sendiri** (VPS perusah
 
 Syarat skala 20+ outlet: perangkat **seragam** di semua outlet (supaya model bisa dipakai bersama), pengaturan dikirim dari pusat (tanpa datang ke outlet), dan setiap mini PC melapor rutin ke pusat. Server pusat **tidak mengolah video**, jadi tidak perlu GPU.
 
-Perkiraan kasar perangkat 20 outlet: 20 × ±Rp 6,7–7,7 jt (bagian 14a) ≈ **±Rp 134–154 jt**, belum termasuk tambahan penyimpanan di server pusat. Angka ini bisa turun bila kamera konter di sebagian outlet cukup memakai CCTV yang sudah ada (asal mendukung RTSP).
+Perkiraan kasar perangkat 20 outlet: 20 × Rp 7.443.800 (bagian 14a, harga live) ≈ **Rp 148.876.000**, belum termasuk tambahan penyimpanan di server pusat. Angka ini bisa turun bila kamera konter di sebagian outlet cukup memakai CCTV yang sudah ada (asal mendukung RTSP).
 
 ## 10. Kamera Bardi
 
@@ -382,6 +413,23 @@ Disarankan dikonsultasikan dengan pihak HR/legal sebelum diterapkan di semua out
 - klip tersimpan utuh dan jamnya cocok dengan kejadian.
 
 Setelah lulus, lanjut ke pilot outlet (13.1) memakai perangkat setara Paket B.
+
+### 13.0a Timeline usulan (dihitung sejak proposal disetujui)
+
+| Waktu | Kegiatan | Hasil |
+|---|---|---|
+| Minggu 1 | Beli kamera, siapkan meja kasir tiruan, pasang go2rtc dan Frigate di PC kantor | Kamera tampil di sistem |
+| Minggu 2–3 | Peragakan 7 skenario, setel ambang, ukur alarm palsu dan beban PC | Data lulus atau tidak lulus |
+| Minggu 4 | Evaluasi uji kantor, putuskan perangkat BNR (D15) | Lanjut ke BNR atau perbaiki |
+| Minggu 5 | Beli dan pasang perangkat BNR, terapkan SOP laci | BNR siap merekam |
+| Minggu 6–9 | Pilot BNR 4 minggu (minggu pertama hanya mencatat) | Laporan hasil pilot |
+| Minggu 10 | Evaluasi pilot bersama owner | Keputusan perluasan & sambung POS (D12) |
+| Bulan 4 | Perluasan ke outlet wilayah Bogor | Outlet Bogor terpasang |
+| Bulan 5 dst. | Perluasan ke outlet lainnya di luar Bogor, bertahap | Semua outlet terpasang |
+
+**Urutan perluasan (17 Nov 2026):** uji kantor → pilot BNR → **outlet wilayah Bogor** → outlet lainnya.
+
+Waktu bisa bergeser mengikuti pengiriman barang dan hasil tiap evaluasi.
 
 ### 13.1 Pilot outlet
 
@@ -515,7 +563,30 @@ Kamera PoE menerima **listrik dan data lewat satu kabel LAN**, jadi tidak perlu 
 - **Pilih Tapo** bila tujuannya membuktikan alur software secepat dan semurah mungkin. Kameranya kemudian dianggap habis pakai.
 - **Pilih Dahua** bila uji kantor sekaligus menjadi gladi bersih BNR. Selisih ±Rp 0,9 jt terbayar karena kamera dan switch-nya langsung dipakai di BNR, dan hasil uji lebih mirip kondisi outlet.
 
-**Perkiraan total BNR** (2 kamera Dahua 2 MP ±Rp 0,95 jt + switch PoE ±Rp 0,37 jt + kabel ±Rp 0,15 jt + mini PC N100 8 GB ±Rp 2,6–3 jt + SSD 2 TB ±Rp 1,8–2 jt + UPS ±Rp 0,8–1,2 jt): **±Rp 6,7–7,7 jt**. Angka ini naik dari perkiraan sebelumnya (±Rp 5,5–6,5 jt) karena penyimpanan rekaman penuh 30 hari (D16) kini ikut dihitung. Mini PC bisa tidak dibeli bila hasil uji kantor menunjukkan video BNR boleh diolah di PC kantor (D15).
+### Rincian biaya per barang (harga live Tokopedia, dicek 17 Nov 2026 sore)
+
+⚠️ **Harga di tabel-tabel sebelumnya di bagian ini adalah cuplikan hasil pencarian dan sebagian sudah basi.** Tabel ini memakai harga yang dibaca langsung dari halaman produk, dan semua link dicek aktif. Harga memori sedang tinggi: mini PC N100 16 GB Rp 5,8–8 jt, SSD 2 TB Rp 4,7–6,1 jt. Karena itu rincian BNR memakai mini PC 8 GB + harddisk eksternal.
+
+| Barang | Harga satuan | Uji kantor · Tapo | Uji kantor · Dahua | Pilot BNR |
+|---|---|---|---|---|
+| [Kamera TP-Link Tapo C110](https://www.tokopedia.com/pronetindo/tp-link-tapo-c110-home-security-wi-fi-camera-1730778406183273588) | Rp 379.000 | Rp 758.000 (2×) | — | — |
+| [Kamera Dahua IPC-HDW1230T1-A-S5](https://www.tokopedia.com/bandarcctvsurabaya/dahua-ipc-hdw1230-2mp-ip-camera-indoor-1732301918805067430) | Rp 409.000 | — | Rp 818.000 (2×) | Rp 818.000 (2×) |
+| [Switch PoE TP-Link TL-SF1005LP](https://www.tokopedia.com/tp-linkofficialsby/tplink-sf1005lp) | Rp 328.000 | — | Rp 328.000 | Rp 328.000 |
+| [Kabel LAN Cat6 20 m ProffTech](https://www.tokopedia.com/profftechindonesia/kabel-lan-cat-6-utp-original-profftech-20-meter-qualitas-terjamin) | Rp 75.600 | — | Rp 226.800 (3×) | Rp 226.800 (3×) |
+| [Mini PC GK3 Plus N100 8/256 GB](https://www.tokopedia.com/juragantablet/minipc-gk3-plus-2024-intel-n100-8-256gb-ssd-hdmi-vga-windows-11-pro) | Rp 3.199.000 | PC kantor | PC kantor | Rp 3.199.000 |
+| [Harddisk Toshiba Canvio Basics 2 TB](https://www.tokopedia.com/toshibastorageoffic/toshiba-canvio-basics-2tb-harddisk-eksternal-usb-3-0) | Rp 2.135.000 | — | — | Rp 2.135.000 |
+| [UPS APC 650 VA](https://www.tokopedia.com/newtechcomputer/ups-apc-650va-garansi-resmi) | Rp 737.000 | — | — | Rp 737.000 |
+| **Total** | | **Rp 758.000** | **Rp 1.372.800** | **Rp 7.443.800** |
+| Opsional: kamera area racik (SOP kebersihan, bagian 3b) | | +Rp 379.000 | +Rp 484.600 (kamera + kabel) | +Rp 484.600 |
+
+- **20 outlet** ≈ 20 × Rp 7.443.800 = **Rp 148.876.000**, ditambah Rp 9.692.000 bila semua outlet memakai kamera area racik. Switch PoE 4 port cukup untuk 3 kamera.
+- Kalau uji kantor memakai **Dahua**, kamera, switch, dan kabelnya dipindah ke BNR, sehingga belanja BNR tinggal **Rp 6.071.000**.
+- Selisih harga Tapo dan Dahua per kamera hari ini hanya Rp 30.000.
+- Harddisk eksternal portabel tidak dirancang untuk rekam 24 jam. Cukup untuk pilot, tapi untuk banyak outlet sebaiknya ditinjau ulang (HDD khusus CCTV di PC tower, atau SSD bila harga memori turun).
+- Harga basi yang ketahuan saat pengecekan: Beelink S12 Pro Rp 3.550.000 → **Rp 8.060.000**; SSD Lexar NM610 Pro 2 TB Rp 1.949.000 → **Rp 6.123.200**; listing Tapo C110 di toko resmi TP-Link sudah dihapus (410).
+
+~~Perkiraan lama berikut memakai harga pencarian yang sudah basi; angka yang berlaku ada di tabel "Rincian biaya per barang" di atas (Rp 7.443.800).~~
+**Perkiraan total BNR (lama)** (2 kamera Dahua 2 MP ±Rp 0,95 jt + switch PoE ±Rp 0,37 jt + kabel ±Rp 0,15 jt + mini PC N100 8 GB ±Rp 2,6–3 jt + SSD 2 TB ±Rp 1,8–2 jt + UPS ±Rp 0,8–1,2 jt): **±Rp 6,7–7,7 jt**. Angka ini naik dari perkiraan sebelumnya (±Rp 5,5–6,5 jt) karena penyimpanan rekaman penuh 30 hari (D16) kini ikut dihitung. Mini PC bisa tidak dibeli bila hasil uji kantor menunjukkan video BNR boleh diolah di PC kantor (D15).
 
 Sumber harga: listing Tokopedia (TP-Link Indonesia, Bandar CCTV Surabaya, Saber Technology, Delta Vision, Maxprovision, Millennium Central CCTV, Sanjayacomtronix, Beelink Official), Nale, dan Dinomarket, diakses 17 Nov 2026.
 
@@ -542,7 +613,7 @@ Masih terbuka:
 
 ## 17. Tahap sesudahnya (di luar dokumen ini)
 
-**Kebersihan dapur (dengan kamera yang sama atau kamera dapur):** crew memegang makanan tanpa sarung tangan, rambut tidak tertutup, tanpa masker. Ini fitur standar produk komersial (bagian 19) dan relevan untuk crew shawarma. Dikerjakan setelah deteksi uang di laci berjalan.
+**Kebersihan dapur** kini sudah masuk lingkup (bagian 3b, kejadian K15–K19).
 
 Setelah CCTV berjalan, data POS bisa disambungkan sehingga kejadian video bisa dicocokkan dengan transaksi. Contohnya: jumlah pembeli per 15 menit dibandingkan dengan jumlah order, atau laci terbuka dicocokkan dengan ada/tidaknya pembayaran tunai di detik yang sama. Itu dibahas di dokumen tersendiri.
 
@@ -572,3 +643,55 @@ Setelah CCTV berjalan, data POS bisa disambungkan sehingga kejadian video bisa d
 - Keduanya mengirim video ke cloud vendor di luar negeri. **Tidak dipakai** sesuai prinsip 7, hanya sebagai patokan fitur dan tampilan.
 - Yang diambil: pola peringatan WhatsApp + foto, alur "bukti → penanggung jawab → status selesai", dan fitur kebersihan dapur sebagai tahap lanjutan.
 - Absensi dengan pengenalan wajah tidak diambil. Kita sudah punya app `absensi`, dan sistem ini tetap tanpa pengenalan wajah.
+
+## 20. Tech stack (usulan, hasil riset 17 Nov 2026, belum diputuskan)
+
+### 20.1 Ringkasan
+
+| Lapisan | Pilihan | Lisensi | Status |
+|---|---|---|---|
+| OS edge | Ubuntu Server 24.04 LTS + Docker Compose | Bebas | Usulan |
+| Perekam + deteksi | **Frigate NVR** (memuat go2rtc) | MIT (nama "Frigate" merek dagang, jangan dipakai sebagai nama produk) | Usulan kuat |
+| Akselerasi AI | **OpenVINO** di GPU bawaan Intel N100 | Apache 2.0 | Usulan kuat |
+| Pesan internal | **MQTT (Mosquitto)**, topik `frigate/events` | EPL/EDL | Usulan |
+| Silent Eye Agent | **Python** (paho-mqtt + supabase-py) | Milik sendiri | **Diputuskan (D17)** |
+| Data kartu & penilaian | **Supabase** (tabel `cctv_*`, RLS admin/developer) | Sudah dipakai | Usulan |
+| Halaman Perlu Dicek | **Next.js di `apps/admin-dashboard`** | Sudah dipakai | Usulan |
+| Jaringan pribadi | **Tailscale** | Sudah dipakai | Usulan |
+| Penyimpanan klip pusat (tahap banyak outlet) | **Garage** atau **SeaweedFS** (bukan MinIO) | AGPL / Apache 2.0 | Usulan |
+| Model deteksi khusus (Tahap C) | **RF-DETR** (bukan Ultralytics YOLO) | Apache 2.0 | Usulan kuat |
+| Deteksi tangan untuk K12 | **MediaPipe Hand Landmarker** | Apache 2.0 | Perlu uji |
+| Pola normal per outlet (Tahap B) | **PyOD** | BSD-2 | Usulan |
+| Pelabelan klip | **Label Studio** dipasang sendiri | Apache 2.0 (Community) | Usulan |
+
+### 20.2 Temuan penting dari riset
+
+1. **Frigate cocok untuk N100.** Dokumentasi Frigate mencatat Intel N100 ±15 ms per deteksi (MobileNetV2) dan ±25 ms (YOLO-NAS 320). Kapasitas ≈ 1000 / waktu deteksi, jadi ±40–65 deteksi per detik, lebih dari cukup untuk 2–3 kamera. Batasannya: N100 hanya bisa menjalankan **satu** detektor sekaligus.
+2. **Frigate sudah menyediakan hampir semua yang dibutuhkan Agent:**
+   - MQTT `frigate/events` mengirim `before`/`after` beserta `current_zones` dan `entered_zones`, jadi aturan "ada orang di zona laci, zona pembeli kosong" bisa dibaca langsung.
+   - Zona punya `inertia` (harus beberapa frame berturut-turut) dan `loitering_time` (harus diam di zona minimal N detik). Keduanya berguna untuk menekan alarm palsu.
+   - API HTTP (FastAPI) menyediakan `GET /api/events/<id>/clip.mp4`, `GET /api/events/<id>/snapshot.jpg`, `POST /api/events/<id>/retain` (klip tidak ikut terhapus), dan ekspor rekaman per rentang waktu.
+   - Rekaman penuh 30 hari (D16) memakai `record` dengan retensi hari continuous. Skema konfigurasi berubah antar versi (`retain` lama vs `continuous`/`motion` baru), jadi ikuti dokumentasi versi yang dipasang.
+3. **🔴 Hindari Ultralytics YOLO untuk model khusus.** Lisensinya AGPL-3.0. Menurut Ultralytics, pemakaian komersial, termasuk tool internal perusahaan, wajib membuka seluruh kode atau membeli lisensi Enterprise. **Penggantinya RF-DETR** (Apache 2.0, kode dan bobot COCO), yang juga sudah didukung Frigate lewat ONNX. Lisensi bobot hasil fine-tune RF-DETR perlu dicek di file LICENSE repositorinya.
+4. **🔴 Jangan pakai Frigate+.** Layanan berbayar ini mengunggah gambar ke server Frigate untuk melatih model, sehingga bertentangan dengan prinsip 7.
+5. **🔴 Jangan pakai MinIO untuk penyimpanan pusat.** Edisi komunitasnya masuk mode pemeliharaan (Des 2025), tanpa image Docker resmi dan tanpa konsol admin. Alternatifnya Garage (ringan, AGPL, tidak masalah selama dipakai tanpa diubah) atau SeaweedFS (Apache 2.0).
+6. **K12 (tangan ke saku) butuh logika tambahan.** MediaPipe Hand Landmarker (Apache 2.0) hanya memberi titik-titik tangan. Aturan "pergelangan tangan bergerak dari zona laci ke area badan" harus dibuat sendiri, atau dilatih sebagai pengklasifikasi urutan gerak. Alternatifnya RTMPose (cepat di CPU, mendukung OpenVINO; lisensi perlu dicek).
+7. **Fitur GenAI Frigate (deskripsi kejadian dengan Ollama lokal) belum cocok.** Dokumentasinya menyarankan tidak menjalankannya di CPU karena terlalu lambat. Bisa dipertimbangkan nanti di server pusat ber-GPU.
+8. **Kamera Dahua:** RTSP `rtsp://<user>:<pass>@<ip>:554/cam/realmonitor?channel=1&subtype=0` (main stream, untuk rekaman) dan `subtype=1` (sub stream, untuk deteksi). Pola Frigate yang umum: rekam dari main stream, deteksi dari sub stream. Sinkronisasi jam NTP di kamera perlu dicek manual saat pemasangan.
+9. **Alternatif NVR yang dipertimbangkan:** Viseron (Python, deteksi di CPU), ZoneMinder (matang tapi minim fitur AI modern), Shinobi (Node.js, komunitas lebih kecil). **Frigate dipilih** karena paling banyak dipakai untuk deteksi AI, punya API dan MQTT yang lengkap, dan berlisensi MIT.
+10. **Aspek hukum (bukan nasihat hukum):** Pasal 17 UU PDP mengatur alat pemroses data visual di tempat umum: harus untuk keamanan, wajib ada informasi keberadaannya, dan tidak untuk mengidentifikasi orang. Kewajiban dasar pemrosesan data pribadi (Pasal 20 UU PDP, dipertegas PP 33/2026 menurut Hukumonline) tetap berlaku untuk karyawan. Ini memperkuat keputusan tanpa pengenalan wajah dan cek HR/legal (D14).
+
+### 20.3 Masih perlu diputuskan
+- ~~Bahasa Agent~~ → **Python** (D17).
+- Penyimpanan klip pusat saat banyak outlet: Garage atau SeaweedFS.
+- Model Tahap C: RF-DETR (disarankan) atau model bawaan Frigate saja dulu.
+
+### 20.4 Referensi
+- Frigate: [hardware](https://docs.frigate.video/frigate/hardware), [object detectors](https://docs.frigate.video/configuration/object_detectors), [API](https://docs.frigate.video/integrations/api), [MQTT](https://docs.frigate.video/integrations/mqtt), [zones](https://docs.frigate.video/configuration/zones), [record](https://docs.frigate.video/configuration/record), [GenAI](https://docs.frigate.video/configuration/genai), [Frigate+](https://docs.frigate.video/plus), [diskusi N100 OpenVINO](https://github.com/blakeblackshear/frigate/discussions/17679), [trademark](https://git.laurivan.com/Mirrors/blakeblackshear.frigate/src/branch/0.18/TRADEMARK.md)
+- Lisensi model: [Ultralytics license](https://ultralytics.com/license), [forum Ultralytics soal AGPL on-premise](https://community.ultralytics.com/t/yolov11-agpl-license-for-on-premises-use/1529), [RF-DETR Apache 2.0](https://blog.roboflow.com/rf-detr-is-free-to-use-commercially/), [dokumentasi RF-DETR](https://rfdetr.roboflow.com)
+- Tangan & pose: [MediaPipe Hand Landmarker](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker), [RTMPose paper](https://arxiv.org/pdf/2303.07399.pdf), [rtmlib](https://github.com/mprib/rtmlib)
+- Penyimpanan: [MinIO maintenance mode (InfoQ)](https://www.infoq.com/news/2025/12/minio-s3-api-alternatives), [alternatif MinIO (elest.io)](https://blog.elest.io/minio-is-in-maintenance-mode-your-guide-to-s3-compatible-storage-alternatives/)
+- Pelabelan: [Label Studio + YOLO](https://labelstud.io/integrations/machine-learning/yolo), [template video object tracking](https://docs.humansignal.com/templates/video_object_detector)
+- Kamera: [format RTSP Dahua](https://securitycamcenter.com/rtsp-url-address-format-dahua/), [Dahua NVR channel/subtype](https://www.smartrtsp.com/en-in/guides/dahua-nvr-rtsp-channel-subtype)
+- Alternatif NVR: [Frigate vs ZoneMinder](https://dev.to/selfhostingsh/frigate-vs-zoneminder-35ji), [ZoneMinder vs Shinobi](https://dev.to/selfhostingsh/zoneminder-vs-shinobi-which-nvr-to-self-host-4n8l), [daftar alternatif Frigate](https://alternativeto.net/software/frigate-nvr)
+- Hukum: [Hukumonline: pemrosesan data visual tidak sah](https://www.hukumonline.com/klinik/a/pemrosesan-data-visual-tidak-sah-ini-sanksinya-lt63368386819ef), [Hukumonline: batasan akses data karyawan](https://www.hukumonline.com/klinik/a/batasan-akses-data-pribadi-karyawan-oleh-perusahaan-lt5d0b056a7eb05), [Meridian Hukum: Pasal 17](https://meridianhukum.com/article/jerat-pidana-memasang-cctv-di-toilet-umum)

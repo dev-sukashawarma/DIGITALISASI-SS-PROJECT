@@ -25,6 +25,146 @@ export interface OpexPdfOptions {
   catatanRab?: { total: number; jumlahTransaksi: number }
 }
 
+const MAX_RECEIPT_IMAGE_PX = 1200
+const RECEIPT_FETCH_TIMEOUT_MS = 12000
+const RECEIPT_LOAD_CONCURRENCY = 5
+
+export function parseReceiptUrls(raw: string | null | undefined): string[] {
+  if (!raw) return []
+  const trimmed = raw.trim()
+  if (!trimmed) return []
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (Array.isArray(parsed)) {
+        return parsed.filter((u): u is string => typeof u === 'string' && u.trim().length > 0)
+      }
+    } catch {
+      // Fallback ke single URL bila bukan JSON valid
+    }
+  }
+  return [trimmed]
+}
+
+export function isPdfUrl(url: string): boolean {
+  const clean = url.split('?')[0].split('#')[0].trim().toLowerCase()
+  return clean.endsWith('.pdf')
+}
+
+export function fitImageDimensions(
+  srcWidth: number,
+  srcHeight: number,
+  maxWidth: number,
+  maxHeight: number
+): { width: number; height: number } {
+  if (srcWidth <= 0 || srcHeight <= 0 || maxWidth <= 0 || maxHeight <= 0) {
+    return { width: maxWidth, height: maxHeight }
+  }
+  const ratio = Math.min(maxWidth / srcWidth, maxHeight / srcHeight)
+  return {
+    width: srcWidth * ratio,
+    height: srcHeight * ratio
+  }
+}
+
+function sanitizePdfText(text: string): string {
+  return text
+    .replace(/[\u{1F300}-\u{1FAFF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '')
+    .replace(/[^\x20-\x7E]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function truncateText(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text
+  return `${text.slice(0, Math.max(0, maxLen - 3))}...`
+}
+
+type LoadedReceipt =
+  | { kind: 'image'; url: string; dataUrl: string; width: number; height: number }
+  | { kind: 'pdf'; url: string }
+  | { kind: 'error'; url: string }
+
+async function loadReceiptAsset(url: string): Promise<LoadedReceipt> {
+  if (isPdfUrl(url)) {
+    return { kind: 'pdf', url }
+  }
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), RECEIPT_FETCH_TIMEOUT_MS)
+
+  try {
+    const res = await fetch(url, { mode: 'cors', signal: controller.signal })
+    if (!res.ok) return { kind: 'error', url }
+
+    const contentType = res.headers.get('content-type')?.toLowerCase() || ''
+    if (contentType.includes('application/pdf')) {
+      return { kind: 'pdf', url }
+    }
+
+    const blob = await res.blob()
+    if (blob.type.toLowerCase().includes('pdf')) {
+      return { kind: 'pdf', url }
+    }
+
+    const objectUrl = URL.createObjectURL(blob)
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image()
+        el.onload = () => resolve(el)
+        el.onerror = () => reject(new Error('Image decode failed'))
+        el.src = objectUrl
+      })
+
+      const natW = img.naturalWidth || img.width
+      const natH = img.naturalHeight || img.height
+      if (natW <= 0 || natH <= 0) return { kind: 'error', url }
+
+      const scale = Math.min(1, MAX_RECEIPT_IMAGE_PX / Math.max(natW, natH))
+      const targetW = Math.max(1, Math.round(natW * scale))
+      const targetH = Math.max(1, Math.round(natH * scale))
+
+      const canvas = document.createElement('canvas')
+      canvas.width = targetW
+      canvas.height = targetH
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return { kind: 'error', url }
+
+      ctx.fillStyle = '#FFFFFF'
+      ctx.fillRect(0, 0, targetW, targetH)
+      ctx.drawImage(img, 0, 0, targetW, targetH)
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82)
+      return { kind: 'image', url, dataUrl, width: targetW, height: targetH }
+    } finally {
+      URL.revokeObjectURL(objectUrl)
+    }
+  } catch {
+    return { kind: 'error', url }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function loadReceiptsInBatches<T>(
+  tasks: Array<() => Promise<T>>,
+  concurrency: number
+): Promise<T[]> {
+  const results: T[] = new Array(tasks.length)
+  let nextIdx = 0
+
+  async function worker() {
+    while (nextIdx < tasks.length) {
+      const current = nextIdx++
+      results[current] = await tasks[current]()
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(concurrency, tasks.length) }, () => worker())
+  await Promise.all(workers)
+  return results
+}
+
 export async function generateOpexReportPDF(options: OpexPdfOptions): Promise<void> {
   const { startDate, endDate, targetLabel, items, totalAmount, filename, catatanRab } = options
   const { jsPDF } = await import('jspdf')
@@ -249,7 +389,170 @@ export async function generateOpexReportPDF(options: OpexPdfOptions): Promise<vo
     }
   })
 
-  // 5. Page Numbers on Every Page
+  // 5. Lampiran Bukti Nota / Struk (jika ada transaksi yang memiliki receipt_url)
+  interface ReceiptEntry {
+    rowNo: number
+    item: OpexPdfItem
+    url: string
+    notaIndex: number
+    notaTotal: number
+  }
+
+  const receiptEntries: ReceiptEntry[] = []
+  sortedItems.forEach((item, idx) => {
+    const urls = parseReceiptUrls(item.receipt_url)
+    urls.forEach((url, notaIdx) => {
+      receiptEntries.push({
+        rowNo: idx + 1,
+        item,
+        url,
+        notaIndex: notaIdx + 1,
+        notaTotal: urls.length
+      })
+    })
+  })
+
+  if (receiptEntries.length > 0) {
+    const loadedReceipts = await loadReceiptsInBatches(
+      receiptEntries.map(entry => () => loadReceiptAsset(entry.url)),
+      RECEIPT_LOAD_CONCURRENCY
+    )
+
+    const marginX = 14
+    const colGap = 6
+    const rowGap = 6
+    const cardWidth = (210 - marginX * 2 - colGap) / 2 // 88 mm
+    const cardHeight = 112
+    const headerHeight = 22
+    const imgPadding = 2.5
+    const imgBoxW = cardWidth - imgPadding * 2
+    const imgBoxH = cardHeight - headerHeight - imgPadding * 2
+
+    const drawAppendixHeader = (isContinuation: boolean) => {
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2])
+      doc.rect(0, 0, 210, 14, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(10)
+      doc.text(
+        isContinuation
+          ? 'LAMPIRAN BUKTI NOTA / STRUK (LANJUTAN)'
+          : `LAMPIRAN BUKTI NOTA / STRUK (${receiptEntries.length} Lampiran)`,
+        marginX,
+        9.2
+      )
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7.5)
+      doc.text(`${startDate} s/d ${endDate} | ${cleanTarget}`, 196, 9.2, { align: 'right' })
+    }
+
+    doc.addPage()
+    drawAppendixHeader(false)
+
+    let cursorX = marginX
+    let cursorY = 19
+    let col = 0
+
+    receiptEntries.forEach((entry, i) => {
+      if (cursorY + cardHeight > pageHeight - 13) {
+        doc.addPage()
+        drawAppendixHeader(true)
+        cursorX = marginX
+        cursorY = 19
+        col = 0
+      }
+
+      const x = cursorX
+      const y = cursorY
+
+      // Card container
+      doc.setFillColor(255, 255, 255)
+      doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2])
+      doc.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'FD')
+
+      // Card header strip
+      doc.setFillColor(lightGray[0], lightGray[1], lightGray[2])
+      doc.roundedRect(x, y, cardWidth, headerHeight, 2, 2, 'F')
+      doc.rect(x, y + headerHeight - 2, cardWidth, 2, 'F')
+      doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2])
+      doc.line(x, y + headerHeight, x + cardWidth, y + headerHeight)
+
+      // Header line 1: No. & Tanggal + Nominal
+      const notaSuffix = entry.notaTotal > 1 ? ` (Nota ${entry.notaIndex}/${entry.notaTotal})` : ''
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(8)
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2])
+      doc.text(`No. ${entry.rowNo} — ${entry.item.date}${notaSuffix}`, x + 3, y + 6)
+
+      doc.setTextColor(darkInk[0], darkInk[1], darkInk[2])
+      doc.text(rupiah(entry.item.amount), x + cardWidth - 3, y + 6, { align: 'right' })
+
+      // Header line 2: Outlet & Kategori
+      const outletStr = truncateText(sanitizePdfText(entry.item.outlet_name || '-'), 24)
+      const catStr = truncateText(sanitizePdfText(entry.item.category_label || entry.item.category || '-'), 22)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(7)
+      doc.setTextColor(51, 65, 85)
+      doc.text(`${outletStr} | ${catStr}`, x + 3, y + 12)
+
+      // Header line 3: Deskripsi
+      const descStr = truncateText(sanitizePdfText(entry.item.description || '-'), 48)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(6.8)
+      doc.setTextColor(100, 116, 139)
+      doc.text(descStr || '-', x + 3, y + 17.5)
+
+      // Receipt image / fallback area
+      const boxX = x + imgPadding
+      const boxY = y + headerHeight + imgPadding
+      const asset = loadedReceipts[i]
+
+      if (asset?.kind === 'image') {
+        const fitted = fitImageDimensions(asset.width, asset.height, imgBoxW, imgBoxH)
+        const drawX = boxX + (imgBoxW - fitted.width) / 2
+        const drawY = boxY + (imgBoxH - fitted.height) / 2
+        try {
+          doc.addImage(asset.dataUrl, 'JPEG', drawX, drawY, fitted.width, fitted.height)
+        } catch {
+          doc.setFont('helvetica', 'italic')
+          doc.setFontSize(7.5)
+          doc.setTextColor(148, 163, 184)
+          doc.text('Gambar nota tidak dapat dirender', x + cardWidth / 2, boxY + imgBoxH / 2, {
+            align: 'center'
+          })
+        }
+      } else {
+        doc.setFillColor(248, 250, 252)
+        doc.roundedRect(boxX + 6, boxY + imgBoxH / 2 - 12, imgBoxW - 12, 24, 2, 2, 'F')
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(8)
+        doc.setTextColor(71, 85, 105)
+        doc.text(
+          asset?.kind === 'pdf' ? 'Lampiran Nota Berformat PDF' : 'Gambar Nota Tidak Dapat Dimuat',
+          x + cardWidth / 2,
+          boxY + imgBoxH / 2 - 2,
+          { align: 'center' }
+        )
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(7)
+        doc.setTextColor(37, 99, 235)
+        doc.textWithLink('Buka Lampiran Nota', x + cardWidth / 2 - 12, boxY + imgBoxH / 2 + 5, {
+          url: entry.url
+        })
+      }
+
+      if (col === 0) {
+        col = 1
+        cursorX = marginX + cardWidth + colGap
+      } else {
+        col = 0
+        cursorX = marginX
+        cursorY += cardHeight + rowGap
+      }
+    })
+  }
+
+  // 6. Page Numbers on Every Page
   const pageCount = (doc as any).internal.getNumberOfPages()
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)
@@ -264,7 +567,7 @@ export async function generateOpexReportPDF(options: OpexPdfOptions): Promise<vo
     )
   }
 
-  // 6. Save PDF
+  // 7. Save PDF
   const defaultFilename = `Laporan_OPEX_${startDate}_sampai_${endDate}.pdf`
   doc.save(filename || defaultFilename)
 }

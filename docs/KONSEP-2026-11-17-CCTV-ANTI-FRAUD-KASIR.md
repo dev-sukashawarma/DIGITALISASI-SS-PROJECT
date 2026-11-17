@@ -20,7 +20,7 @@
 | D8 | Tindak lanjut kartu "Investigasi" | **Admin/developer**, dan hasilnya dicatat kembali di kartu. |
 | D9 | Peran owner | **Tidak ada akses** ke sistem. Owner menerima laporan dari admin/developer di luar sistem. |
 | D10 | Jeda persiapan untuk K2 | **Ditentukan saat uji kantor**, dari kebiasaan nyata buka/tutup laci. Selama uji, K2 dicatat tanpa jeda untuk mengukurnya. |
-| D11 | Perangkat uji kantor | **Paket A**: 2× TP-Link Tapo C110 (±Rp 600 rb), diolah di PC kantor. |
+| D11 | Perangkat uji kantor | **Paket A**: 2× TP-Link Tapo C110 (±Rp 600 rb), diolah di PC kantor. Pembanding Dahua/Hikvision PoE dan harganya ada di bagian 14a. |
 | D12 | Kapan POS disambungkan | **Setelah pilot outlet berhasil.** |
 | D13 | Outlet pilot | **SUKA SHAWARMA BNR.** |
 | D14 | Cek HR/legal untuk pilot tanpa pemberitahuan | Owner menjawab **"ya"** (17 Nov 2026). Bentuk persetujuan HR/legal sebaiknya dilampirkan sebelum pilot BNR dimulai. |
@@ -327,6 +327,60 @@ Selama pilot, **tidak ada teguran ke kasir** berdasarkan sistem ini. Pilot hanya
 | Langganan Tuya IoT Video (bila lewat cloud Tuya) | Perlu dicek, ada masa uji coba gratis |
 | Penyimpanan klip di server | Kecil, karena hanya klip pendek |
 | Pengembangan halaman "Perlu Dicek" | Waktu tim internal |
+
+## 14a. Pembanding perangkat dan harga (cek marketplace 17 Nov 2026)
+
+Harga adalah cuplikan listing Tokopedia dan toko online Indonesia pada 17 Nov 2026. **Bisa berubah**, jadi cek ulang sebelum membeli.
+
+### Kamera
+
+Syarat wajib: **RTSP + ONVIF tertulis jelas di spesifikasi**, lensa tetap, 2–4 MP, H.264, bukan kamera baterai. Untuk atas laci pakai bentuk **turret/dome dengan lensa 2,8 mm** (sudut paling lebar).
+
+| Model | Resolusi | Koneksi | Harga per unit | Catatan |
+|---|---|---|---|---|
+| TP-Link Tapo C110 | 3 MP | WiFi | ±Rp 263–292 rb | RTSP/ONVIF resmi (`stream1`/`stream2`, ONVIF port 2020). Cloud + microSD + RTSP hanya bisa 2 dari 3 sekaligus. Kelas rumahan |
+| **Dahua IPC-HDW1230T1-A-S5** | 2 MP | PoE | **±Rp 477 rb** | Turret indoor, ada mikrofon (**audio dimatikan**). Paling murah untuk kelas profesional |
+| Dahua IPC-HDBW1230E-S5 | 2 MP | PoE | ±Rp 504 rb | Dome |
+| Hikvision DS-2CD1323G0E-I | 2 MP | PoE | ±Rp 952 rb | Turret, lensa 2,8/4/6 mm |
+| Hikvision DS-2CD1123G0E-I | 2 MP | PoE | ±Rp 810 rb – 1,04 jt | Dome |
+| Hikvision DS-2CD1343G0E-I | 4 MP | PoE | ±Rp 1,08 jt | Turret, lensa 2,8/4 mm |
+| Dahua IPC-HDW2441T-S (WizSense) | 4 MP | PoE / 12V | ±Rp 1,62 jt | Ada deteksi manusia bawaan |
+| ~~Bardi / Tuya / Xiaomi~~ | — | — | — | **Tidak bisa dipakai**: tanpa RTSP lokal (lihat bagian 10) |
+
+⚠️ **Mikrofon bawaan:** merekam suara karyawan punya konsekuensi privasi lebih berat daripada gambar. Audio dimatikan di pengaturan kamera, atau pilih model tanpa akhiran "-A".
+
+### Listrik dan jaringan kamera
+
+Kamera PoE menerima **listrik dan data lewat satu kabel LAN**, jadi tidak perlu stopkontak di plafon.
+
+| Cara menyalakan kamera | Harga | Kapan dipakai |
+|---|---|---|
+| **Switch PoE** TP-Link TL-SF1005P (4 port PoE) | ±Rp 365–369 rb | **BNR**: kamera atas laci tanpa stopkontak di plafon, pemasangan rapi |
+| Adaptor 12V per kamera + colok ke port LAN router | Murah, per kamera | **Uji kantor**, bila router punya port LAN kosong dan model kamera mendukung 12V DC (cek spesifikasi) |
+| Injektor PoE per kamera | Per kamera | Pengganti switch bila hanya 1–2 kamera |
+| Kabel LAN Cat6 + konektor | ±Rp 100–200 rb | Selalu, tergantung panjang |
+
+### Komputer pengolah dan pendukung
+
+| Barang | Harga | Kapan perlu |
+|---|---|---|
+| PC kantor yang sudah ada | Rp 0 | Uji kantor |
+| Mini PC Intel N100 16 GB / 512 GB (mis. Beelink S12 Pro) | ±Rp 3,2–3,55 jt | BNR, bila dipilih mengolah di outlet (D15) |
+| UPS kecil untuk mini PC + switch | ±Rp 0,8–1,2 jt | BNR |
+| microSD di kamera (cadangan rekaman) | ±Rp 100–200 rb | Opsional |
+| ~~Google Coral USB~~ | ±Rp 2,8 jt | **Tidak perlu.** N100 cukup untuk 1–2 kamera, dan produknya dicatat sudah dihentikan oleh sebagian penjual |
+
+### Perbandingan paket uji kantor
+
+| Paket | Isi | Total | Plus / minus |
+|---|---|---|---|
+| A — Tapo (D11) | 2× Tapo C110 | **±Rp 0,6 jt** | Paling murah. WiFi bisa putus, kelas rumahan, tidak dipakai lagi di BNR |
+| **A' — Dahua PoE** | 2× Dahua IPC-HDW1230T1-A-S5 + switch PoE + kabel | **±Rp 1,45–1,55 jt** | Perangkat sama dengan BNR (tinggal dipindah), kabel lebih stabil. Tanpa switch (pakai adaptor 12V) bisa lebih murah |
+| B' — Hikvision PoE 4 MP | 2× DS-2CD1343G0E-I + switch PoE + kabel | ±Rp 2,6–2,8 jt | Gambar lebih tajam untuk kamera konter |
+
+**Perkiraan total BNR** (kamera PoE + switch + kabel + mini PC + UPS): **±Rp 5,5–6,5 jt** dengan Dahua 2 MP. Mini PC bisa tidak dibeli bila hasil uji kantor menunjukkan video BNR boleh diolah di PC kantor (D15).
+
+Sumber harga: listing Tokopedia (TP-Link Indonesia, Bandar CCTV Surabaya, Saber Technology, Delta Vision, Maxprovision, Millennium Central CCTV, Sanjayacomtronix, Beelink Official), Nale, dan Dinomarket, diakses 17 Nov 2026.
 
 ## 15. Risiko
 

@@ -17,6 +17,7 @@ import {
   Wrench,
   ListChecks,
   ArrowRightLeft,
+  PieChart,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -78,6 +79,13 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
 
+  {
+    title: 'Laporan',
+    icon: PieChart,
+    items: [
+      { href: '/penjualan', label: 'Rangkuman Penjualan', shortLabel: 'Penjualan', icon: PieChart },
+    ],
+  },
   {
     title: 'Performa & Disiplin',
     icon: Award,

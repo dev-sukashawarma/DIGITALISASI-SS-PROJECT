@@ -1,0 +1,164 @@
+export interface Outlet {
+  id: string
+  name: string
+  address: string | null
+  phone: string | null
+  type?: string
+  open_hour?: string
+  close_hour?: string
+  status?: 'active' | 'pending' | 'inactive'
+  is_active: boolean
+  inactive_reason?: string | null
+  deleted_at?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface SalesChannel {
+  id: string
+  name: string
+  is_active: boolean
+  created_at?: string
+}
+
+
+export type UserRole = 'admin' | 'crew' | 'leader' | 'kiosk'
+
+export interface UserProfile {
+  id: string
+  role: UserRole
+  outlet_id: string | null
+  username: string
+  is_active: boolean
+  inactive_reason?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Category {
+  id: string
+  name: string
+  sort_order: number
+}
+export interface PackageItem {
+  id: string
+  package_id: string
+  menu_item_id: string
+  or_menu_item_id?: string | null
+  quantity: number
+  menu_item?: MenuItem
+  or_menu_item?: MenuItem
+}
+
+export interface MenuItem {
+  id: string
+  category_id: string | null
+  outlet_id: string | null
+  name: string
+  description: string | null
+  price: number
+  strike_price?: number | null
+  channel_prices?: Record<string, number>
+  channel_hpp?: Record<string, number>
+  hpp_override?: number | null
+  image_url: string | null
+  is_available: boolean
+  is_hidden_pos?: boolean
+  is_available_online: boolean
+  is_published_order_online?: boolean
+  /**
+   * Terbit di SukaShawarma APP (aplikasi pelanggan).
+   *
+   * Terpisah dari `is_published_order_online`: website Order-Online dan
+   * aplikasi adalah dua kanal berbeda dengan katalog yang boleh berbeda.
+   * Gateway retail menyaring dengan kolom ini di `lib/catalog.ts`.
+   */
+  tampil_di_app?: boolean
+  order_online_sync_status?: 'not_published' | 'pending' | 'synced' | 'failed'
+  order_online_sync_error?: string | null
+  order_online_sync_updated_at?: string | null
+  available_online_channels?: string[] | null
+  campaign_price?: number | null
+  is_campaign_active?: boolean
+  sort_order: number
+  is_package?: boolean
+  package_items?: PackageItem[]
+  categories?: Category
+}
+
+export interface MenuOutletPrice {
+  id?: string
+  menu_item_id: string
+  outlet_id: string
+  price: number | null
+  hpp_override: number | null
+  is_available: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+
+export interface CartItem {
+  cartItemId: string
+  item: MenuItem
+  quantity: number
+  note?: string
+  parentId?: string
+  package_choices?: Record<string, string>
+}
+
+export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled'
+export type PaymentMethod = 'cash' | 'qris' | 'card'
+
+export type OrderSource = 'pos' | 'online' | 'manual'
+
+export interface Order {
+  id: string
+  outlet_id: string
+  order_number: number
+  customer_name: string | null
+  customer_phone: string | null
+  status: OrderStatus
+  payment_method: PaymentMethod | null
+  total_amount: number
+  notes: string | null
+  source: OrderSource
+  channel: string | null
+  external_order_id: string | null
+  pos_client?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface OrderItem {
+  id: string
+  order_id: string
+  menu_item_id: string | null
+  menu_item_name: string
+  quantity: number
+  unit_price: number
+  subtotal: number
+  notes?: string | null
+  package_choices?: Record<string, string> | null
+  menu_items?: {
+    image_url: string | null
+  }
+}
+
+export interface OrderWithItems extends Order {
+  order_items: OrderItem[]
+}
+
+export interface CheckoutPayload {
+  outlet_id: string
+  customer_name: string
+  notes?: string
+  payment_method: PaymentMethod
+  items: {
+    cartItemId?: string
+    parentId?: string
+    menu_item_id: string
+    quantity: number
+    note?: string
+  }[]
+}

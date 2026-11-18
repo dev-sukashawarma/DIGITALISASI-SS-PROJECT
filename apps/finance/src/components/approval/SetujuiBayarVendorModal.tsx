@@ -36,7 +36,9 @@ export function SetujuiBayarVendorModal({ po, locations, onClose, onGagal }: {
   const rek = rekeningPusat.find((r) => r.id === lokasiId)
   const [proofFile, setProofFile] = useState<File | null>(null)
   const [catatan, setCatatan] = useState('')
-  const sisa = (rek?.saldo ?? 0) - po.total
+  const kredit = Math.max(0, Number(po.dibayar_kredit) || 0)
+  const kas = Math.max(0, po.total - kredit)
+  const sisa = (rek?.saldo ?? 0) - kas
   const galat =
     !rek ? 'Pilih rekening sumber dana'
     : rek.kind === 'cash' && sisa < 0 ? `Saldo ${rek.label} tidak mencukupi`
@@ -46,7 +48,7 @@ export function SetujuiBayarVendorModal({ po, locations, onClose, onGagal }: {
   const simpan = () => {
     if (galat || !proofFile || !rek) return
     setujui.mutate({ poId: po.id, proofFile, catatan, cashLocationId: rek.id }, {
-      onSuccess: () => { toast.success(`${po.nomor_po} lunas, ${rupiah(po.total)} terpotong dari ${rek.label}`); onClose() },
+      onSuccess: () => { toast.success(kas > 0 ? `${po.nomor_po} lunas, ${rupiah(kas)} terpotong dari ${rek.label}` : `${po.nomor_po} lunas dengan kredit retur`); onClose() },
       onError: (e) => { toast.error((e as Error).message); onGagal?.() },
     })
   }
@@ -61,6 +63,12 @@ export function SetujuiBayarVendorModal({ po, locations, onClose, onGagal }: {
         <div className="rounded-xl bg-suka-cream/70 px-3 py-2 text-sm text-suka-ink space-y-0.5">
           <div><b>{po.nomor_po}</b> · {po.supplier_nama}</div>
           <div>Nominal: <b>{rupiah(po.total)}</b></div>
+          {kredit > 0 && (
+            <>
+              <div className="text-emerald-700">Dibayar kredit retur: <b>{rupiah(kredit)}</b></div>
+              <div data-testid="bayar-kas">Dibayar dari rekening: <b>{rupiah(kas)}</b></div>
+            </>
+          )}
         </div>
         <label className="block text-sm font-semibold text-suka-gray-600">
           Dibayar dari

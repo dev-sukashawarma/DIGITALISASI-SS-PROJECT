@@ -9,6 +9,8 @@ import { useVerifikasiTerimaPO, useFinalisasiPO, useUploadInvoice, getInvoiceUrl
 import { rupiah } from '@/lib/format'
 import { createClient } from '@/lib/supabase'
 import { cekTerima, stokSetelahTerima, pesanWarning } from '@/lib/purchase/terimaGuard'
+import { ALASAN_RETUR, LABEL_ALASAN, type AlasanRetur } from '@/lib/returVendor/aturan'
+import { barangMasukStok, validasiBarisTerima } from '@/lib/returVendor/terimaPo'
 
 // GUDANG PUSAT (HQ) -- satu-satunya tujuan stok penerimaan PO
 // (verifikasi_terima_po menulis ledger ke id ini, di-hardcode juga di sana).
@@ -26,7 +28,8 @@ type ItemState = {
   qty_datang: number
   harga_pesan: number
   harga_terima: number
-  kondisi: 'baik' | 'rusak'
+  qty_ditolak: number
+  alasan_tolak: AlasanRetur | null
   catatan: string
 }
 
@@ -53,7 +56,8 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
         qty_datang: sisaBelumTiba > 0 ? sisaBelumTiba : qtyPesan,
         harga_pesan: Number(it.harga_pesan || 0),
         harga_terima: Number(it.harga_terima ?? it.harga_pesan ?? 0),
-        kondisi: 'baik',
+        qty_ditolak: 0,
+        alasan_tolak: null,
         catatan: it.catatan || ''
       }
     })
@@ -98,7 +102,7 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
     const st = items.find(i => i.id === poItem.id)
     if (!st) return []
     return cekTerima({
-      qtyDatang: Number(st.qty_datang || 0),
+      qtyDatang: barangMasukStok(Number(st.qty_datang || 0), Number(st.qty_ditolak || 0)),
       qtyPesan: Number(st.qty_pesan || 0),
       qtyTerimaSebelumnya: Number(st.qty_terima_sebelumnya || 0),
       stokGudangBesar: stokBesar(poItem.bahan_baku_id)
@@ -111,6 +115,14 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    for (const it of items) {
+      const g = validasiBarisTerima({ datang: Number(it.qty_datang || 0), ditolak: Number(it.qty_ditolak || 0), alasanTolak: it.alasan_tolak })
+      if (g) {
+        const poItem: any = po.items.find((p: any) => p.id === it.id)
+        alert(`${poItem?.bahan_baku?.nama || poItem?.item_description || 'Item'}: ${g}`)
+        return
+      }
+    }
     // Gerbang konfirmasi. SATU dialog untuk semua baris: dua peringatan
     // beruntun melatih orang menekan "lanjut" (pelajaran gerbang nol opname).
     const bermasalah = po.items
@@ -141,14 +153,22 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
       if (invoiceFile) {
         await uploadInvoice.mutateAsync({ poId: po.id, file: invoiceFile })
       }
-      const payloadItems = items.map(it => ({
-        id: it.id,
-        qty_datang: Number(it.qty_datang || 0),
-        qty_terima: Number(it.qty_terima_sebelumnya) + Number(it.qty_datang || 0),
-        harga_terima: Number(it.harga_terima || 0),
-        kondisi: it.kondisi,
-        catatan: it.catatan
-      }))
+      // qty_datang ke server = barang BAIK yang masuk stok; yang ditolak dikirim
+      // terpisah supaya tidak masuk qty_terima (tidak ditagih).
+      const payloadItems = items.map(it => {
+        const masuk = barangMasukStok(Number(it.qty_datang || 0), Number(it.qty_ditolak || 0))
+        const ditolak = Number(it.qty_ditolak || 0)
+        return {
+          id: it.id,
+          qty_datang: masuk,
+          qty_terima: Number(it.qty_terima_sebelumnya) + masuk,
+          qty_ditolak: ditolak,
+          alasan_tolak: ditolak > 0 ? it.alasan_tolak : null,
+          harga_terima: Number(it.harga_terima || 0),
+          kondisi: 'baik',
+          catatan: it.catatan
+        }
+      })
 
       await verifikasi.mutateAsync({
         poId: po.id,
@@ -200,8 +220,8 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
           <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 flex gap-3 mb-5 shadow-2xs">
             <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
             <div className="text-xs text-amber-900 font-medium leading-relaxed">
-              Pastikan mengecek kondisi fisik barang dan nota pengiriman. Jika ada barang rusak atau kurang, ubah kolom Kondisi. 
-              Data kuantitas yang berstatus "Baik" akan secara otomatis menambah saldo stok Gudang Kitchen.
+              Pastikan mengecek kondisi fisik barang dan nota pengiriman. Barang yang kualitasnya tidak diterima isi di kolom Ditolak beserta alasannya.
+              Hanya barang yang diterima baik yang menambah stok Gudang Pusat dan ditagih vendor.
             </div>
           </div>
 
@@ -209,10 +229,11 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
             {po.items.map((poItem) => {
               const state = items.find(i => i.id === poItem.id)!
               const isAdhoc = !poItem.bahan_baku_id
-              const totalAkumulasi = (Number(state?.qty_terima_sebelumnya || 0) + Number(state?.qty_datang || 0))
+              const masuk = barangMasukStok(Number(state?.qty_datang || 0), Number(state?.qty_ditolak || 0))
+              const totalAkumulasi = (Number(state?.qty_terima_sebelumnya || 0) + masuk)
               const satuan = isAdhoc ? poItem.satuan_ad_hoc : (poItem.bahan_baku?.satuan || poItem.bahan_baku?.satuan_standar || 'satuan')
               const stokSekarang = stokBesar(poItem.bahan_baku_id)
-              const stokNanti = stokSetelahTerima(stokSekarang, Number(state?.qty_datang || 0))
+              const stokNanti = stokSetelahTerima(stokSekarang, masuk)
               const warnings = warningsUntuk(poItem)
 
               return (
@@ -314,24 +335,42 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
                           className="w-full pl-9 pr-3.5 py-2 bg-suka-cream/30 border border-suka-brown/15 rounded-xl focus:border-suka-orange outline-none transition-all font-bold text-xs tabular-nums"
                         />
                       </div>
-                      {state.qty_datang > 0 && state.harga_terima > 0 && (
+                      {masuk > 0 && state.harga_terima > 0 && (
                         <p className="text-[10px] font-bold text-suka-brown/60 tabular-nums leading-snug">
-                          {state.qty_datang} {satuan} × {rupiah(state.harga_terima)} ={' '}
-                          <span className="text-suka-brown">{rupiah(state.qty_datang * state.harga_terima)}</span>
+                          Ditagih: {masuk} {satuan} × {rupiah(state.harga_terima)} ={' '}
+                          <span className="text-suka-brown">{rupiah(masuk * state.harga_terima)}</span>
                         </p>
                       )}
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[11px] font-bold text-suka-brown/70 uppercase tracking-wider">Kondisi</label>
-                      <select 
-                        value={state.kondisi}
-                        onChange={e => updateItem(poItem.id, 'kondisi', e.target.value)}
-                        className="w-full px-3.5 py-2 bg-suka-cream/30 border border-suka-brown/15 rounded-xl focus:border-suka-orange outline-none transition-all font-bold text-xs cursor-pointer"
-                      >
-                        <option value="baik">✅ Baik (Sesuai)</option>
-                        <option value="rusak">❌ Rusak / Tolak</option>
-                      </select>
+                      <label className="text-[11px] font-bold text-suka-brown/70 uppercase tracking-wider">Ditolak (tidak ditagih)</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={state.qty_ditolak}
+                          onChange={e => updateItem(poItem.id, 'qty_ditolak', parseFloat(e.target.value) || 0)}
+                          className="w-full pl-3.5 pr-16 py-2 bg-suka-cream/30 border border-suka-brown/15 rounded-xl focus:border-suka-orange outline-none transition-all font-bold text-xs tabular-nums"
+                        />
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-bold text-suka-brown/50 text-[10px] uppercase tracking-wider pointer-events-none">
+                          {satuan}
+                        </span>
+                      </div>
+                      {state.qty_ditolak > 0 && (
+                        <select
+                          value={state.alasan_tolak ?? ''}
+                          onChange={e => updateItem(poItem.id, 'alasan_tolak', (e.target.value || null) as any)}
+                          className="w-full px-3.5 py-2 bg-white border border-red-200 rounded-xl outline-none font-bold text-xs cursor-pointer"
+                        >
+                          <option value="">Pilih alasan…</option>
+                          {ALASAN_RETUR.map(a => <option key={a} value={a}>{LABEL_ALASAN[a]}</option>)}
+                        </select>
+                      )}
+                      {state.qty_ditolak > 0 && (
+                        <p className="text-[10px] font-bold text-suka-brown/60 tabular-nums">Masuk stok: {masuk} {satuan}</p>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">

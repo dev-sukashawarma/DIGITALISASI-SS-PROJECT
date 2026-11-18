@@ -158,10 +158,11 @@ export function useAjukanBayarPo() {
   const supabase = useMemo(() => createClient(), [])
   const segarkan = useSegarkan()
   return useMutation({
-    mutationFn: async (v: { poId: string; catatan?: string }) => {
+    mutationFn: async (v: { poId: string; catatan?: string; pakaiKredit?: number }) => {
       const { data, error } = await supabase.rpc('ajukan_bayar_po', {
         p_po_id: v.poId,
         p_catatan: v.catatan?.trim() || null,
+        p_pakai_kredit: v.pakaiKredit && v.pakaiKredit > 0 ? v.pakaiKredit : 0,
       })
       if (error) throw error
       return data as string
@@ -224,5 +225,35 @@ export function useTandaiPoLunasTanpaKas() {
       return Number(data) || 0
     },
     onSuccess: segarkan,
+  })
+}
+
+/**
+ * Saldo kredit retur per supplier (dihitung per vendor induk, jadi semua Tempo
+ * satu vendor berbagi saldo). Sumber: buku vendor_kredit (migration 20261118110000).
+ */
+export function useSaldoKreditVendor(enabled = true) {
+  const supabase = useMemo(() => createClient(), [])
+  return useQuery<Record<string, number>>({
+    queryKey: ['po_payable', 'kredit-vendor'],
+    enabled,
+    queryFn: async () => {
+      const [{ data: sup, error: e1 }, { data: kredit, error: e2 }] = await Promise.all([
+        supabase.from('supplier').select('id, vendor_induk_id'),
+        supabase.from('vendor_kredit').select('vendor_induk, jumlah'),
+      ])
+      if (e1) throw e1
+      if (e2) throw e2
+      const perInduk = new Map<string, number>()
+      for (const k of (kredit ?? []) as { vendor_induk: string; jumlah: number }[]) {
+        perInduk.set(k.vendor_induk, (perInduk.get(k.vendor_induk) ?? 0) + (Number(k.jumlah) || 0))
+      }
+      const hasil: Record<string, number> = {}
+      for (const s of (sup ?? []) as { id: string; vendor_induk_id: string | null }[]) {
+        const saldo = perInduk.get(s.vendor_induk_id ?? s.id) ?? 0
+        if (saldo > 0) hasil[s.id] = saldo
+      }
+      return hasil
+    },
   })
 }

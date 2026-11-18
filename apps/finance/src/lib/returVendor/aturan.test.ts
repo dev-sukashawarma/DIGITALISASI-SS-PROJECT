@@ -56,3 +56,13 @@ describe('aksiTersedia', () => {
     expect(aksiTersedia('disetujui', null, 'crew', false)).toEqual([])
   })
 })
+
+describe('kreditBawaan', () => {
+  it('memakai kredit sebanyak mungkin tanpa melebihi tagihan', async () => {
+    const { kreditBawaan } = await import('./aturan')
+    expect(kreditBawaan(300000, 500000)).toBe(300000)
+    expect(kreditBawaan(800000, 500000)).toBe(500000)
+    expect(kreditBawaan(0, 500000)).toBe(0)
+    expect(kreditBawaan(-5, 500000)).toBe(0)
+  })
+})

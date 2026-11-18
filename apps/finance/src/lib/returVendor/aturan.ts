@@ -85,3 +85,8 @@ export function aksiTersedia(
   }
   return aksi
 }
+
+/** Kredit vendor yang dipakai bawaan saat mengajukan bayar: sebanyak saldo, maksimal tagihan. */
+export function kreditBawaan(saldoKredit: number, totalTagihan: number): number {
+  return Math.max(0, Math.min(saldoKredit, totalTagihan))
+}

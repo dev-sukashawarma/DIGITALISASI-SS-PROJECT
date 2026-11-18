@@ -392,3 +392,17 @@ export function useMutasiReturVendor() {
 export function useReturVendorMenunggu(enabled: boolean) {
   return useDaftarReturVendor({ status: ['diajukan'] }, enabled)
 }
+
+/** Kredit retur yang dipakai membayar satu PO (dicadangkan + aktif). */
+export function useKreditDipakaiPo(poId: string | null) {
+  const supabase = useMemo(() => createClient(), [])
+  return useQuery<number>({
+    queryKey: [...KUNCI, 'kredit-po', poId],
+    enabled: Boolean(poId),
+    queryFn: async () => {
+      const { data, error } = await supabase.from('vendor_kredit').select('jumlah').eq('purchase_order_id', poId!)
+      if (error) throw error
+      return -((data ?? []) as { jumlah: number }[]).reduce((s, k) => s + (Number(k.jumlah) || 0), 0)
+    },
+  })
+}

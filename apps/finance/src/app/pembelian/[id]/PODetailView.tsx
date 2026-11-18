@@ -16,6 +16,8 @@ import { BatalkanPOModal } from './components/BatalkanPOModal'
 import { generatePurchaseOrderPDF } from '@/utils/poPdfExporter'
 import { Spinner } from '@suka/design-system'
 import { toast } from 'sonner'
+import { useKreditDipakaiPo, useReturUntukPo } from '@/hooks/useReturVendor'
+import { LABEL_ALASAN, LABEL_STATUS } from '@/lib/returVendor/aturan'
 
 /**
  * Kosakata payment_status: 'unpaid' | 'pending' | 'paid' — sama dengan CHECK di
@@ -68,6 +70,8 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
   const updateStatus = useUpdatePOStatus()
   const uploadInvoice = useUploadInvoice()
   const ajukanBayarPo = useAjukanBayarPo()
+  const { data: kreditPo = 0 } = useKreditDipakaiPo(id)
+  const { data: returPo = [] } = useReturUntukPo(id)
   const fileRef = useRef<HTMLInputElement>(null)
   const [invoiceUrls, setInvoiceUrls] = useState<string[]>([])
   const [showVerifikasi, setShowVerifikasi] = useState(false)
@@ -321,7 +325,11 @@ Catatan (opsional):`, '')
                       {item.subtotal > 0 ? rupiah(item.subtotal) : '—'}
                     </td>
                     <td className="py-4 px-5 text-center">
-                      {item.kondisi ? (
+                      {Number((item as any).qty_ditolak) > 0 ? (
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-lg border bg-rose-50 text-rose-700 border-rose-200" title={LABEL_ALASAN[(item as any).alasan_tolak] ?? ''}>
+                          Ditolak {(item as any).qty_ditolak} · {LABEL_ALASAN[(item as any).alasan_tolak] ?? '-'}
+                        </span>
+                      ) : item.kondisi ? (
                         <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-lg uppercase tracking-wider border ${
                           item.kondisi === 'baik' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
                           item.kondisi === 'kurang' ? 'bg-amber-50 text-amber-800 border-amber-200' :
@@ -406,6 +414,20 @@ Catatan (opsional):`, '')
         </div>
       )}
 
+      {returPo.length > 0 && (
+        <div className="bg-white/95 rounded-3xl border border-suka-brown/10 shadow-sm p-5 sm:p-6 space-y-2">
+          <h2 className="font-bold text-suka-brown text-sm uppercase tracking-wider">Retur ke Vendor</h2>
+          <ul className="space-y-1 text-sm">
+            {returPo.map((r) => (
+              <li key={r.id}>
+                <a href={`/pembelian/retur-vendor/${r.id}`} className="font-semibold text-suka-brown underline">{r.nomor}</a>{' '}
+                <span className="text-xs text-suka-brown/60">· {LABEL_STATUS[r.status]}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Payment Info */}
       <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-suka-brown/10 shadow-sm p-5 sm:p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -449,8 +471,11 @@ Catatan (opsional):`, '')
           <div>
             <span className="text-suka-brown/60 font-semibold block text-xs">Nominal Pembayaran</span>
             <span className="font-bold text-suka-brown mt-1 block">
-              {po.paid_amount ? rupiah(po.paid_amount) : '—'}
+              {po.paid_amount ? rupiah(po.paid_amount) : kreditPo > 0 ? rupiah(0) : '—'}
             </span>
+            {kreditPo > 0 && (
+              <span className="text-xs font-semibold text-emerald-700 block">+ kredit retur {rupiah(kreditPo)}</span>
+            )}
           </div>
         </div>
         <p className="text-xs text-suka-brown/60">

@@ -406,3 +406,32 @@ export function useKreditDipakaiPo(poId: string | null) {
     },
   })
 }
+
+export interface BarisKualitasVendor {
+  vendor_induk: string
+  vendor_nama: string | null
+  alasan: AlasanRetur | null
+  jumlah_retur: number
+  nilai_retur: number
+  nilai_tidak_dikompensasi: number
+  jumlah_baris_tolak: number
+  nilai_tolak: number
+}
+
+/** Ringkasan retur + penolakan saat terima per vendor & alasan (RPC ringkasan_kualitas_vendor). */
+export function useKualitasVendor(dari: string, sampai: string) {
+  const supabase = useMemo(() => createClient(), [])
+  return useQuery<BarisKualitasVendor[]>({
+    queryKey: [...KUNCI, 'kualitas', dari, sampai],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('ringkasan_kualitas_vendor', { p_dari: dari, p_sampai: sampai })
+      if (error) throw error
+      return ((data ?? []) as BarisKualitasVendor[]).map((b) => ({
+        ...b,
+        nilai_retur: Number(b.nilai_retur) || 0,
+        nilai_tidak_dikompensasi: Number(b.nilai_tidak_dikompensasi) || 0,
+        nilai_tolak: Number(b.nilai_tolak) || 0,
+      }))
+    },
+  })
+}

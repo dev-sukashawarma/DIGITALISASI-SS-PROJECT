@@ -8,10 +8,11 @@ import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { useDaftarReturVendor, type ReturVendor } from '@/hooks/useReturVendor'
 import { bolehAjukanRetur, LABEL_ALASAN, LABEL_CARA, LABEL_STATUS, type StatusRetur } from '@/lib/returVendor/aturan'
 import { rupiah, tanggalWaktu } from '@/lib/format'
+import { KualitasVendorPanel } from './KualitasVendorPanel'
 
-type Tab = 'menunggu' | 'penyelesaian' | 'selesai' | 'semua'
+type Tab = 'menunggu' | 'penyelesaian' | 'selesai' | 'semua' | 'kualitas'
 
-const STATUS_TAB: Record<Tab, StatusRetur[] | undefined> = {
+const STATUS_TAB: Record<Exclude<Tab, 'kualitas'>, StatusRetur[] | undefined> = {
   menunggu: ['diajukan', 'disetujui'],
   penyelesaian: ['diserahkan'],
   selesai: ['selesai', 'ditolak', 'dibatalkan'],
@@ -23,6 +24,7 @@ const LABEL_TAB: Record<Tab, string> = {
   penyelesaian: 'Menunggu penyelesaian vendor',
   selesai: 'Selesai',
   semua: 'Semua',
+  kualitas: 'Kualitas vendor',
 }
 
 const WARNA_STATUS: Record<StatusRetur, string> = {
@@ -37,7 +39,10 @@ const WARNA_STATUS: Record<StatusRetur, string> = {
 export function ReturVendorView() {
   const { role } = useFinanceRole()
   const [tab, setTab] = useState<Tab>('menunggu')
-  const { data = [], isLoading, error } = useDaftarReturVendor({ status: STATUS_TAB[tab] })
+  const { data = [], isLoading, error } = useDaftarReturVendor(
+    { status: tab === 'kualitas' ? undefined : STATUS_TAB[tab] },
+    tab !== 'kualitas',
+  )
 
   const urut = useMemo(() => {
     const d = [...data]
@@ -78,7 +83,9 @@ export function ReturVendorView() {
         ))}
       </div>
 
-      {error ? (
+      {tab === 'kualitas' ? (
+        <KualitasVendorPanel />
+      ) : error ? (
         <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           Gagal memuat retur: {error instanceof Error ? error.message : 'galat tidak dikenal'}
         </p>

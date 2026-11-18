@@ -3938,7 +3938,7 @@ Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawa
 
 ## Session 2026-11-18: Retur Bahan Baku ke Vendor (DB + apps/finance)
 
-**Status:** DB **LIVE** — 6 migration applied & terstempel (`20261118110000` skema, `111000` alur, `112000` penyelesaian, `113000` bayar PO pakai kredit, `114000` terima PO qty ditolak, `115000` ringkasan kualitas). Uji `supabase/verifikasi/retur_vendor/t1–t6` lulus (RED dulu, lalu dalam transaksi + ROLLBACK, kontrol negatif). Nol sisa data uji di produksi. Kode di branch `feat/retur-vendor`. ⚠️ Deploy `finance` otomatis saat merge ke `main`. Uji browser dengan login sungguhan **belum** dijalankan.
+**Status:** DB **LIVE** — 7 migration applied & terstempel (`20261118110000` skema, `111000` alur, `112000` penyelesaian, `113000` bayar PO pakai kredit, `114000` terima PO qty ditolak, `115000` ringkasan kualitas, `120000` perbaikan review: Ganti Satuan ikut mengonversi `qty_ditolak` & `retur_vendor_item` + retur aktif jadi penghalang, kredit dilepas saat PO kembali `unpaid`). Uji `supabase/verifikasi/retur_vendor/t1–t7` lulus (RED dulu, lalu dalam transaksi + ROLLBACK, kontrol negatif). Nol sisa data uji di produksi. Kode di branch `feat/retur-vendor`. ⚠️ Deploy `finance` otomatis saat merge ke `main`. Uji browser dengan login sungguhan **belum** dijalankan.
 
 **Spec/plan:** `docs/superpowers/specs/2026-11-18-retur-vendor-gudang-design.md`, `docs/superpowers/plans/2026-11-18-retur-vendor-gudang.md`
 

@@ -98,6 +98,7 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/sistem/hermes',
     '/dashboard/sistem/pengaturan-halaman',
     '/dashboard/system-health',
+    '/dashboard/xendit-pembayaran',
   ],
   OWNER: [
     '/dashboard/app-retail',
@@ -138,6 +139,7 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/sistem/bot-telegram',
     '/dashboard/sistem/hermes',
     '/dashboard/sistem/pengaturan-halaman',
+    '/dashboard/xendit-pembayaran',
   ],
   ADMIN_HR: [
     '/dashboard/hr',

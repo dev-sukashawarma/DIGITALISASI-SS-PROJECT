@@ -19,6 +19,8 @@ export interface PayablePo {
   cash_transaction_id: string | null
   cash_location_id?: string | null
   total: number
+  /** Bagian tagihan yang ditutup kredit retur vendor (po_payable_spv.dibayar_kredit). */
+  dibayar_kredit?: number | null
   lunas_tanpa_kas_at?: string | null
   lunas_tanpa_kas_alasan?: string | null
 }

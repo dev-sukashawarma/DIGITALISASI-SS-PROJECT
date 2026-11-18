@@ -78,4 +78,12 @@ describe('BarisHub', () => {
     pasang(item('po', '2026-11-06T10:00:00Z'))
     expect(screen.queryByTestId('rekening-tujuan')).toBeNull()
   })
+
+  it('retur vendor memakai Setujui dan Tolak (alasan diminta di modal tolak)', () => {
+    const { onSetujui, onTolak } = pasang(item('retur_vendor', '2026-11-06T10:00:00Z'))
+    fireEvent.click(screen.getByRole('button', { name: 'Tolak' }))
+    expect(onTolak).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Setujui' }))
+    expect(onSetujui).toHaveBeenCalledTimes(1)
+  })
 })

@@ -19,6 +19,7 @@ import {
   teksBadgeHub,
   pisahMenurutUmur,
   totalPerJenis,
+  itemDariReturVendor,
   type HubItem,
 } from './hub'
 
@@ -214,6 +215,7 @@ describe('hitungPerJenis', () => {
       po: 0,
       bayar_vendor: 1,
       dana_kantor: 0,
+      retur_vendor: 0,
     })
   })
 })
@@ -282,6 +284,7 @@ describe('totalPerJenis', () => {
       po: 1500,
       bayar_vendor: 0,
       dana_kantor: 0,
+      retur_vendor: 0,
     })
   })
 })
@@ -334,5 +337,45 @@ describe('rekeningTujuan', () => {
       nomor: '0955353124',
       atasNama: null,
     })
+  })
+})
+
+describe('itemDariReturVendor', () => {
+  const r = {
+    id: 'r1',
+    nomor: 'RV/2026/11/001',
+    supplier_nama: 'Pak Aziz',
+    status: 'diajukan',
+    alasan: 'kualitas_tidak_sesuai',
+    diajukan_at: '2026-11-18T03:00:00Z',
+    total: 112000,
+    items: [{ bahan_nama: 'SAPI' }, { bahan_nama: 'AYAM' }],
+  } as unknown as Parameters<typeof itemDariReturVendor>[0]
+
+  it('diajukan masuk hub dengan key, nominal, dan tautan detail', () => {
+    const i = itemDariReturVendor(r)!
+    expect(i.key).toBe('retur_vendor:r1')
+    expect(i.jenis).toBe('retur_vendor')
+    expect(i.nominal).toBe(112000)
+    expect(i.judul).toBe('Pak Aziz')
+    expect(i.keterangan).toContain('RV/2026/11/001')
+    expect(i.detailHref).toBe('/pembelian/retur-vendor/r1')
+  })
+  it('status selain diajukan tidak masuk hub', () => {
+    expect(itemDariReturVendor({ ...r, status: 'disetujui' } as typeof r)).toBeNull()
+  })
+  it('ikut dihitung per jenis', () => {
+    expect(hitungPerJenis([itemDariReturVendor(r)!]).retur_vendor).toBe(1)
+    expect(totalPerJenis([itemDariReturVendor(r)!]).retur_vendor).toBe(112000)
+  })
+})
+
+describe('itemDariBayarVendor dengan kredit retur', () => {
+  it('nominal = total dikurangi bagian kredit; kredit penuh tetap masuk hub', () => {
+    const p = { id: 'p1', nomor_po: 'PO/1', supplier_nama: 'X', tanggal_po: '2026-11-17', payment_status: 'pending', total: 500000, dibayar_kredit: 500000 } as unknown as PayablePo
+    const i = itemDariBayarVendor(p)!
+    expect(i).not.toBeNull()
+    expect(i.nominal).toBe(0)
+    expect(i.keterangan).toContain('kredit retur')
   })
 })

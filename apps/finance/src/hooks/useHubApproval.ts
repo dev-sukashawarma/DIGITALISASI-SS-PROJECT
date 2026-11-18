@@ -6,6 +6,7 @@ import { usePendingPos, usePendingPoCount } from '@/hooks/usePoApproval'
 import { usePayablePos, useTxBayarPo, useBayarVendorPendingCount } from '@/hooks/useSupplierSettlement'
 import { useOfficeVouchers } from '@/hooks/useOfficeVouchers'
 import { useKasbonMenunggu, useKasbonMenungguCount } from '@/hooks/useKasbonPencairan'
+import { useReturVendorMenunggu } from '@/hooks/useReturVendor'
 import {
   gabungSumber,
   hitungPerJenis,
@@ -13,6 +14,7 @@ import {
   itemDariKasbon,
   itemDariPettyCash,
   itemDariPo,
+  itemDariReturVendor,
   itemDariVoucher,
   type HubItem,
   type HubJenis,
@@ -39,6 +41,7 @@ export function useHubApproval(enabled: boolean): {
   const vendor = usePayablePos(enabled)
   const tx = useTxBayarPo(enabled)
   const voucher = useOfficeVouchers(undefined, { enabled })
+  const retur = useReturVendorMenunggu(enabled)
 
   return useMemo(() => {
     const hasil = gabungSumber([
@@ -67,6 +70,12 @@ export function useHubApproval(enabled: boolean): {
         isLoading: voucher.isLoading,
         error: voucher.error,
       },
+      {
+        jenis: ['retur_vendor'],
+        items: tanpaNull((retur.data ?? []).map(itemDariReturVendor)),
+        isLoading: retur.isLoading,
+        error: retur.error,
+      },
     ])
     return { ...hasil, perJenis: hitungPerJenis(hasil.items) }
   }, [
@@ -76,6 +85,7 @@ export function useHubApproval(enabled: boolean): {
     vendor.data, vendor.isLoading, vendor.error,
     tx.data, tx.isLoading, tx.error,
     voucher.vouchers, voucher.isLoading, voucher.error,
+    retur.data, retur.isLoading, retur.error,
   ])
 }
 
@@ -87,6 +97,7 @@ export function useHubApprovalCount(enabled: boolean): { total: number; adaGalat
   const po = usePendingPoCount(enabled)
   const vendor = useBayarVendorPendingCount(enabled)
   const voucher = useOfficeVouchers(undefined, { enabled })
+  const retur = useReturVendorMenunggu(enabled)
 
   const danaKantor = voucher.vouchers.filter((v) => v.status === 'waiting_verification').length
   const total =
@@ -95,9 +106,10 @@ export function useHubApprovalCount(enabled: boolean): { total: number; adaGalat
     (kasbon.data ?? 0) +
     (po.data ?? 0) +
     (vendor.data ?? 0) +
-    danaKantor
+    danaKantor +
+    (retur.data?.length ?? 0)
   const adaGalat = Boolean(
-    pettyAcc.error || pettySerah.error || kasbon.error || po.error || vendor.error || voucher.error,
+    pettyAcc.error || pettySerah.error || kasbon.error || po.error || vendor.error || voucher.error || retur.error,
   )
   return { total, adaGalat }
 }

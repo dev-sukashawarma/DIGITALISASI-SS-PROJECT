@@ -11,3 +11,8 @@ export function validasiBarisTerima(b: { datang: number; ditolak: number; alasan
   if (b.ditolak > 0 && !b.alasanTolak) return 'Pilih alasan penolakan'
   return null
 }
+
+/** Sisa yang belum datang: barang ditolak dianggap tuntas (kirim ulang = PO baru). */
+export function sisaBelumTiba(qtyPesan: number, qtyTerima: number, qtyDitolak: number): number {
+  return Math.max(0, qtyPesan - qtyTerima - qtyDitolak)
+}

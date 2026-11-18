@@ -22,3 +22,12 @@ describe('validasiBarisTerima', () => {
     expect(validasiBarisTerima({ datang: 5, ditolak: 0, alasanTolak: null })).toBeNull()
   })
 })
+
+describe('sisaBelumTiba', () => {
+  it('barang yang sudah ditolak dianggap tuntas', async () => {
+    const { sisaBelumTiba } = await import('./terimaPo')
+    expect(sisaBelumTiba(10, 7, 2)).toBe(1)
+    expect(sisaBelumTiba(10, 9, 1)).toBe(0)
+    expect(sisaBelumTiba(10, 0, 0)).toBe(10)
+  })
+})

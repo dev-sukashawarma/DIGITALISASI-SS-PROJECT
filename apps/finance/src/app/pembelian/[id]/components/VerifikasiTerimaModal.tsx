@@ -10,7 +10,7 @@ import { rupiah } from '@/lib/format'
 import { createClient } from '@/lib/supabase'
 import { cekTerima, stokSetelahTerima, pesanWarning } from '@/lib/purchase/terimaGuard'
 import { ALASAN_RETUR, LABEL_ALASAN, type AlasanRetur } from '@/lib/returVendor/aturan'
-import { barangMasukStok, validasiBarisTerima } from '@/lib/returVendor/terimaPo'
+import { barangMasukStok, sisaBelumTiba, validasiBarisTerima } from '@/lib/returVendor/terimaPo'
 
 // GUDANG PUSAT (HQ) -- satu-satunya tujuan stok penerimaan PO
 // (verifikasi_terima_po menulis ledger ke id ini, di-hardcode juga di sana).
@@ -25,6 +25,8 @@ type ItemState = {
   id: string
   qty_pesan: number
   qty_terima_sebelumnya: number
+  /** Sudah ditolak di kedatangan sebelumnya: dianggap tuntas, tidak ditunggu lagi. */
+  qty_ditolak_sebelumnya: number
   qty_datang: number
   harga_pesan: number
   harga_terima: number
@@ -48,12 +50,14 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
     po.items.map(it => {
       const prevTerima = Number(it.qty_terima || 0)
       const qtyPesan = Number(it.qty_pesan || 0)
-      const sisaBelumTiba = Math.max(0, qtyPesan - prevTerima)
+      const prevDitolak = Number(it.qty_ditolak || 0)
+      const sisa = sisaBelumTiba(qtyPesan, prevTerima, prevDitolak)
       return {
         id: it.id,
         qty_pesan: qtyPesan,
         qty_terima_sebelumnya: prevTerima,
-        qty_datang: sisaBelumTiba > 0 ? sisaBelumTiba : qtyPesan,
+        qty_ditolak_sebelumnya: prevDitolak,
+        qty_datang: sisa > 0 ? sisa : 0,
         harga_pesan: Number(it.harga_pesan || 0),
         harga_terima: Number(it.harga_terima ?? it.harga_pesan ?? 0),
         qty_ditolak: 0,
@@ -104,7 +108,7 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
     return cekTerima({
       qtyDatang: barangMasukStok(Number(st.qty_datang || 0), Number(st.qty_ditolak || 0)),
       qtyPesan: Number(st.qty_pesan || 0),
-      qtyTerimaSebelumnya: Number(st.qty_terima_sebelumnya || 0),
+      qtyTerimaSebelumnya: Number(st.qty_terima_sebelumnya || 0) + Number(st.qty_ditolak_sebelumnya || 0),
       stokGudangBesar: stokBesar(poItem.bahan_baku_id)
     })
   }
@@ -260,7 +264,7 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
                         Dipesan: <span className="text-suka-brown font-bold tabular-nums">{poItem.qty_pesan} {satuan}</span> &bull; 
                         Harga PO: <span className="text-suka-brown font-bold tabular-nums">{rupiah(poItem.harga_pesan)}</span>
                         {state?.qty_terima_sebelumnya > 0 && (
-                          <span> &bull; Sisa Belum Tiba: <span className="font-bold text-amber-700">{Math.max(0, poItem.qty_pesan - state.qty_terima_sebelumnya)} {satuan}</span></span>
+                          <span> &bull; Sisa Belum Tiba: <span className="font-bold text-amber-700">{sisaBelumTiba(poItem.qty_pesan, state.qty_terima_sebelumnya, state.qty_ditolak_sebelumnya)} {satuan}</span></span>
                         )}
                       </p>
                     </div>

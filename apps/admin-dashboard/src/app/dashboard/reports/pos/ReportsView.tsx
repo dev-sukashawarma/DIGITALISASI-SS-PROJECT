@@ -115,7 +115,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
   const [selectedReceiptFilter, setSelectedReceiptFilter] = useState<ReceiptFilter>('all')
   // Status Xendit pesanan website (spec 2026-11-18-validasi-xendit).
   const [selectedXenditFilter, setSelectedXenditFilter] = useState<XenditFilterUi>('all')
-  const tampilFilterXendit = !isSSOnlineSelected && (selectedChannels.includes('all') || selectedChannels.includes('online'))
+  // false = peran ini tak berhak membaca data Xendit (lihat laporan.ts terapkanXendit).
+  const xenditTersedia = report?.xenditTersedia !== false
+  const tampilFilterXendit = xenditTersedia && !isSSOnlineSelected && (selectedChannels.includes('all') || selectedChannels.includes('online'))
   const [refreshing, setRefreshing] = useState(false)
   // Kerangka (skeleton) hanya saat belum ada data sama sekali; pembaruan
   // berikutnya (ganti halaman, cari, realtime) tidak mengosongkan layar.

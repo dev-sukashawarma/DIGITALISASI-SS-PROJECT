@@ -65,6 +65,16 @@ describe('gabungXendit', () => {
     expect(r.xenditLain).toEqual([])
   })
 
+  it('pesanan yang masih diproses (preparing) dianggap ada di POS, bukan "hanya di Xendit"', () => {
+    const PREP = 'aaaaaaaa-1111-4222-8333-444444444444'
+    const semua = [...pesanan, { id: 'p6', status: 'preparing', sales_source: 'online', external_order_id: PREP, total_amount: 40240, outlet_id: 'cic' }]
+    const r = gabungXendit({
+      ...dasar, semuaPesanan: semua, bayar: [bayar({ xenditId: 'pp', externalOrderId: PREP, nominal: 40240 })],
+      filter: 'all', outletDipilih: 'all', bolehTanpaOutlet: true,
+    })
+    expect(r.xenditLain).toEqual([])
+  })
+
   it('sumber tanpa website: tidak menyentuh baris apa pun', () => {
     const r = gabungXendit({ ...dasar, tampilWebsite: false, filter: 'all', outletDipilih: 'all', bolehTanpaOutlet: true })
     expect(r.rows).toBe(tableRows)

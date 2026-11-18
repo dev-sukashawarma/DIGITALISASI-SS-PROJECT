@@ -27,7 +27,7 @@ import {
 import { computeExportReport } from '@/lib/posReport/ekspor'
 import { buildHistoriTransaksiExport } from '@/lib/posReport/eksporHistori'
 import { toXenditFilter } from '@/lib/posReport/xenditStatus'
-import { gabungXendit, muatPembayaranXendit } from '@/lib/posReport/xenditLoad'
+import { gabungXendit, muatPembayaranXendit, muatPesananTertaut } from '@/lib/posReport/xenditLoad'
 
 /** Cakupan outlet pemanggil. 'all' = akses penuh (owner/admin/... atau kunci Hermes). */
 export type CakupanLaporan = { supabase: any; scopeKey: string; allowedOutletIds: 'all' | string[] }
@@ -300,6 +300,8 @@ export async function laporanPosUntukScope(rawReq: PosReportRequest, scope: Caku
     itemBreakdown: ubahTabel ? computeItemBreakdown(tableRows, prepared.outlets, prepared.penerapHpp) : derived.itemBreakdown,
     xenditLain: xendit.xenditLain,
     xenditTanpaOutletTersembunyi: xendit.xenditTanpaOutletTersembunyi,
+    /** false = pemanggil tak berhak membaca data Xendit; UI menyembunyikan filter & lencana. */
+    xenditTersedia: xendit.tersedia,
     shifts: prepared.shifts,
     orderCount: prepared.orders.length,
     fetchedAt: prepared.fetchedAt,
@@ -318,22 +320,29 @@ async function terapkanXendit(
   scope: CakupanLaporan,
 ) {
   const tampilWebsite = req.channels.includes('all') || req.channels.includes('online')
-  const kosong = { rows: tableRows, xenditLain: [] as any[], xenditTanpaOutletTersembunyi: 0 }
-  if (!tampilWebsite || prepared.isSSOnlineSelected) return kosong
+  const kosong = (tersedia: boolean) => ({ rows: tableRows, xenditLain: [] as any[], xenditTanpaOutletTersembunyi: 0, tersedia })
+  if (!tampilWebsite || prepared.isSSOnlineSelected) return kosong(true)
   let bayar
+  let semuaPesanan: any[] = prepared.orders
   try {
     bayar = await muatPembayaranXendit(scope.supabase, scope.scopeKey, req.from, req.to)
+    if (bayar === null) return kosong(false)
+    // Pesanan tertaut yang tak ada di data laporan (mis. dibuat 23:58 sehari sebelum rentang)
+    // dicari dulu — jangan langsung dinyatakan "tidak ada di POS".
+    const dikenal = new Set(prepared.orders.map((o: any) => o.external_order_id).filter(Boolean))
+    const hilang = [...new Set(bayar.map((b) => b.externalOrderId).filter((x): x is string => !!x && !dikenal.has(x)))]
+    if (hilang.length) semuaPesanan = [...prepared.orders, ...(await muatPesananTertaut(scope.supabase, hilang))]
   } catch (e) {
     console.error('Gagal memuat data Xendit:', e)
-    return kosong
+    return kosong(true)
   }
   const semuaCabang = req.outlets.includes('all')
   const outletDipilih: 'all' | Set<string> = semuaCabang
     ? (scope.allowedOutletIds === 'all' ? 'all' : new Set(scope.allowedOutletIds))
     : new Set(req.outlets.filter((id) => id !== 'all' && id !== 'ss-online'))
-  return gabungXendit({
+  const hasil = gabungXendit({
     tableRows,
-    semuaPesanan: prepared.orders,
+    semuaPesanan,
     bayar,
     filter: req.xenditFilter,
     from: req.from,
@@ -342,6 +351,7 @@ async function terapkanXendit(
     outletDipilih,
     bolehTanpaOutlet: semuaCabang && scope.allowedOutletIds === 'all',
   })
+  return { ...hasil, tersedia: true }
 }
 
 /** Data ekspor PDF & Excel (per outlet × channel × menu) — hanya dihitung saat tombol ditekan. */

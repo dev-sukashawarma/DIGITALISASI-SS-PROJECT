@@ -60,7 +60,8 @@ export function gabungXendit<T extends PesananMin>(p: {
   // Semua pesanan ber-external_order_id, bukan hanya yang terdeteksi website: pesanan
   // website yang tercatat sebagai penjualan kasir (mis. Pekayon #23) tetap "ada di POS".
   const web = p.semuaPesanan.filter(o => !!o.external_order_id)
-  const selesai = new Set(web.filter(o => o.status === 'completed').map(o => o.external_order_id!))
+  // "Ada di POS" = pesanan berstatus apa pun selain batal (termasuk yang masih diproses).
+  const selesai = new Set(web.filter(o => o.status !== 'cancelled').map(o => o.external_order_id!))
   const batal = new Set(web.filter(o => o.status === 'cancelled').map(o => o.external_order_id!))
   const xenditLain = p.filter === 'all' || p.filter === 'hanya_xendit'
     ? pembayaranTanpaPesananSelesai(dalamCakupan, selesai, batal)
@@ -69,42 +70,46 @@ export function gabungXendit<T extends PesananMin>(p: {
   return { rows, xenditLain, xenditTanpaOutletTersembunyi: tersembunyi }
 }
 
-const MEMO_MS = 30_000
-const memo = new Map<string, { t: number; data: Promise<PembayaranRingkas[]> }>()
-
-/** Pembayaran Xendit untuk rentang laporan (± 1 hari agar tautan lintas tengah malam tetap terbaca). */
-export function muatPembayaranXendit(supabase: any, scopeKey: string, from: string, to: string): Promise<PembayaranRingkas[]> {
-  const key = `${scopeKey}|${from}|${to}`
-  const ada = memo.get(key)
-  if (ada && Date.now() - ada.t < MEMO_MS) return ada.data
+/**
+ * Pembayaran Xendit untuk rentang laporan (± 1 hari agar tautan lintas tengah malam tetap terbaca),
+ * lewat klien pemanggil — aturan akses database berlaku setiap kali. TIDAK di-cache: kunci cache
+ * laporan (scopeKey) dibagi oleh peran yang hak bacanya berbeda (review akhir 18 Nov).
+ * null = pemanggil tidak berhak membaca data Xendit.
+ */
+export async function muatPembayaranXendit(supabase: any, _scopeKey: string, from: string, to: string): Promise<PembayaranRingkas[] | null> {
+  const { data: boleh, error: errBoleh } = await supabase.rpc('boleh_baca_xendit')
+  if (errBoleh) throw new Error(errBoleh.message)
+  if (!boleh) return null
   const dari = new Date(Date.parse(`${from}T00:00:00+07:00`) - 86400_000).toISOString()
   const sampai = new Date(Date.parse(`${to}T23:59:59+07:00`) + 86400_000).toISOString()
-  const data = (async () => {
-    const hasil: PembayaranRingkas[] = []
-    for (let mulai = 0; ; mulai += 1000) {
-      const { data: rows, error } = await supabase.from('xendit_pembayaran')
-        .select('xendit_id, ref_qris, nominal, dibayar_at, cara_cocok, external_order_id, outlet_id, nama_pelanggan, ringkasan_item, bukan_penjualan')
-        .gte('dibayar_at', dari).lte('dibayar_at', sampai)
-        .order('xendit_id', { ascending: true }).range(mulai, mulai + 999)
-      if (error) throw new Error(error.message)
-      for (const r of rows ?? []) {
-        hasil.push({
-          xenditId: r.xendit_id, refQris: r.ref_qris, nominal: Number(r.nominal), dibayarAt: r.dibayar_at,
-          caraCocok: r.cara_cocok, externalOrderId: r.external_order_id, outletId: r.outlet_id,
-          namaPelanggan: r.nama_pelanggan, ringkasanItem: r.ringkasan_item, bukanPenjualan: !!r.bukan_penjualan,
-        })
-      }
-      if (!rows || rows.length < 1000) break
+  const hasil: PembayaranRingkas[] = []
+  for (let mulai = 0; ; mulai += 1000) {
+    const { data: rows, error } = await supabase.from('xendit_pembayaran')
+      .select('xendit_id, ref_qris, nominal, dibayar_at, cara_cocok, external_order_id, outlet_id, nama_pelanggan, ringkasan_item, bukan_penjualan')
+      .gte('dibayar_at', dari).lte('dibayar_at', sampai)
+      .order('xendit_id', { ascending: true }).range(mulai, mulai + 999)
+    if (error) throw new Error(error.message)
+    for (const r of rows ?? []) {
+      hasil.push({
+        xenditId: r.xendit_id, refQris: r.ref_qris, nominal: Number(r.nominal), dibayarAt: r.dibayar_at,
+        caraCocok: r.cara_cocok, externalOrderId: r.external_order_id, outletId: r.outlet_id,
+        namaPelanggan: r.nama_pelanggan, ringkasanItem: r.ringkasan_item, bukanPenjualan: !!r.bukan_penjualan,
+      })
     }
-    return hasil
-  })()
-  data.catch(() => memo.delete(key))
-  memo.set(key, { t: Date.now(), data })
-  if (memo.size > 50) memo.delete(memo.keys().next().value!)
-  return data
+    if (!rows || rows.length < 1000) break
+  }
+  return hasil
 }
 
-/** Dipanggil setelah unggah file agar status langsung segar. */
-export function bersihkanMemoXendit() {
-  memo.clear()
+/** Status pesanan yang ditaut pembayaran tetapi di luar data laporan (mis. dibuat sebelum rentang). */
+export async function muatPesananTertaut(supabase: any, externalIds: string[]): Promise<PesananMin[]> {
+  const hasil: PesananMin[] = []
+  for (let i = 0; i < externalIds.length; i += 200) {
+    const { data, error } = await supabase.from('orders')
+      .select('external_order_id, status, sales_source, total_amount')
+      .in('external_order_id', externalIds.slice(i, i + 200))
+    if (error) throw new Error(error.message)
+    hasil.push(...(data ?? []))
+  }
+  return hasil
 }

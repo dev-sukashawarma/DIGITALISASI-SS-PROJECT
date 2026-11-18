@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { parseBalanceHistory } from '@/lib/xendit/balanceHistory'
 import { prosesUnggahXendit, type DbXendit, type RingkasanUnggah } from '@/lib/xendit/unggah'
+import { bersihkanMemoXendit } from '@/lib/posReport/xenditLoad'
 
 const PERAN_UNGGAH = ['admin', 'owner', 'admin_finance']
 const POTONG = 200 // panjang URL .in() aman
@@ -71,6 +72,7 @@ export async function unggahFileXendit(formData: FormData): Promise<
     const baris = parseBalanceHistory(await file.text())
     if (baris.length === 0) return { success: false, error: 'Tidak ada pembayaran masuk di file ini.' }
     const ringkasan = await prosesUnggahXendit(dbDari(createServiceClient()), baris, { namaFile: file.name, userId })
+    bersihkanMemoXendit()
     return { success: true, ringkasan }
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : String(e) }

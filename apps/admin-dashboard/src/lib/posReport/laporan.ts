@@ -26,6 +26,8 @@ import {
 } from '@/lib/posReport/compute'
 import { computeExportReport } from '@/lib/posReport/ekspor'
 import { buildHistoriTransaksiExport } from '@/lib/posReport/eksporHistori'
+import { toXenditFilter } from '@/lib/posReport/xenditStatus'
+import { gabungXendit, muatPembayaranXendit } from '@/lib/posReport/xenditLoad'
 
 /** Cakupan outlet pemanggil. 'all' = akses penuh (owner/admin/... atau kunci Hermes). */
 export type CakupanLaporan = { supabase: any; scopeKey: string; allowedOutletIds: 'all' | string[] }
@@ -38,6 +40,8 @@ export type PosReportRequest = {
   paymentMethod: string
   /** 'all' | 'not_printed' | 'reprinted' — lihat receiptReprint.ts. Opsional untuk pemanggil lama. */
   receiptFilter?: string
+  /** 'all' | 'terverifikasi' | 'belum' | 'selisih' | 'hanya_xendit' — status Xendit pesanan website. Opsional. */
+  xenditFilter?: string
   search: string
   page: number
   pageSize: number
@@ -138,6 +142,7 @@ function sanitizeRequest(req: PosReportRequest) {
     channels,
     paymentMethod: typeof req.paymentMethod === 'string' ? req.paymentMethod : 'all',
     receiptFilter: toReceiptFilter(req.receiptFilter),
+    xenditFilter: toXenditFilter(req.xenditFilter),
     search: typeof req.search === 'string' ? req.search.slice(0, 100) : '',
     page: Math.max(1, Math.floor(Number(req.page) || 1)),
     pageSize: Math.min(100, Math.max(1, Math.floor(Number(req.pageSize) || 10))),
@@ -272,8 +277,9 @@ function getDerivedTable(prepared: any, req: ReturnType<typeof sanitizeRequest>)
 export async function laporanPosUntukScope(rawReq: PosReportRequest, scope: CakupanLaporan) {
   const { req, prepared } = await getPreparedReport(rawReq, scope)
   const derived = getDerivedTable(prepared, req)
-
-  const { tableRows } = derived
+  const xendit = await terapkanXendit(req, prepared, derived.tableRows, scope)
+  const tableRows = xendit.rows
+  const ubahTabel = req.xenditFilter !== 'all'
   const totalPages = Math.max(1, Math.ceil(tableRows.length / req.pageSize))
   const page = Math.min(req.page, totalPages)
   const pageRows = tableRows.slice((page - 1) * req.pageSize, page * req.pageSize)
@@ -289,14 +295,53 @@ export async function laporanPosUntukScope(rawReq: PosReportRequest, scope: Caku
       total: tableRows.length,
       page,
       totalPages,
-      footer: derived.footer,
+      footer: ubahTabel ? computeTableFooter(tableRows, prepared.settlements) : derived.footer,
     },
-    itemBreakdown: derived.itemBreakdown,
+    itemBreakdown: ubahTabel ? computeItemBreakdown(tableRows, prepared.outlets, prepared.penerapHpp) : derived.itemBreakdown,
+    xenditLain: xendit.xenditLain,
+    xenditTanpaOutletTersembunyi: xendit.xenditTanpaOutletTersembunyi,
     shifts: prepared.shifts,
     orderCount: prepared.orders.length,
     fetchedAt: prepared.fetchedAt,
     isCached: prepared.isCached,
   }
+}
+
+/**
+ * Status Xendit pesanan website (spec 2026-11-18-validasi-xendit). Tidak memengaruhi
+ * analytics/KPI. Gagal memuat data Xendit = laporan tetap tampil tanpa status.
+ */
+async function terapkanXendit(
+  req: ReturnType<typeof sanitizeRequest>,
+  prepared: any,
+  tableRows: any[],
+  scope: CakupanLaporan,
+) {
+  const tampilWebsite = req.channels.includes('all') || req.channels.includes('online')
+  const kosong = { rows: tableRows, xenditLain: [] as any[], xenditTanpaOutletTersembunyi: 0 }
+  if (!tampilWebsite || prepared.isSSOnlineSelected) return kosong
+  let bayar
+  try {
+    bayar = await muatPembayaranXendit(scope.supabase, scope.scopeKey, req.from, req.to)
+  } catch (e) {
+    console.error('Gagal memuat data Xendit:', e)
+    return kosong
+  }
+  const semuaCabang = req.outlets.includes('all')
+  const outletDipilih: 'all' | Set<string> = semuaCabang
+    ? (scope.allowedOutletIds === 'all' ? 'all' : new Set(scope.allowedOutletIds))
+    : new Set(req.outlets.filter((id) => id !== 'all' && id !== 'ss-online'))
+  return gabungXendit({
+    tableRows,
+    semuaPesanan: prepared.orders,
+    bayar,
+    filter: req.xenditFilter,
+    from: req.from,
+    to: req.to,
+    tampilWebsite,
+    outletDipilih,
+    bolehTanpaOutlet: semuaCabang && scope.allowedOutletIds === 'all',
+  })
 }
 
 /** Data ekspor PDF & Excel (per outlet × channel × menu) — hanya dihitung saat tombol ditekan. */

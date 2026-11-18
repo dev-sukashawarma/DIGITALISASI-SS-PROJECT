@@ -382,7 +382,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
     totalOrders: 0, buyOneGetOneTransactions: 0, buyOneGetOneGiftUnits: 0, successRate: 0, cancelledCount: 0,
     grossRevenue: 0, totalDeductions: 0, totalPlatformSubsidy: 0, netRevenue: 0, totalHPP: 0, grossProfit: 0,
     totalCommission: 0, isCommissionEstimated: false, netDisbursement: 0, realGrossProfit: 0,
-    biayaXendit: 0, biayaXenditEstimasi: 0, jumlahPesananEstimasiXendit: 0,
+    biayaXendit: 0, biayaXenditEstimasi: 0, jumlahPesananEstimasiXendit: 0, biayaXenditPeriode: '', biayaXenditDiunggah: '',
     totalSettlement: 0, totalSettlementGross: 0, settlementRate: 0, settlementGrossRate: 0, totalRealAdmin: 0, settlementDateRange: '', settlementLastUpdate: '', hasSettlementData: false,
   }
   const analytics = report?.analytics ?? EMPTY_ANALYTICS
@@ -818,6 +818,19 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                         <span className="text-white/85 text-[9.5px] ml-1 flex items-center gap-1 font-medium">
                           <Clock className="w-2.5 h-2.5" />
                           Last Update: {analytics.settlementLastUpdate}
+                        </span>
+                      )}
+                    </div>
+                  ) : analytics.biayaXenditPeriode ? (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-white/90 font-medium bg-white/15 px-2.5 py-0.5 rounded-full flex items-center gap-1.5 w-fit">
+                        <Calendar className="w-3 h-3" />
+                        Periode Xendit: {analytics.biayaXenditPeriode}
+                      </span>
+                      {analytics.biayaXenditDiunggah && (
+                        <span className="text-white/85 text-[9.5px] ml-1 flex items-center gap-1 font-medium">
+                          <Clock className="w-2.5 h-2.5" />
+                          Last Update: {analytics.biayaXenditDiunggah}
                         </span>
                       )}
                     </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hitungBiayaXendit, terapkanBiayaKeAnalytics, type BiayaPembayaran } from './biayaXendit'
+import { hitungBiayaXendit, ringkasCakupanXendit, terapkanBiayaKeAnalytics, type BiayaPembayaran } from './biayaXendit'
 
 const ID1 = '22a1629a-373f-4d3c-9c82-17e42740db59'
 const ID2 = '33b2730b-484f-4e4d-8d93-28f53851ec60'
@@ -41,13 +41,30 @@ describe('hitungBiayaXendit', () => {
   })
 })
 
+describe('ringkasCakupanXendit', () => {
+  it('periode = tanggal bayar (WIB) pertama s.d. terakhir yang biayanya sudah dari file; diunggah = impor terakhir', () => {
+    expect(ringkasCakupanXendit([
+      { dibayarAt: '2026-11-15T15:30:00Z', diimporAt: '2026-11-18T08:55:00Z' }, // 15 Nov 22.30 WIB
+      { dibayarAt: '2026-10-31T17:10:00Z', diimporAt: '2026-11-18T08:50:00Z' }, // 1 Nov 00.10 WIB
+    ])).toEqual({ periode: '01 Nov 2026 - 15 Nov 2026', diunggah: '18 Nov 2026, 15.55 WIB' })
+  })
+
+  it('satu tanggal saja ditulis sekali; tanpa data = kosong', () => {
+    expect(ringkasCakupanXendit([{ dibayarAt: '2026-11-02T05:00:00Z', diimporAt: null }]))
+      .toEqual({ periode: '02 Nov 2026', diunggah: '' })
+    expect(ringkasCakupanXendit([])).toEqual({ periode: '', diunggah: '' })
+  })
+})
+
 describe('terapkanBiayaKeAnalytics', () => {
   it('menambah Admin Fee dan memotong kas masuk & laba kotor tanpa mengubah objek asal', () => {
     const asal = { grossRevenue: 100000, totalHPP: 40000, totalAdminFee: 5000 }
-    const hasil = terapkanBiayaKeAnalytics(asal, { total: 6275, estimasi: 0, jumlahPesananEstimasi: 0 })
+    const hasil = terapkanBiayaKeAnalytics(asal, { total: 6275, estimasi: 0, jumlahPesananEstimasi: 0 },
+      { periode: '01 Nov 2026 - 15 Nov 2026', diunggah: '18 Nov 2026, 15.55 WIB' })
     expect(hasil).toMatchObject({
       totalAdminFee: 11275, netDisbursement: 88725, realGrossProfit: 48725,
       biayaXendit: 6275, biayaXenditEstimasi: 0, jumlahPesananEstimasiXendit: 0,
+      biayaXenditPeriode: '01 Nov 2026 - 15 Nov 2026', biayaXenditDiunggah: '18 Nov 2026, 15.55 WIB',
     })
     expect(asal.totalAdminFee).toBe(5000)
   })

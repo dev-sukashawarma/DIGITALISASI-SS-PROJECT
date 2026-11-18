@@ -20,6 +20,7 @@ export type BarisDb = {
   diimpor_oleh?: string | null
   biaya_mdr?: number | null
   biaya_proses?: number | null
+  diimpor_at?: string | null
 }
 
 export type PesananDb = { external_order_id: string; total_amount: number; created_at: string; outlet_id: string; sales_source: string | null }
@@ -29,7 +30,7 @@ export interface DbXendit {
   ambilPembayaran(xenditIds: string[]): Promise<BarisDb[]>
   sisipkan(rows: BarisDb[]): Promise<void>
   /** Hanya kolom data file; tidak pernah menyentuh tautan (external_order_id, cara_cocok, outlet_id, sumber). */
-  perbarui(rows: Pick<BarisDb, 'xendit_id' | 'xendit_ref' | 'ref_qris' | 'nominal' | 'dibayar_at' | 'channel' | 'bukan_penjualan' | 'nama_file' | 'biaya_mdr' | 'biaya_proses'>[]): Promise<void>
+  perbarui(rows: Pick<BarisDb, 'xendit_id' | 'xendit_ref' | 'ref_qris' | 'nominal' | 'dibayar_at' | 'channel' | 'bukan_penjualan' | 'nama_file' | 'biaya_mdr' | 'biaya_proses' | 'diimpor_at'>[]): Promise<void>
   ambilPesananWebsite(dariIso: string, sampaiIso: string): Promise<PesananDb[]>
   externalTertaut(externalIds: string[]): Promise<Set<string>>
   tautkan(rows: { xendit_id: string; external_order_id: string; outlet_id: string; cara_cocok: 'file_nominal_jam' }[]): Promise<void>
@@ -55,12 +56,15 @@ export async function prosesUnggahXendit(
   meta: { namaFile: string; userId: string },
   biaya: BiayaFile = { mdrPerTransaksi: {}, tagihanProses: 0 },
 ): Promise<RingkasanUnggah> {
+  const diunggahPada = new Date().toISOString()
   const ada = new Map((await db.ambilPembayaran(baris.map(b => b.xenditId))).map(r => [r.xendit_id, r]))
 
   const dataFile = (b: BarisXendit) => ({
     xendit_id: b.xenditId, xendit_ref: b.xenditRef, ref_qris: b.refQris, nominal: b.nominal,
     dibayar_at: b.dibayarAt, channel: b.channel, bukan_penjualan: b.bukanPenjualan, nama_file: meta.namaFile,
     biaya_proses: biayaProses(b.dibayarAt),
+    // Waktu unggah terakhir — "Last Update" Biaya Xendit di Rangkuman Penjualan.
+    diimpor_at: diunggahPada,
     // MDR dari file; 0 bila memang tak kena MDR; null = seharusnya ada tapi tak ditemukan (laporan pakai estimasi).
     biaya_mdr: biaya.mdrPerTransaksi[b.xenditId] ?? (mdrSeharusnya(b.nominal, b.channel, b.dibayarAt) === 0 ? 0 : null),
   })

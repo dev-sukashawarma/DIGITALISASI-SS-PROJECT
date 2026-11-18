@@ -55,11 +55,40 @@ export function hitungBiayaXendit(pesanan: PesananBiaya[], bayar: BiayaPembayara
   return { total, estimasi, jumlahPesananEstimasi }
 }
 
+/** Rentang data Xendit yang biayanya sudah dari file Balance History (seperti "Periode" settlement food apps). */
+export type CakupanXendit = { periode: string; diunggah: string }
+
+export const CAKUPAN_XENDIT_KOSONG: CakupanXendit = { periode: '', diunggah: '' }
+
+const BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+const keWib = (iso: string) => new Date(Date.parse(iso) + 7 * 3600_000)
+const tanggalWib = (d: Date) => `${String(d.getUTCDate()).padStart(2, '0')} ${BULAN[d.getUTCMonth()]} ${d.getUTCFullYear()}`
+
+/** Periode = tanggal bayar (WIB) pertama s.d. terakhir; diunggah = waktu impor file terakhir. */
+export function ringkasCakupanXendit(rows: { dibayarAt: string; diimporAt: string | null }[]): CakupanXendit {
+  if (rows.length === 0) return CAKUPAN_XENDIT_KOSONG
+  const bayar = rows.map((r) => Date.parse(r.dibayarAt)).sort((x, y) => x - y)
+  const dari = tanggalWib(keWib(new Date(bayar[0]).toISOString()))
+  const sampai = tanggalWib(keWib(new Date(bayar[bayar.length - 1]).toISOString()))
+  const impor = rows.map((r) => (r.diimporAt ? Date.parse(r.diimporAt) : NaN)).filter((x) => !Number.isNaN(x))
+  let diunggah = ''
+  if (impor.length) {
+    const d = keWib(new Date(Math.max(...impor)).toISOString())
+    diunggah = `${tanggalWib(d)}, ${String(d.getUTCHours()).padStart(2, '0')}.${String(d.getUTCMinutes()).padStart(2, '0')} WIB`
+  }
+  return { periode: dari === sampai ? dari : `${dari} - ${sampai}`, diunggah }
+}
+
 /** Objek analytics BARU (yang lama milik cache laporan dan dipakai bersama antar pemanggil). Rumus = compute.ts. */
 export function terapkanBiayaKeAnalytics<A extends { grossRevenue: number; totalHPP: number; totalAdminFee: number }>(
   a: A,
   h: HasilBiayaXendit,
-): A & { biayaXendit: number; biayaXenditEstimasi: number; jumlahPesananEstimasiXendit: number; netDisbursement: number; realGrossProfit: number } {
+  cakupan: CakupanXendit = CAKUPAN_XENDIT_KOSONG,
+): A & {
+  biayaXendit: number; biayaXenditEstimasi: number; jumlahPesananEstimasiXendit: number
+  biayaXenditPeriode: string; biayaXenditDiunggah: string
+  netDisbursement: number; realGrossProfit: number
+} {
   const totalAdminFee = a.totalAdminFee + h.total
   const netDisbursement = Math.max(0, a.grossRevenue - totalAdminFee)
   return {
@@ -70,7 +99,30 @@ export function terapkanBiayaKeAnalytics<A extends { grossRevenue: number; total
     biayaXendit: h.total,
     biayaXenditEstimasi: h.estimasi,
     jumlahPesananEstimasiXendit: h.jumlahPesananEstimasi,
+    biayaXenditPeriode: cakupan.periode,
+    biayaXenditDiunggah: cakupan.diunggah,
   }
+}
+
+/**
+ * Pembayaran penjualan pada rentang laporan yang biayanya sudah terisi dari file (biaya_proses
+ * bukan NULL). Dipanggil hanya sesudah muatBiayaPembayaran memastikan hak baca.
+ */
+export async function muatCakupanXendit(supabase: any, from: string, to: string): Promise<CakupanXendit> {
+  const dari = new Date(Date.parse(`${from}T00:00:00+07:00`)).toISOString()
+  const sampai = new Date(Date.parse(`${to}T23:59:59+07:00`)).toISOString()
+  const rows: { dibayarAt: string; diimporAt: string | null }[] = []
+  for (let mulai = 0; ; mulai += 1000) {
+    const { data, error } = await supabase.from('xendit_pembayaran')
+      .select('xendit_id, dibayar_at, diimpor_at')
+      .not('biaya_proses', 'is', null).eq('bukan_penjualan', false)
+      .gte('dibayar_at', dari).lte('dibayar_at', sampai)
+      .order('xendit_id', { ascending: true }).range(mulai, mulai + 999)
+    if (error) throw new Error(error.message)
+    for (const r of data ?? []) rows.push({ dibayarAt: r.dibayar_at, diimporAt: r.diimpor_at })
+    if (!data || data.length < 1000) break
+  }
+  return ringkasCakupanXendit(rows)
 }
 
 /**

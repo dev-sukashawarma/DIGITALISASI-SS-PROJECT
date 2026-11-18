@@ -92,6 +92,15 @@ describe('prosesUnggahXendit — biaya per pembayaran', () => {
     await prosesUnggahXendit(db, baris, meta, biaya)
     expect(tabel.get('besar')).toMatchObject({ biaya_mdr: 1835, biaya_proses: 4440 })
   })
+
+  it('unggah ulang memperbarui waktu impor (dipakai "Last Update" di kartu Admin Fee)', async () => {
+    const { db, tabel } = dbPalsu([
+      { xendit_id: 'lama', nominal: 50000, dibayar_at: wib('2026-11-02T10:00:00'), diimpor_at: '2026-11-18T05:57:40Z' } as BarisDb,
+    ], [])
+    const sebelum = Date.now()
+    await prosesUnggahXendit(db, [b('lama', 50000, '2026-11-02T10:00:00')], meta)
+    expect(Date.parse(tabel.get('lama')!.diimpor_at!)).toBeGreaterThanOrEqual(sebelum)
+  })
 })
 
 describe('isPesananWebsite', () => {

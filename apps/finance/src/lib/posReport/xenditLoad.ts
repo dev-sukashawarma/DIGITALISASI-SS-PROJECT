@@ -57,7 +57,9 @@ export function gabungXendit<T extends PesananMin>(p: {
     }
     return p.outletDipilih === 'all' || p.outletDipilih.has(b.outletId)
   })
-  const web = p.semuaPesanan.filter(isPesananWebsite)
+  // Semua pesanan ber-external_order_id, bukan hanya yang terdeteksi website: pesanan
+  // website yang tercatat sebagai penjualan kasir (mis. Pekayon #23) tetap "ada di POS".
+  const web = p.semuaPesanan.filter(o => !!o.external_order_id)
   const selesai = new Set(web.filter(o => o.status === 'completed').map(o => o.external_order_id!))
   const batal = new Set(web.filter(o => o.status === 'cancelled').map(o => o.external_order_id!))
   const xenditLain = p.filter === 'all' || p.filter === 'hanya_xendit'

@@ -55,6 +55,16 @@ describe('gabungXendit', () => {
     expect(r.xenditTanpaOutletTersembunyi).toBe(1)
   })
 
+  it('pembayaran tertaut ke pesanan selesai yang tercatat kasir (Pekayon #23) bukan "hanya di Xendit"', () => {
+    const PEKAYON = '7e06c3da-3351-4d24-b3df-58c8a2ee3fde'
+    const semua = [...pesanan, { id: 'p5', status: 'completed', sales_source: 'pos', external_order_id: PEKAYON, total_amount: 100600, outlet_id: 'cic' }]
+    const r = gabungXendit({
+      ...dasar, semuaPesanan: semua, bayar: [bayar({ xenditId: 'pk', externalOrderId: PEKAYON, nominal: 100600 })],
+      filter: 'all', outletDipilih: 'all', bolehTanpaOutlet: true,
+    })
+    expect(r.xenditLain).toEqual([])
+  })
+
   it('sumber tanpa website: tidak menyentuh baris apa pun', () => {
     const r = gabungXendit({ ...dasar, tampilWebsite: false, filter: 'all', outletDipilih: 'all', bolehTanpaOutlet: true })
     expect(r.rows).toBe(tableRows)

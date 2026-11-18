@@ -224,3 +224,18 @@ developer (cek peran di server action, bukan hanya di halaman).
 - Balance History per tanggal settlement: pembayaran akhir bulan ada di file bulan berikutnya —
   status ⏳ untuk tanggal 29–31 wajar sampai file berikutnya diunggah; jelaskan di UI.
 - Tiga app wajib identik; lupa menyalin = tes paritas merah.
+
+## 9. Hasil pengisian awal (18 Nov 2026)
+
+File `BALANCE_HISTORY_REPORT_20261001_20261031_*.csv` diunggah dengan kode yang sama dengan
+halaman unggah (lewat skrip sekali pakai, karena login lokal tidak tersedia):
+- 127 pembayaran; 5 bukan penjualan (4× `PR-…` PantauReview, 1× uji Rp 2); 119 cocok lewat
+  nominal & jam; 2 ditautkan manual (`cara_cocok='manual'`): bayar dobel Cicurug 9 Okt 14:33 →
+  #100 (batal, total 0 sehingga nominal tak cocok) dan Pekayon #23 (tercatat `pos`, bukan website).
+- Sisa 1 tak bertaut: 30 Sep 14:15 Rp 32.192 (Empang) — temuan September, tampil "Hanya di Xendit".
+- Pesanan website Oktober: 110 selesai ✓ (1–28 Okt), 13 selesai ⏳ (29–31 Okt, settle November),
+  #100 batal tertaut. Cocok dengan rekonsiliasi manual 18 Nov.
+- Unggah ulang file yang sama: 0 baris baru, tautan tak berubah.
+
+Batasan diketahui: pesanan website yang dibatalkan bernilai total 0 (trigger `handle_void_order`),
+jadi pembayarannya tidak bisa dicocokkan lewat nominal — perlu tautan manual atau webhook.

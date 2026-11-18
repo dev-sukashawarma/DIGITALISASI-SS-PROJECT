@@ -791,17 +791,23 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                         </span>
                       </div>
                     )}
-                    {(analytics.biayaXendit ?? 0) > 0 && (
+                    {/* Biaya Xendit dipecah: yang sudah pasti dari file Balance History vs perkiraan
+                        tarif untuk pesanan yang pembayarannya belum ada di file yang diunggah. */}
+                    {(analytics.biayaXendit ?? 0) - (analytics.biayaXenditEstimasi ?? 0) > 0 && (
                       <div className="flex justify-between items-center gap-2">
-                        <span className="text-white/75">
-                          Biaya Xendit:
-                          {(analytics.jumlahPesananEstimasiXendit ?? 0) > 0 && (
-                            <span className="ml-1 text-[10px] text-white/60">
-                              (estimasi {analytics.jumlahPesananEstimasiXendit} pesanan)
-                            </span>
-                          )}
+                        <span className="text-white/75">Biaya Xendit (sesuai file):</span>
+                        <span className="font-bold">{formatRupiah((analytics.biayaXendit ?? 0) - (analytics.biayaXenditEstimasi ?? 0))}</span>
+                      </div>
+                    )}
+                    {(analytics.biayaXenditEstimasi ?? 0) > 0 && (
+                      <div className="flex justify-between items-start gap-2">
+                        <span className="text-white/75 leading-snug">
+                          Perkiraan Xendit, belum ada file
+                          <span className="block text-[10px] text-white/70">
+                            ({analytics.jumlahPesananEstimasiXendit} pesanan, dihitung dari tarif)
+                          </span>
                         </span>
-                        <span className="font-bold">{formatRupiah(analytics.biayaXendit)}</span>
+                        <span className="font-bold">{formatRupiah(analytics.biayaXenditEstimasi)}</span>
                       </div>
                     )}
                   </div>

@@ -769,7 +769,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                     ? 'Total voucher diskon penjual, komisi marketplace & biaya layanan'
                     : isPosKasirOnly
                       ? 'Total diskon kasir offline di outlet'
-                      : 'Total potongan: Diskon Promo Resto + Komisi Platform Aplikasi'}
+                      : isWebsiteOnly
+                        ? 'Total potongan: Diskon Promo + Biaya Xendit (payment gateway website)'
+                        : 'Total potongan: Diskon Promo Resto + Komisi Platform Aplikasi'}
                 </p>
 
                 {/* Sub-rincian promo vs komisi */}

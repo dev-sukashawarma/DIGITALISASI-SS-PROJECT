@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { isTargetProgressOutletVisible } from '@/lib/targetProgressFilter'
 import { createThrottledRefresher } from '@/lib/realtimeThrottle'
 
 export interface TargetProgressRow {
@@ -35,7 +35,7 @@ export function useTargetProgress(from?: string, to?: string) {
       const { data } = await query.order('outlet_name')
         
       return (data ?? [])
-        .filter((r: any) => r.outlet_id !== TEST_OUTLET_ID && !isTestOutlet(r.outlet_id) && !isTestOutlet(r.outlet_name))
+        .filter((r: any) => isTargetProgressOutletVisible(r))
         .map((r: any) => ({
           outlet_id: r.outlet_id,
           outlet_name: r.outlet_name,
@@ -43,14 +43,6 @@ export function useTargetProgress(from?: string, to?: string) {
           omzet_today: Number(r.omzet_today) || 0,
           date_value: r.date_value || new Date().toISOString().split('T')[0]
         }))
-        .filter((r: TargetProgressRow) => {
-          const lowerName = r.outlet_name.toLowerCase()
-          return (
-            !lowerName.includes('kantor pusat') &&
-            !lowerName.includes('global outlet') &&
-            !lowerName.includes('gudang pusat')
-          )
-        })
     },
     staleTime: 15000,
     // Cadangan bila realtime putus; pemicu utama tetap event `orders`.

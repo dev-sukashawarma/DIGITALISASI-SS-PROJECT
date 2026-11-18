@@ -14,6 +14,7 @@ const ORDER_FIELDS = [
   'cashier_name', 'external_order_id', 'is_endorse',
   'customer_receipt_print_count', 'kitchen_receipt_print_count',
   'customer_receipt_skipped', 'kitchen_receipt_skipped', 'raw_data',
+  'order_type', 'notes',
 ] as const
 
 const ITEM_FIELDS = [
@@ -24,12 +25,18 @@ const ITEM_FIELDS = [
 
 // v2: + hitungan cetak struk (label "dicetak Nx" di Histori Transaksi).
 // v3: + flag struk dilewati (label "tidak dicetak" / "dicetak susulan").
-export const DAY_CODEC_VERSION = 3
+// v4: + order_type & notes (label "Big Order -15%").
+export const DAY_CODEC_VERSION = 4
 
 export type EncodedDay = { v: number; o: any[][] }
 
 function pack(obj: any, fields: readonly string[]) {
-  const row = fields.map((f) => (obj[f] === undefined ? null : obj[f]))
+  const row = fields.map((f) => {
+    const val = obj[f]
+    if (val === undefined) return null
+    if (f === 'order_type' && val === 'regular') return null
+    return val
+  })
   // Buang null di ujung — banyak kolom opsional kosong.
   let end = row.length
   while (end > 0 && row[end - 1] === null) end--
@@ -52,6 +59,7 @@ function unpack(row: any[], fields: readonly string[], keepUndefined: Set<string
 const ORDER_OPTIONAL = new Set([
   'raw_data', 'customer_receipt_print_count', 'kitchen_receipt_print_count',
   'customer_receipt_skipped', 'kitchen_receipt_skipped',
+  'order_type', 'notes',
 ])
 const ITEM_OPTIONAL = new Set(['menu_items'])
 

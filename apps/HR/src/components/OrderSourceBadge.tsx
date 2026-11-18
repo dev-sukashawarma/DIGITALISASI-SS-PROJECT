@@ -1,4 +1,4 @@
-import { Globe, Monitor, Gift } from 'lucide-react'
+import { Globe, Monitor, Gift, Package } from 'lucide-react'
 import { resolveOrderSource } from '@/lib/order-source'
 
 // Badge sumber pesanan untuk halaman admin (Laporan & Overview).
@@ -9,12 +9,16 @@ export default function OrderSourceBadge({
   salesSource,
   customerName,
   isEndorse,
+  orderType,
+  isBigOrder,
   size = 'sm',
 }: {
   channel?: string | null
   salesSource?: string | null
   customerName?: string | null
   isEndorse?: boolean | null
+  orderType?: string | null
+  isBigOrder?: boolean | null
   size?: 'sm' | 'md'
 }) {
   const src = resolveOrderSource(channel, salesSource, customerName, isEndorse)
@@ -32,6 +36,19 @@ export default function OrderSourceBadge({
       title="Pesanan WhatsApp/telepon, dihitung sebagai Offline"
     >
       Pre-Order WA
+    </span>
+  ) : null
+
+  const showBigOrder = Boolean(isBigOrder || (orderType || '').trim().toLowerCase() === 'big_order')
+  const bigOrderPill = showBigOrder ? (
+    <span
+      className={`inline-flex items-center gap-1 font-extrabold uppercase tracking-wider rounded-md border border-emerald-300 bg-emerald-50 text-emerald-700 ${
+        isMd ? 'text-xs px-2 py-1' : 'text-[10px] px-1.5 py-0.5'
+      }`}
+      title="Big Order — Potongan diskon 15% otomatis dari total transaksi"
+    >
+      <Package className={isMd ? 'w-3.5 h-3.5 shrink-0' : 'w-3 h-3 shrink-0'} strokeWidth={2.5} />
+      Big Order -15%
     </span>
   ) : null
 
@@ -67,11 +84,12 @@ export default function OrderSourceBadge({
     </span>
   )
 
-  if (!preorderPill) return badge
+  if (!preorderPill && !bigOrderPill) return badge
   return (
     <span className="inline-flex items-center gap-1 flex-wrap">
       {badge}
       {preorderPill}
+      {bigOrderPill}
     </span>
   )
 }

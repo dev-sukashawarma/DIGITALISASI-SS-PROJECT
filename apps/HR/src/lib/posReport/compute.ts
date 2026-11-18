@@ -13,6 +13,7 @@
 
 import { cleanItemName } from '@/lib/order-item-name'
 import { resolveOrderSource } from '@/lib/order-source'
+import { isBigOrder } from '@/lib/big-order'
 import {
   computeNetRevenueVoidAware,
   computeOrderDeduction,
@@ -58,6 +59,10 @@ export interface OrderRow {
   cashier_name?: string | null
   external_order_id?: string | null
   is_endorse?: boolean | null
+  order_type?: string | null
+  notes?: string | null
+  discount_amount?: number | null
+  promo_subsidy?: number | null
   customer_receipt_print_count?: number | null
   kitchen_receipt_print_count?: number | null
   customer_receipt_skipped?: boolean | null
@@ -751,9 +756,11 @@ export function filterTableData(
   }
   if (searchQuery) {
     const q = searchQuery.toLowerCase()
+    const matchBigOrder = 'big order'.includes(q) || 'big_order'.includes(q)
     result = result.filter(o =>
       o.order_number.toString().includes(q) ||
       (o.customer_name && o.customer_name.toLowerCase().includes(q)) ||
+      (matchBigOrder && isBigOrder(o)) ||
       o.order_items.some(i =>
         i.menu_item_name.toLowerCase().includes(q) ||
         (i.package_choices && JSON.stringify(i.package_choices).toLowerCase().includes(q))

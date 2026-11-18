@@ -55,6 +55,8 @@ const FILES: Array<[hr: string, admin: string]> = [
     'lib/posReport/xenditLoad.ts',
     'lib/posReport/xenditStatus.ts',
     'lib/xendit/website.ts',
+    'lib/xendit/tarif.ts',
+    'lib/posReport/biayaXendit.ts',
     'lib/posReportKpi.ts',
     'lib/server/callerScope.ts',
     'lib/server/dayGenerations.ts',

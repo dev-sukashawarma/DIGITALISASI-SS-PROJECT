@@ -113,6 +113,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
   const isSSOnlineSelected = selectedOutlets.length === 1 && selectedOutlets[0] === 'ss-online'
   const [selectedChannels, setSelectedChannels] = useState<string[]>(['all'])
   const isPosKasirOnly = !selectedChannels.includes('all') && selectedChannels.length > 0 && selectedChannels.every(c => c === 'pos_kasir' || c === 'pos_pawoon')
+  const isWebsiteOnly = selectedChannels.length === 1 && selectedChannels[0] === 'online'
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all')
   const [selectedReceiptFilter, setSelectedReceiptFilter] = useState<ReceiptFilter>('all')
   // Status Xendit pesanan website (spec 2026-11-18-validasi-xendit).
@@ -383,6 +384,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
     totalOrders: 0, buyOneGetOneTransactions: 0, buyOneGetOneGiftUnits: 0, successRate: 0, cancelledCount: 0,
     grossRevenue: 0, totalDeductions: 0, totalPlatformSubsidy: 0, netRevenue: 0, totalHPP: 0, grossProfit: 0,
     totalCommission: 0, isCommissionEstimated: false, netDisbursement: 0, realGrossProfit: 0,
+    biayaXendit: 0, biayaXenditEstimasi: 0, jumlahPesananEstimasiXendit: 0,
     totalSettlement: 0, totalSettlementGross: 0, settlementRate: 0, settlementGrossRate: 0, totalRealAdmin: 0, settlementDateRange: '', settlementLastUpdate: '', hasSettlementData: false,
   }
   const analytics = report?.analytics ?? EMPTY_ANALYTICS
@@ -758,7 +760,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                     />
                   </div>
                   <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-xs shrink-0">
-                    {(analytics.totalRealAdmin ?? 0) > 0 ? '✓ Settlement' : isPosKasirOnly ? '0% Kasir' : 'Promo & Komisi'}
+                    {(analytics.totalRealAdmin ?? 0) > 0 ? '✓ Settlement' : isPosKasirOnly ? '0% Kasir' : isWebsiteOnly ? 'Promo & Xendit' : 'Promo & Komisi'}
                   </span>
                 </div>
                 <p className="text-2xl sm:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">
@@ -779,14 +781,29 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                       <span className="text-white/75">Diskon Promo:</span>
                       <span className="font-bold">{formatRupiah(analytics.totalDeductions)}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-white/75">Komisi Platform:</span>
-                      <span className="font-bold">
-                        {(analytics.totalCommission ?? 0) > 0
-                          ? formatRupiah(analytics.totalCommission)
-                          : 'Belum di-upload'}
-                      </span>
-                    </div>
+                    {!isWebsiteOnly && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-white/75">Komisi Platform:</span>
+                        <span className="font-bold">
+                          {(analytics.totalCommission ?? 0) > 0
+                            ? formatRupiah(analytics.totalCommission)
+                            : 'Belum di-upload'}
+                        </span>
+                      </div>
+                    )}
+                    {(analytics.biayaXendit ?? 0) > 0 && (
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-white/75">
+                          Biaya Xendit:
+                          {(analytics.jumlahPesananEstimasiXendit ?? 0) > 0 && (
+                            <span className="ml-1 text-[10px] text-white/60">
+                              (estimasi {analytics.jumlahPesananEstimasiXendit} pesanan)
+                            </span>
+                          )}
+                        </span>
+                        <span className="font-bold">{formatRupiah(analytics.biayaXendit)}</span>
+                      </div>
+                    )}
                   </div>
                 )}
 

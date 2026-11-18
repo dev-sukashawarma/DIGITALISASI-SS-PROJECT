@@ -28,6 +28,11 @@ import { computeExportReport } from '@/lib/posReport/ekspor'
 import { buildHistoriTransaksiExport } from '@/lib/posReport/eksporHistori'
 import { toXenditFilter } from '@/lib/posReport/xenditStatus'
 import { gabungXendit, muatPembayaranXendit, muatPesananTertaut } from '@/lib/posReport/xenditLoad'
+import { isPesananWebsite } from '@/lib/xendit/website'
+import {
+  BIAYA_XENDIT_NOL, hitungBiayaXendit, muatBiayaPembayaran, terapkanBiayaKeAnalytics,
+  type BiayaPembayaran, type HasilBiayaXendit,
+} from '@/lib/posReport/biayaXendit'
 
 /** Cakupan outlet pemanggil. 'all' = akses penuh (owner/admin/... atau kunci Hermes). */
 export type CakupanLaporan = { supabase: any; scopeKey: string; allowedOutletIds: 'all' | string[] }
@@ -285,9 +290,10 @@ export async function laporanPosUntukScope(rawReq: PosReportRequest, scope: Caku
   const pageRows = tableRows.slice((page - 1) * req.pageSize, page * req.pageSize)
 
   const { completedOrders, ...summary } = prepared.analytics
+  const biayaXendit = await terapkanBiayaXendit(prepared, completedOrders, scope)
 
   return {
-    analytics: { ...summary, completedCount: completedOrders.length },
+    analytics: terapkanBiayaKeAnalytics({ ...summary, completedCount: completedOrders.length }, biayaXendit),
     availableChannels: prepared.availableChannels,
     availablePaymentMethods: prepared.availablePaymentMethods,
     table: {
@@ -307,6 +313,23 @@ export async function laporanPosUntukScope(rawReq: PosReportRequest, scope: Caku
     fetchedAt: prepared.fetchedAt,
     isCached: prepared.isCached,
   }
+}
+
+/**
+ * Biaya Xendit pesanan website selesai (spec 2026-11-18-biaya-xendit-rangkuman-penjualan).
+ * Gagal memuat / tanpa hak baca = semua pesanan website diestimasi; laporan tetap tampil.
+ */
+async function terapkanBiayaXendit(prepared: any, completedOrders: any[], scope: CakupanLaporan): Promise<HasilBiayaXendit> {
+  if (prepared.isSSOnlineSelected) return BIAYA_XENDIT_NOL
+  const website = completedOrders.filter(isPesananWebsite)
+  if (website.length === 0) return BIAYA_XENDIT_NOL
+  let bayar: BiayaPembayaran[] | null = null
+  try {
+    bayar = await muatBiayaPembayaran(scope.supabase, [...new Set(website.map((o) => o.external_order_id as string))])
+  } catch (e) {
+    console.error('Gagal memuat biaya Xendit:', e)
+  }
+  return hitungBiayaXendit(website, bayar)
 }
 
 /**

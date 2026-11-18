@@ -11,13 +11,14 @@ describe('posReport.ts = pintu server action', () => {
     expect(ekspor).toEqual([
       'getPosReport',
       'getPosReportExport',
+      'getPosTransactionHistoryExport',
       'getReceiptPrintLog',
       'invalidatePosReportDays',
       'refreshPosReportRange',
     ])
   })
-  it('getPosReport, getPosReportExport, & getReceiptPrintLog selalu memanggil resolveCallerScope()', () => {
-    for (const nama of ['getPosReport', 'getPosReportExport', 'getReceiptPrintLog']) {
+  it('getPosReport, getPosReportExport, getPosTransactionHistoryExport, & getReceiptPrintLog selalu memanggil resolveCallerScope()', () => {
+    for (const nama of ['getPosReport', 'getPosReportExport', 'getPosTransactionHistoryExport', 'getReceiptPrintLog']) {
       const badan = sumber.split(`export async function ${nama}(`)[1]?.split('\nexport ')[0] ?? ''
       expect(badan).toContain('resolveCallerScope()')
     }

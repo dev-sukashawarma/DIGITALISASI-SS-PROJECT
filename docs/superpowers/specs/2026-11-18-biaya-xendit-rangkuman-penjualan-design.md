@@ -56,10 +56,13 @@ RLS & grant tidak berubah (baca lewat `boleh_baca_xendit()`).
 - Baris FEE/VAT yang pembayarannya tak ada di file itu tetapi sudah ada di database
   tetap ditempelkan ke baris database. *(Keputusan pembangun.)*
 - `biaya_proses` diisi per pembayaran sukses menurut aturan tanggal di atas.
-- **Pengecek:** jumlahkan `PROCESSING_FEE_DEDUCTION` di file, bandingkan dengan
-  `Rp 4.000 × jumlah pembayaran sukses` (semua pembayaran, termasuk PR-) di rentang yang
-  sama; kalau beda, ringkasan unggah menampilkan peringatan berisi kedua angka. Tidak
-  memblokir unggah.
+- **Dicocokkan dengan settlement (keputusan owner 18 Nov):** Processing Fee ditagih per
+  pembayaran sehari sesudahnya — Oktober menurut tanggal bayar, November menurut tanggal
+  settlement. Gabungan file Okt + Nov: **208 pembayaran sejak 1 Okt = 208 tagihan**, pas.
+  Selisih per file hanyalah efek batas (pembayaran akhir bulan ditagih di file
+  berikutnya), jadi aturan Rp 4.440 per pembayaran dipakai apa adanya. Ringkasan unggah
+  hanya **menampilkan** jumlah tagihan Processing Fee di file vs jumlah pembayaran
+  ≥ 1 Okt di file, sebagai informasi, tanpa peringatan.
 - Unggah ulang memperbarui kedua kolom (ikut jalur `perbarui`, kolom data file).
 
 ### 3. Laporan (`lib/posReport/biayaXendit.ts` baru, dipanggil `laporan.ts`)
@@ -108,9 +111,10 @@ byte-identik ke `apps/finance` & `apps/HR` dan daftarkan di
   `biayaXendit` (aktual, estimasi, dobel, bukan_penjualan, tanpa hak baca, sebelum 1 Okt).
 - Migration diuji dalam transaksi + ROLLBACK dengan kontrol negatif.
 - Selesai bila: setelah file Oktober diunggah ulang, kartu Admin Fee filter Website
-  Oktober menampilkan Biaya Xendit ≈ Rp 631.848 (selisih hanya dari pembayaran yang
-  tidak tertaut ke pesanan selesai, dijelaskan); test & type-check admin/finance/HR
-  lulus; paritas lulus.
+  Oktober menampilkan Biaya Xendit **Rp 629.208** (126 pembayaran penjualan Okt =
+  Rp 8.511.868; angka 631.848 di file memuat produk PR- dan batas tagihan berbeda),
+  dikurangi pembayaran yang tak tertaut ke pesanan selesai bila ada; test & type-check
+  admin/finance/HR lulus; paritas lulus.
 
 ## Diserahkan ke pembangun
 Nama kolom/fungsi, susunan teks kartu, bentuk peringatan unggah, uji kering untuk

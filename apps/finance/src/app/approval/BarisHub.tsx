@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Building2, Check, ClipboardCheck, Coins, Copy, ExternalLink, Landmark, Receipt, Send, Truck, Wallet, type LucideIcon } from 'lucide-react'
+import { Building2, Check, ClipboardCheck, Coins, Copy, ExternalLink, Landmark, PackageX, Receipt, Send, Truck, Wallet, type LucideIcon } from 'lucide-react'
 import { rupiah, relativeTime, tanggalWaktu } from '@/lib/format'
 import { isLama, JENIS_LABEL, type HubItem, type HubJenis } from '@/lib/approval/hub'
 
@@ -19,6 +19,7 @@ export const IKON_JENIS_HUB: Record<HubJenis, LucideIcon> = {
   po: ClipboardCheck,
   bayar_vendor: Truck,
   dana_kantor: Building2,
+  retur_vendor: PackageX,
 }
 
 const LABEL_SETUJUI: Record<HubJenis, string> = {
@@ -29,6 +30,7 @@ const LABEL_SETUJUI: Record<HubJenis, string> = {
   po: 'Setujui',
   bayar_vendor: 'Setujui',
   dana_kantor: 'Verifikasi',
+  retur_vendor: 'Setujui',
 }
 
 export function BarisHub({

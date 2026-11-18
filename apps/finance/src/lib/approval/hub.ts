@@ -5,6 +5,8 @@ import type { PendingPo } from '@/hooks/usePoApproval'
 import type { PayablePo, TxBayarPo } from '@/hooks/useSupplierSettlement'
 import type { OfficeVoucher } from '@/lib/officeVoucher'
 import type { KasbonMenunggu } from '@/lib/approval/kasbon'
+import type { ReturVendor } from '@/hooks/useReturVendor'
+import { LABEL_ALASAN } from '@/lib/returVendor/aturan'
 
 /** Jenis pekerjaan yang menunggu admin finance di Hub Approval. */
 export type HubJenis =
@@ -15,6 +17,7 @@ export type HubJenis =
   | 'po'
   | 'bayar_vendor'
   | 'dana_kantor'
+  | 'retur_vendor'
 
 export const URUTAN_JENIS: HubJenis[] = [
   'petty_cash',
@@ -24,6 +27,7 @@ export const URUTAN_JENIS: HubJenis[] = [
   'po',
   'bayar_vendor',
   'dana_kantor',
+  'retur_vendor',
 ]
 
 export const JENIS_LABEL: Record<HubJenis, string> = {
@@ -34,6 +38,7 @@ export const JENIS_LABEL: Record<HubJenis, string> = {
   po: 'Approval PO',
   bayar_vendor: 'Bayar vendor',
   dana_kantor: 'Dana kantor',
+  retur_vendor: 'Retur vendor',
 }
 
 /** Pengajuan yang menunggu lebih lama dari ini ditandai merah. */
@@ -65,6 +70,7 @@ export type HubItem = Dasar &
     | { jenis: 'po'; data: PendingPo }
     | { jenis: 'bayar_vendor'; data: PayablePo }
     | { jenis: 'dana_kantor'; data: OfficeVoucher }
+    | { jenis: 'retur_vendor'; data: ReturVendor }
   )
 
 function gabungKeterangan(...bagian: (string | null | undefined)[]): string {
@@ -161,13 +167,18 @@ export function itemDariPo(p: PendingPo): HubItem {
 
 export function itemDariBayarVendor(p: PayablePo, tx?: TxBayarPo): HubItem | null {
   if (p.payment_status !== 'pending') return null
+  const kredit = Number(p.dibayar_kredit) || 0
   return {
     key: `bayar_vendor:${p.id}`,
     id: p.id,
     jenis: 'bayar_vendor',
     judul: p.supplier_nama,
-    keterangan: gabungKeterangan(p.nomor_po, tx?.pengaju ? `diajukan ${tx.pengaju}` : null),
-    nominal: Number(p.total) || 0,
+    keterangan: gabungKeterangan(
+      p.nomor_po,
+      tx?.pengaju ? `diajukan ${tx.pengaju}` : null,
+      kredit > 0 ? `kredit retur ${kredit.toLocaleString('id-ID')}` : null,
+    ),
+    nominal: Math.max(0, (Number(p.total) || 0) - kredit),
     menungguSejak: tx?.created_at ?? p.tanggal_po,
     detailHref: `/pembelian/${p.id}`,
     data: p,
@@ -187,6 +198,25 @@ export function itemDariVoucher(v: OfficeVoucher): HubItem | null {
     menungguSejak: v.createdAt,
     detailHref: '/pengeluaran/kantor',
     data: v,
+  }
+}
+
+export function itemDariReturVendor(r: ReturVendor): HubItem | null {
+  if (r.status !== 'diajukan') return null
+  return {
+    key: `retur_vendor:${r.id}`,
+    id: r.id,
+    jenis: 'retur_vendor',
+    judul: r.supplier_nama,
+    keterangan: gabungKeterangan(
+      r.nomor,
+      LABEL_ALASAN[r.alasan],
+      potong(r.items.map((i) => i.bahan_nama).join(', ')),
+    ),
+    nominal: Number(r.total) || 0,
+    menungguSejak: r.diajukan_at,
+    detailHref: `/pembelian/retur-vendor/${r.id}`,
+    data: r,
   }
 }
 

@@ -17,6 +17,7 @@ import { useTolakBayarPo, useTagihanBelumDiajukanCount, type PayablePo } from '@
 import Link from 'next/link'
 import { useOfficeVouchers } from '@/hooks/useOfficeVouchers'
 import { useCairkanKasbon, useTolakKasbon } from '@/hooks/useKasbonPencairan'
+import { useMutasiReturVendor } from '@/hooks/useReturVendor'
 import type { KasbonMenunggu } from '@/lib/approval/kasbon'
 import { CairkanKasbonModal } from '@/components/approval/CairkanKasbonModal'
 import { useCashOverview } from '@/hooks/useCashData'
@@ -39,6 +40,7 @@ const PREFIX_HUB = [
   ['po_payable'],
   ['office_vouchers'],
   ['kasbon_menunggu'],
+  ['retur-vendor'],
 ]
 
 function pesan(err: unknown, cadangan: string): string {
@@ -67,6 +69,7 @@ export function HubApprovalView() {
   const tolakBayar = useTolakBayarPo()
   const cairkanKasbon = useCairkanKasbon()
   const tolakKasbon = useTolakKasbon()
+  const { putuskan: putuskanRetur } = useMutasiReturVendor()
   const { verifyVoucher, rejectVoucher, isVerifying, isRejecting } = useOfficeVouchers(undefined, { enabled: isChecker })
 
   const [pettyAcc, setPettyAcc] = useState<PettyCashTopup | null>(null)
@@ -111,6 +114,16 @@ export function HubApprovalView() {
       case 'dana_kantor':
         setVoucherAcc(i.data)
         return
+      case 'retur_vendor':
+        if (!confirm(`Setujui retur ${i.data.nomor} ke ${i.data.supplier_nama}? Barang boleh diserahkan ke vendor.`)) return
+        try {
+          await putuskanRetur.mutateAsync({ id: i.data.id, setuju: true })
+          toast.success(`Retur ${i.data.nomor} disetujui.`)
+        } catch (err) {
+          toast.error(pesan(err, 'Gagal menyetujui retur'))
+          segarkan()
+        }
+        return
     }
   }
 
@@ -145,6 +158,10 @@ export function HubApprovalView() {
           break
         case 'dana_kantor':
           await rejectVoucher({ voucher: i.data, reason: alasan })
+          break
+        case 'retur_vendor':
+          await putuskanRetur.mutateAsync({ id: i.data.id, setuju: false, alasan })
+          toast.success(`Retur ${i.data.nomor} ditolak.`)
           break
         case 'serah_am':
           return

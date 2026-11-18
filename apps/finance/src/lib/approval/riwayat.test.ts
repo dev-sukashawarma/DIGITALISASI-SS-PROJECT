@@ -72,3 +72,11 @@ describe('namaPelakuRiwayat', () => {
     expect(namaPelakuRiwayat(null)).toBeNull()
   })
 })
+
+describe('riwayat retur vendor', () => {
+  it('berlabel Retur vendor dan masuk urutan jenis', async () => {
+    const m = await import('./riwayat')
+    expect(m.labelRiwayat({ jenis: 'retur_vendor', keputusan: 'setuju' })).toEqual({ jenis: 'Retur vendor', keputusan: 'Disetujui' })
+    expect(m.URUTAN_JENIS_RIWAYAT).toContain('retur_vendor')
+  })
+})

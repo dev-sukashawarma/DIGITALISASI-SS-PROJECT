@@ -80,4 +80,10 @@ describe('SetujuiBayarVendorModal', () => {
     expect(screen.getByText(/tidak mencukupi/)).toBeTruthy()
     expect((screen.getByRole('button', { name: 'Setujui & Tandai Lunas' }) as HTMLButtonElement).disabled).toBe(true)
   })
+
+  it('PO dengan kredit retur: yang dipotong dari rekening hanya bagian kas', () => {
+    render(<SetujuiBayarVendorModal po={{ ...po, dibayar_kredit: 1_000_000 }} locations={locations} onClose={() => {}} />)
+    expect(screen.getByText(/Dibayar kredit retur/)).toBeTruthy()
+    expect(screen.getByTestId('bayar-kas').textContent).toContain('3.250.000')
+  })
 })

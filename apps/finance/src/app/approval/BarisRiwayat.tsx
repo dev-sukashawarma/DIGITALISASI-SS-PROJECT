@@ -1,6 +1,6 @@
 'use client'
 
-import { Building2, ClipboardCheck, Coins, Truck, Wallet, type LucideIcon } from 'lucide-react'
+import { Building2, ClipboardCheck, Coins, PackageX, Truck, Wallet, type LucideIcon } from 'lucide-react'
 import { rupiah } from '@/lib/format'
 import {
   jamRiwayat,
@@ -18,6 +18,7 @@ export const IKON_JENIS: Record<JenisRiwayat, LucideIcon> = {
   po: ClipboardCheck,
   bayar_vendor: Truck,
   dana_kantor: Building2,
+  retur_vendor: PackageX,
 }
 
 /** Warna per keputusan: titik di rel garis waktu & teks status. */

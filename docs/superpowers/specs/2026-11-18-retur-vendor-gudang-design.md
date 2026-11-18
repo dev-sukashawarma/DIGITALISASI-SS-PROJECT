@@ -1,6 +1,6 @@
 # Retur Bahan Baku ke Vendor dari Gudang Pusat — Rancangan
 
-**Tanggal:** 2026-11-18 · **Status:** draf, menunggu persetujuan owner
+**Tanggal:** 2026-11-18 · **Status:** disetujui owner 18 Nov 2026, dibangun (branch `feat/retur-vendor`)
 **App:** `apps/finance` (menu Pembelian + Hub Approval) · **DB:** Supabase produksi bersama
 
 ---

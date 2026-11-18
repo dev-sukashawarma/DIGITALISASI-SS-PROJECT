@@ -9,13 +9,14 @@ import { Banknote, Clock, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useCashOverview } from '@/hooks/useCashData'
 import {
-  usePayablePos, useTxBayarPo, useAjukanBayarPo, useTandaiPoLunasTanpaKas, useInvoicePerPo,
+  usePayablePos, useTxBayarPo, useAjukanBayarPo, useTandaiPoLunasTanpaKas, useInvoicePerPo, useSaldoKreditVendor,
   type PayablePo,
 } from '@/hooks/useSupplierSettlement'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { useUploadInvoice, getInvoiceUrl } from '@/hooks/usePurchaseOrder'
 import { lokasiGrup } from '@/lib/kas/grupKas'
 import { alasanDitolak, cocokPeriode, poSebelumKasBersih, type FilterPeriode } from '@/lib/kas/tagihanVendor'
+import { kreditBawaan } from '@/lib/returVendor/aturan'
 import { rupiah, tanggal, tanggalWaktu } from '@/lib/format'
 import { StatCard, SectionCard } from '@/components/ui'
 import { BuktiModal } from '@/app/mutasi/components/BuktiModal'
@@ -54,6 +55,7 @@ export function SupplierView() {
   const adaInvoice = (id: string) => (invoices[id]?.length ?? 0) > 0
   const { isChecker, canAjukanBayarPO } = useFinanceRole()
   const ajukan = useAjukanBayarPo()
+  const { data: kreditVendor = {} } = useSaldoKreditVendor()
   const tandaiLunas = useTandaiPoLunasTanpaKas()
   const [tabPilihan, setTab] = useState<Tab | null>(null)
   const tab: Tab = tabPilihan ?? (isChecker ? 'pending' : 'unpaid')
@@ -106,12 +108,31 @@ export function SupplierView() {
       : `Ajukan pembayaran ${target.length} PO (${rupiah(target.reduce((a, p) => a + p.total, 0))}) ke admin finance.`
     const catatan = window.prompt(`${judul}\nCatatan (opsional):`, '')
     if (catatan === null) return
+    // Kredit retur hanya ditawarkan saat mengajukan satu PO: saldo dibagi per vendor,
+    // jadi pengajuan sekaligus bisa saling berebut kredit yang sama.
+    let pakaiKredit = 0
+    if (target.length === 1 && target[0].supplier_id) {
+      const saldo = kreditVendor[target[0].supplier_id] ?? 0
+      if (saldo > 0) {
+        const bawaan = kreditBawaan(saldo, target[0].total)
+        const jawab = window.prompt(
+          `Vendor ini punya kredit retur ${rupiah(saldo)}.\nPakai berapa untuk PO ${target[0].nomor_po}? (0 = tidak dipakai)\nSisanya dibayar dari rekening.`,
+          String(Math.round(bawaan)),
+        )
+        if (jawab === null) return
+        pakaiKredit = Math.max(0, Number(jawab.replace(/\D/g, '')) || 0)
+        if (pakaiKredit > bawaan) {
+          toast.error(`Kredit yang bisa dipakai maksimal ${rupiah(bawaan)}`)
+          return
+        }
+      }
+    }
     setSibuk(true)
     let berhasil = 0
     const gagal: string[] = []
     for (const p of target) {
       try {
-        await ajukan.mutateAsync({ poId: p.id, catatan })
+        await ajukan.mutateAsync({ poId: p.id, catatan, pakaiKredit: target.length === 1 ? pakaiKredit : 0 })
         berhasil++
       } catch (e) {
         gagal.push(`${p.nomor_po}: ${(e as Error).message}`)
@@ -264,7 +285,19 @@ export function SupplierView() {
                       </td>
                       <td className="py-3 text-suka-gray-500">{p.supplier_nama}</td>
                       <td className="py-3 text-suka-gray-500">{tanggal(p.tanggal_po)}</td>
-                      <td className="py-3 text-right font-bold text-suka-ink">{rupiah(p.total)}</td>
+                      <td className="py-3 text-right font-bold text-suka-ink">
+                        {rupiah(p.total)}
+                        {Number(p.dibayar_kredit) > 0 && (
+                          <div className="text-[11px] font-semibold text-emerald-700">
+                            kredit retur {rupiah(Number(p.dibayar_kredit))} · kas {rupiah(p.total - Number(p.dibayar_kredit))}
+                          </div>
+                        )}
+                        {tab === 'unpaid' && p.supplier_id && (kreditVendor[p.supplier_id] ?? 0) > 0 && (
+                          <div className="text-[11px] font-semibold text-blue-700">
+                            kredit vendor tersedia {rupiah(kreditVendor[p.supplier_id])}
+                          </div>
+                        )}
+                      </td>
                       <td className="py-3 pl-4 text-xs whitespace-nowrap">
                         {adaInvoice(p.id) ? (
                           <a href={getInvoiceUrl(invoices[p.id][0])} target="_blank" rel="noreferrer" className="font-semibold text-emerald-700 hover:underline">

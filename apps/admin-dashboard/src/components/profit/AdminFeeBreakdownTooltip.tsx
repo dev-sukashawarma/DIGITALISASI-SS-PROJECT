@@ -229,6 +229,7 @@ interface AdminFeeBreakdownTooltipProps {
     totalRealAdmin?: number;
     settlementDateRange?: string;
     grossRevenue?: number;
+    biayaXendit?: number;
   };
   isPosKasirOnly?: boolean;
 }
@@ -311,6 +312,16 @@ export default function AdminFeeBreakdownTooltip({
               <X className="w-4 h-4" />
             </button>
           </div>
+
+          {(analytics?.biayaXendit ?? 0) > 0 && (
+            <div className="mt-3 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 text-[11px] text-slate-300 leading-relaxed">
+              <span className="font-bold text-slate-100">
+                Biaya Xendit (website): Rp {Math.round(analytics?.biayaXendit ?? 0).toLocaleString('id-ID')}
+              </span>
+              <br />
+              Rp 4.440 Processing Fee per pembayaran + MDR QRIS ≥ Rp 100 rb (0,63% + PPN) / Virtual Account Rp 9.990.
+            </div>
+          )}
 
           {/* Tab Pemilihan Food App */}
           <div className="flex items-center gap-1 my-3 p-1 bg-slate-950/70 rounded-xl border border-slate-800/80 overflow-x-auto text-[11px] font-semibold">

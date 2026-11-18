@@ -3936,5 +3936,21 @@ Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawa
 
 ---
 
-**Last updated:** 2026-11-17  
+## Session 2026-11-18: Retur Bahan Baku ke Vendor (DB + apps/finance)
+
+**Status:** DB **LIVE** — 6 migration applied & terstempel (`20261118110000` skema, `111000` alur, `112000` penyelesaian, `113000` bayar PO pakai kredit, `114000` terima PO qty ditolak, `115000` ringkasan kualitas). Uji `supabase/verifikasi/retur_vendor/t1–t6` lulus (RED dulu, lalu dalam transaksi + ROLLBACK, kontrol negatif). Nol sisa data uji di produksi. Kode di branch `feat/retur-vendor`. ⚠️ Deploy `finance` otomatis saat merge ke `main`. Uji browser dengan login sungguhan **belum** dijalankan.
+
+**Spec/plan:** `docs/superpowers/specs/2026-11-18-retur-vendor-gudang-design.md`, `docs/superpowers/plans/2026-11-18-retur-vendor-gudang.md`
+
+- **Alur:** purchasing/kitchen ajukan (`ajukan_retur_vendor`) → finance setujui di Hub Approval (`putuskan_retur_vendor`, pengaju tak boleh memutuskan) → serah ke vendor (`serahkan_retur_vendor`: stok Gudang Pusat `retur_ke_vendor` −, saldo vendor `retur_vendor` −) → penyelesaian (`catat_penyelesaian_retur_vendor`): **potong tagihan** = kredit vendor (selesai), **uang kembali** = `konfirmasi_uang_retur_vendor` (cash_transaction in, `source_type='retur_vendor'`, bukan pendapatan), **ganti barang** = `terima_pengganti_retur_vendor` (ledger `pembelian_supplier` TANPA `ref_po_id`, tak menyentuh harga master). Sisa tak terselesaikan ditutup `tutup_sisa_retur_vendor` → `nilai_tidak_dikompensasi`, **tidak** jadi kredit/biaya.
+- **Keputusan owner:** hanya sisa di Gudang Pusat (outlet dibiarkan habis); hanya barang ber-PO; satu cara penyelesaian per dokumen; kredit **per vendor induk** (Pak Aziz Tempo 10/15/30 satu saldo).
+- **Kredit vendor** = buku `vendor_kredit` (+ retur, − pemakaian). `ajukan_bayar_po(p_po_id, p_catatan, p_pakai_kredit)` mencadangkan kredit; disetujui → aktif, ditolak → dihapus. Kredit penuh = tanpa transaksi kas, tetap lewat persetujuan finance. `paid_amount` = bagian kas saja; bagian kredit di `po_payable_spv.dibayar_kredit`.
+- **Terima PO:** kolom `qty_ditolak` + `alasan_tolak`; barang ditolak tidak masuk `qty_terima` (tidak ditagih); PO lengkap bila `qty_terima + qty_ditolak >= qty_pesan`.
+- ⚠️ `ledger_stamp_saldo` **mengecualikan** `retur_ke_vendor` dari larangan saldo minus — penjaga satu-satunya adalah cek saldo di `serahkan_retur_vendor`.
+- ⚠️ Role `kitchen` tidak punya akses app finance; RPC mengizinkan kitchen, tapi layarnya baru ada di finance (pengajuan/penerimaan pengganti lewat purchasing). Layar kitchen di app stok = lanjutan.
+- Pemantau: `supabase/verifikasi/retur_vendor/pemantau.sql` (retur menggantung >14 hari, ledger tanpa dokumen, saldo kredit, kredit dicadangkan >7 hari).
+
+---
+
+**Last updated:** 2026-11-18  
 **Owner:** Dev Suka Shawarma

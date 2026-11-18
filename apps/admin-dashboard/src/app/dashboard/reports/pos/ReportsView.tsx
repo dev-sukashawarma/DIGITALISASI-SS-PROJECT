@@ -27,9 +27,20 @@ import OrderSourceBadge from '@/components/OrderSourceBadge'
 import BigOrderBadge from '@/components/BigOrderBadge'
 import { isBigOrder } from '@/lib/big-order'
 import ReceiptChipBadge from './ReceiptReprintBadge'
+import XenditBadge, { XenditLainBlok } from './XenditBadge'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
 import { resolveOrderSource } from '@/lib/order-source'
 import AdminFeeBreakdownTooltip from '@/components/profit/AdminFeeBreakdownTooltip'
+
+type XenditFilterUi = 'all' | 'terverifikasi' | 'belum' | 'selisih' | 'hanya_xendit'
+const XENDIT_FILTERS: XenditFilterUi[] = ['all', 'terverifikasi', 'belum', 'selisih', 'hanya_xendit']
+const XENDIT_FILTER_LABEL: Record<XenditFilterUi, string> = {
+  all: 'Xendit: Semua',
+  terverifikasi: '✓ Terverifikasi',
+  belum: '⏳ Belum di Xendit',
+  selisih: '⚠ Selisih / Dobel',
+  hanya_xendit: '⚠ Hanya di Xendit',
+}
 
 function formatLastUpdated(dateIso?: string) {
   if (!dateIso) return ''
@@ -102,6 +113,11 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
   const isPosKasirOnly = !selectedChannels.includes('all') && selectedChannels.length > 0 && selectedChannels.every(c => c === 'pos_kasir' || c === 'pos_pawoon')
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all')
   const [selectedReceiptFilter, setSelectedReceiptFilter] = useState<ReceiptFilter>('all')
+  // Status Xendit pesanan website (spec 2026-11-18-validasi-xendit).
+  const [selectedXenditFilter, setSelectedXenditFilter] = useState<XenditFilterUi>('all')
+  // false = peran ini tak berhak membaca data Xendit (lihat laporan.ts terapkanXendit).
+  const xenditTersedia = report?.xenditTersedia !== false
+  const tampilFilterXendit = xenditTersedia && !isSSOnlineSelected && (selectedChannels.includes('all') || selectedChannels.includes('online'))
   const [refreshing, setRefreshing] = useState(false)
   // Kerangka (skeleton) hanya saat belum ada data sama sekali; pembaruan
   // berikutnya (ganti halaman, cari, realtime) tidak mengosongkan layar.
@@ -234,12 +250,13 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
       channels: selectedChannels,
       paymentMethod: selectedPaymentMethod,
       receiptFilter: selectedReceiptFilter,
+      xenditFilter: tampilFilterXendit ? selectedXenditFilter : 'all',
       search: debouncedSearch,
       page: currentPage,
       pageSize: itemsPerPage,
       isPawoonVisible,
     }
-  }, [dateStrRange, selectedOutlets, selectedChannels, selectedPaymentMethod, selectedReceiptFilter, debouncedSearch, currentPage, isPawoonVisible])
+  }, [dateStrRange, selectedOutlets, selectedChannels, selectedPaymentMethod, selectedReceiptFilter, tampilFilterXendit, selectedXenditFilter, debouncedSearch, currentPage, isPawoonVisible])
 
   const fetchOrders = useCallback(async () => {
     if (!reportRequest) return
@@ -1065,6 +1082,17 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}
+                  {tampilFilterXendit && selectedXenditFilter !== 'all' && (
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedXenditFilter('all'); setCurrentPage(1); }}
+                      className="inline-flex items-center gap-1.5 text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-semibold px-2.5 py-1 rounded-full transition-all shadow-xs cursor-pointer"
+                      title="Klik untuk hapus filter status Xendit"
+                    >
+                      <span>Xendit: <strong className="font-bold">{XENDIT_FILTER_LABEL[selectedXenditFilter]}</strong></span>
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
                 <p className="text-gray-400 text-xs mt-0.5">
                   {selectedChannels.includes('all') && selectedPaymentMethod === 'all' && selectedReceiptFilter === 'all'
@@ -1142,6 +1170,25 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                   </div>
                 )}
 
+                {/* Dropdown Status Xendit — hanya untuk sumber Website */}
+                {tampilFilterXendit && (
+                  <div className="relative flex-1 sm:flex-none min-w-[170px]">
+                    <select
+                      value={selectedXenditFilter}
+                      onChange={(e) => {
+                        setSelectedXenditFilter(XENDIT_FILTERS.includes(e.target.value as XenditFilterUi) ? (e.target.value as XenditFilterUi) : 'all')
+                        setCurrentPage(1)
+                      }}
+                      title="Status pembayaran Xendit untuk pesanan website"
+                      className="block w-full px-3 pr-8 py-2 border border-gray-200 rounded-xl leading-5 bg-gray-50 text-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors text-sm cursor-pointer shadow-2xs"
+                    >
+                      {XENDIT_FILTERS.map((key) => (
+                        <option key={key} value={key}>{XENDIT_FILTER_LABEL[key]}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {/* Input Cari */}
                 <div className="relative flex-1 sm:flex-none min-w-[180px]">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -1169,6 +1216,10 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                 </button>
               </div>
             </div>
+
+            {tampilFilterXendit && (
+              <XenditLainBlok items={report?.xenditLain ?? []} tersembunyi={report?.xenditTanpaOutletTersembunyi ?? 0} />
+            )}
 
             <div className="overflow-x-auto rounded-xl border border-gray-100">
               <table className="w-full text-left text-sm whitespace-nowrap">
@@ -1367,6 +1418,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                                   )
                                 )}
                               </>
+                            )}
+                            {(order as any).xendit && (
+                              <XenditBadge info={(order as any).xendit} total={Number(order.total_amount)} />
                             )}
                           </td>
                         </tr>

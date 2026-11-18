@@ -20,6 +20,7 @@ import { clearPrepared } from '@/lib/posReport/prepared'
 import {
   laporanPosUntukScope,
   eksporLaporanPosUntukScope,
+  eksporHistoriTransaksiUntukScope,
   clearMenuMemo,
   type PosReportRequest,
 } from '@/lib/posReport/laporan'
@@ -36,6 +37,11 @@ export async function getPosReport(rawReq: PosReportRequest) {
 /** Data ekspor PDF & Excel (per outlet × channel × menu) — hanya dihitung saat tombol ditekan. */
 export async function getPosReportExport(rawReq: PosReportRequest) {
   return eksporLaporanPosUntukScope(rawReq, await resolveCallerScope())
+}
+
+/** Data ekspor PDF Histori Transaksi Detail (seluruh baris terfilter, tanpa paginasi). */
+export async function getPosTransactionHistoryExport(rawReq: PosReportRequest) {
+  return eksporHistoriTransaksiUntukScope(rawReq, await resolveCallerScope())
 }
 
 async function requireUser() {

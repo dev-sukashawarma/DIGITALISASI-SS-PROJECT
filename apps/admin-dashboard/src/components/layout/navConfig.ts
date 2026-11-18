@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Store, Activity,
   CalendarClock, CalendarHeart, Banknote,
   PieChart, DollarSign, Target, BellRing, Tags, Wallet, BookOpen,
-  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, Camera, type LucideIcon, MessageSquare, ArrowRightLeft, UploadCloud, UserCheck, Percent, ClipboardList, Smartphone, GalleryHorizontal, ImagePlus, Settings2,
+  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, Camera, type LucideIcon, MessageSquare, ArrowRightLeft, UploadCloud, UserCheck, Percent, BadgeCheck, ClipboardList, Smartphone, GalleryHorizontal, ImagePlus, Settings2,
   CalendarDays, FileCheck, AlertTriangle, Award, Coins, Ticket, Sparkles, KeyRound, Sliders
 } from 'lucide-react'
 
@@ -229,6 +229,7 @@ export const NAV_GROUPS: NavGroup[] = [
 
 
       { href: '/dashboard/platform-settlement', label: 'Settlement Food Apps', shortLabel: 'Food Apps', icon: Percent, roles: ['ADMIN'] },
+      { href: '/dashboard/xendit-pembayaran', label: 'Validasi Xendit (Website)', shortLabel: 'Xendit', icon: BadgeCheck, roles: ['ADMIN'] },
       { href: '/dashboard/data-validate', label: 'Data Validate', shortLabel: 'Data Validate', icon: ClipboardList, roles: ['ADMIN'] },
     ],
   },
@@ -241,6 +242,7 @@ export const NAV_GROUPS: NavGroup[] = [
 
 
       { href: '/dashboard/platform-settlement', label: 'Settlement Food Apps', shortLabel: 'Food Apps', icon: Percent, roles: ['OWNER'] },
+      { href: '/dashboard/xendit-pembayaran', label: 'Validasi Xendit (Website)', shortLabel: 'Xendit', icon: BadgeCheck, roles: ['OWNER'] },
       { href: '/dashboard/data-validate', label: 'Data Validate', shortLabel: 'Data Validate', icon: ClipboardList, roles: ['OWNER'] },
     ],
   },

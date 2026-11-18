@@ -25,6 +25,9 @@ import {
   filterTableData,
 } from '@/lib/posReport/compute'
 import { computeExportReport } from '@/lib/posReport/ekspor'
+import { buildHistoriTransaksiExport } from '@/lib/posReport/eksporHistori'
+import { toXenditFilter } from '@/lib/posReport/xenditStatus'
+import { gabungXendit, muatPembayaranXendit, muatPesananTertaut } from '@/lib/posReport/xenditLoad'
 
 /** Cakupan outlet pemanggil. 'all' = akses penuh (owner/admin/... atau kunci Hermes). */
 export type CakupanLaporan = { supabase: any; scopeKey: string; allowedOutletIds: 'all' | string[] }
@@ -37,6 +40,8 @@ export type PosReportRequest = {
   paymentMethod: string
   /** 'all' | 'not_printed' | 'reprinted' — lihat receiptReprint.ts. Opsional untuk pemanggil lama. */
   receiptFilter?: string
+  /** 'all' | 'terverifikasi' | 'belum' | 'selisih' | 'hanya_xendit' — status Xendit pesanan website. Opsional. */
+  xenditFilter?: string
   search: string
   page: number
   pageSize: number
@@ -137,6 +142,7 @@ function sanitizeRequest(req: PosReportRequest) {
     channels,
     paymentMethod: typeof req.paymentMethod === 'string' ? req.paymentMethod : 'all',
     receiptFilter: toReceiptFilter(req.receiptFilter),
+    xenditFilter: toXenditFilter(req.xenditFilter),
     search: typeof req.search === 'string' ? req.search.slice(0, 100) : '',
     page: Math.max(1, Math.floor(Number(req.page) || 1)),
     pageSize: Math.min(100, Math.max(1, Math.floor(Number(req.pageSize) || 10))),
@@ -251,9 +257,7 @@ async function getPreparedReport(rawReq: PosReportRequest, scope: CakupanLaporan
   return { req, prepared }
 }
 
-export async function laporanPosUntukScope(rawReq: PosReportRequest, scope: CakupanLaporan) {
-  const { req, prepared } = await getPreparedReport(rawReq, scope)
-
+function getDerivedTable(prepared: any, req: ReturnType<typeof sanitizeRequest>) {
   const filterKey = JSON.stringify([req.paymentMethod, req.search, req.receiptFilter])
   let derived = prepared.derived.get(filterKey)
   if (!derived) {
@@ -267,8 +271,15 @@ export async function laporanPosUntukScope(rawReq: PosReportRequest, scope: Caku
     if (prepared.derived.size >= 20) prepared.derived.delete(prepared.derived.keys().next().value)
     prepared.derived.set(filterKey, derived)
   }
+  return derived
+}
 
-  const { tableRows } = derived
+export async function laporanPosUntukScope(rawReq: PosReportRequest, scope: CakupanLaporan) {
+  const { req, prepared } = await getPreparedReport(rawReq, scope)
+  const derived = getDerivedTable(prepared, req)
+  const xendit = await terapkanXendit(req, prepared, derived.tableRows, scope)
+  const tableRows = xendit.rows
+  const ubahTabel = req.xenditFilter !== 'all'
   const totalPages = Math.max(1, Math.ceil(tableRows.length / req.pageSize))
   const page = Math.min(req.page, totalPages)
   const pageRows = tableRows.slice((page - 1) * req.pageSize, page * req.pageSize)
@@ -284,14 +295,63 @@ export async function laporanPosUntukScope(rawReq: PosReportRequest, scope: Caku
       total: tableRows.length,
       page,
       totalPages,
-      footer: derived.footer,
+      footer: ubahTabel ? computeTableFooter(tableRows, prepared.settlements) : derived.footer,
     },
-    itemBreakdown: derived.itemBreakdown,
+    itemBreakdown: ubahTabel ? computeItemBreakdown(tableRows, prepared.outlets, prepared.penerapHpp) : derived.itemBreakdown,
+    xenditLain: xendit.xenditLain,
+    xenditTanpaOutletTersembunyi: xendit.xenditTanpaOutletTersembunyi,
+    /** false = pemanggil tak berhak membaca data Xendit; UI menyembunyikan filter & lencana. */
+    xenditTersedia: xendit.tersedia,
     shifts: prepared.shifts,
     orderCount: prepared.orders.length,
     fetchedAt: prepared.fetchedAt,
     isCached: prepared.isCached,
   }
+}
+
+/**
+ * Status Xendit pesanan website (spec 2026-11-18-validasi-xendit). Tidak memengaruhi
+ * analytics/KPI. Gagal memuat data Xendit = laporan tetap tampil tanpa status.
+ */
+async function terapkanXendit(
+  req: ReturnType<typeof sanitizeRequest>,
+  prepared: any,
+  tableRows: any[],
+  scope: CakupanLaporan,
+) {
+  const tampilWebsite = req.channels.includes('all') || req.channels.includes('online')
+  const kosong = (tersedia: boolean) => ({ rows: tableRows, xenditLain: [] as any[], xenditTanpaOutletTersembunyi: 0, tersedia })
+  if (!tampilWebsite || prepared.isSSOnlineSelected) return kosong(true)
+  let bayar
+  let semuaPesanan: any[] = prepared.orders
+  try {
+    bayar = await muatPembayaranXendit(scope.supabase, scope.scopeKey, req.from, req.to)
+    if (bayar === null) return kosong(false)
+    // Pesanan tertaut yang tak ada di data laporan (mis. dibuat 23:58 sehari sebelum rentang)
+    // dicari dulu — jangan langsung dinyatakan "tidak ada di POS".
+    const dikenal = new Set(prepared.orders.map((o: any) => o.external_order_id).filter(Boolean))
+    const hilang = [...new Set(bayar.map((b) => b.externalOrderId).filter((x): x is string => !!x && !dikenal.has(x)))]
+    if (hilang.length) semuaPesanan = [...prepared.orders, ...(await muatPesananTertaut(scope.supabase, hilang))]
+  } catch (e) {
+    console.error('Gagal memuat data Xendit:', e)
+    return kosong(true)
+  }
+  const semuaCabang = req.outlets.includes('all')
+  const outletDipilih: 'all' | Set<string> = semuaCabang
+    ? (scope.allowedOutletIds === 'all' ? 'all' : new Set(scope.allowedOutletIds))
+    : new Set(req.outlets.filter((id) => id !== 'all' && id !== 'ss-online'))
+  const hasil = gabungXendit({
+    tableRows,
+    semuaPesanan,
+    bayar,
+    filter: req.xenditFilter,
+    from: req.from,
+    to: req.to,
+    tampilWebsite,
+    outletDipilih,
+    bolehTanpaOutlet: semuaCabang && scope.allowedOutletIds === 'all',
+  })
+  return { ...hasil, tersedia: true }
 }
 
 /** Data ekspor PDF & Excel (per outlet × channel × menu) — hanya dihitung saat tombol ditekan. */
@@ -309,6 +369,19 @@ export async function eksporLaporanPosUntukScope(rawReq: PosReportRequest, scope
     })
   }
   return prepared.exportReport
+}
+
+/** Data ekspor PDF Histori Transaksi Detail (seluruh baris terfilter, tanpa paginasi). */
+export async function eksporHistoriTransaksiUntukScope(rawReq: PosReportRequest, scope: CakupanLaporan) {
+  const { req, prepared } = await getPreparedReport(rawReq, scope)
+  const derived = getDerivedTable(prepared, req)
+  return buildHistoriTransaksiExport({
+    tableRows: derived.tableRows,
+    footer: derived.footer,
+    outlets: prepared.outlets,
+    periode: { from: prepared.from, to: req.to },
+    isSSOnlineSelected: prepared.isSSOnlineSelected,
+  })
 }
 
 export function clearMenuMemo() {

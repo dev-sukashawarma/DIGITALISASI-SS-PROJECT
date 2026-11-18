@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseBalanceHistory } from './balanceHistory'
+import { parseBalanceHistory, parseBiayaXendit } from './balanceHistory'
 
 // Baris diambil dari BALANCE_HISTORY_REPORT Oktober 2026 (nomor rekening dikosongkan).
 const HEADER =
@@ -51,5 +51,19 @@ describe('parseBalanceHistory', () => {
 
   it('header tidak dikenal → error yang jelas', () => {
     expect(() => parseBalanceHistory('a,b,c\n1,2,3')).toThrow(/Balance History/)
+  })
+})
+
+describe('parseBiayaXendit', () => {
+  it('menjumlahkan FEE/VAT per Transaction ID dan menghitung tagihan Processing Fee', () => {
+    expect(parseBiayaXendit(CSV)).toEqual({
+      mdrPerTransaksi: { 'e15637e3-6cc0-4fce-b647-4ab429c338bf': 549 },
+      tagihanProses: 4,
+    })
+  })
+
+  it('FEE + VAT satu transaksi dijumlah', () => {
+    const vat = `97250920-c913-453b-abee-0cbe4c28e45a,e15637e3-6cc0-4fce-b647-4ab429c338bf,QR_CODE_PAYMENT VAT,VAT,QRIS,e7059325-5f4f-4a91-a343-dec9cea0aab6,IDR,60,2432321,DEBIT,2026-10-30T11:23:54.000Z,'+0700 UTC,"30 Oct 2026, 18:23:54",,,"30 Oct 2026, 18:23:54",,,,,,,9584725871`
+    expect(parseBiayaXendit([CSV, vat].join('\n')).mdrPerTransaksi['e15637e3-6cc0-4fce-b647-4ab429c338bf']).toBe(609)
   })
 })

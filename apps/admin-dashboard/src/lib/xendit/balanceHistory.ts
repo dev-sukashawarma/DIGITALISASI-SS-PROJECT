@@ -60,3 +60,27 @@ export function parseBalanceHistory(csv: string): BarisXendit[] {
   }
   return hasil
 }
+
+/**
+ * Biaya Xendit di file Balance History (spec 2026-11-18-biaya-xendit-rangkuman-penjualan).
+ * mdrPerTransaksi: Σ baris FEE + VAT (DEBIT) per Transaction ID pembayaran (baris biaya membawa
+ * Transaction ID pembayarannya). tagihanProses: jumlah tagihan Processing Fee Rp 4.000 di file —
+ * ditagih borongan sehari sesudah bayar/settlement, jadi tidak dipasangkan per pembayaran.
+ */
+export function parseBiayaXendit(csv: string): { mdrPerTransaksi: Record<string, number>; tagihanProses: number } {
+  const { data } = Papa.parse<Record<string, string>>(csv.replace(/^﻿/, ''), { header: true, skipEmptyLines: true })
+  const mdrPerTransaksi: Record<string, number> = {}
+  let prosesRupiah = 0
+  for (const r of data) {
+    if (r['Debit or Credit'] !== 'DEBIT') continue
+    const nominal = Number(r['Amount']) || 0
+    const lini = r['Line Type']
+    if (lini === 'FEE' || lini === 'VAT') {
+      const id = (r['Transaction ID'] ?? '').trim()
+      if (id) mdrPerTransaksi[id] = (mdrPerTransaksi[id] ?? 0) + nominal
+    } else if (r['Transaction Type'] === 'PROCESSING_FEE_DEDUCTION') {
+      prosesRupiah += nominal
+    }
+  }
+  return { mdrPerTransaksi, tagihanProses: Math.round(prosesRupiah / 4000) }
+}

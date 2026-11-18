@@ -2,7 +2,7 @@
 
 import { requireRole } from '@/lib/authz'
 import { createServiceClient } from '@/lib/supabase/server'
-import { parseBalanceHistory } from '@/lib/xendit/balanceHistory'
+import { parseBalanceHistory, parseBiayaXendit } from '@/lib/xendit/balanceHistory'
 import { prosesUnggahXendit, type RingkasanUnggah } from '@/lib/xendit/unggah'
 import { dbXenditSupabase } from '@/lib/xendit/dbSupabase'
 
@@ -14,9 +14,10 @@ export async function unggahFileXendit(formData: FormData): Promise<
     const { userId } = await requireRole(PERAN_UNGGAH)
     const file = formData.get('file') as File | null
     if (!file || file.size === 0) return { success: false, error: 'File belum dipilih.' }
-    const baris = parseBalanceHistory(await file.text())
+    const teks = await file.text()
+    const baris = parseBalanceHistory(teks)
     if (baris.length === 0) return { success: false, error: 'Tidak ada pembayaran masuk di file ini.' }
-    const ringkasan = await prosesUnggahXendit(dbXenditSupabase(createServiceClient()), baris, { namaFile: file.name, userId })
+    const ringkasan = await prosesUnggahXendit(dbXenditSupabase(createServiceClient()), baris, { namaFile: file.name, userId }, parseBiayaXendit(teks))
     return { success: true, ringkasan }
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : String(e) }

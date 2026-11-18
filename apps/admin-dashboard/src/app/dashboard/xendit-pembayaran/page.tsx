@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { BadgeCheck, UploadCloud, Loader2, AlertTriangle } from 'lucide-react'
 import { unggahFileXendit } from '@/app/actions/xenditPembayaran'
 
-type Ringkasan = { baru: number; diperbarui: number; cocokId: number; cocokNominalJam: number; belumCocok: number; bukanPenjualan: number }
+type Ringkasan = { baru: number; diperbarui: number; cocokId: number; cocokNominalJam: number; belumCocok: number; bukanPenjualan: number; tagihanProses: number; pembayaranBerbiayaProses: number }
 
 export default function XenditPembayaranPage() {
   const [file, setFile] = useState<File | null>(null)
@@ -73,6 +73,7 @@ export default function XenditPembayaranPage() {
             <dt className="text-gray-600">Cocok lewat nominal & jam</dt><dd className="font-semibold">{hasil.cocokNominalJam}</dd>
             <dt className="text-gray-600">Belum cocok dengan pesanan</dt><dd className="font-semibold text-amber-700">{hasil.belumCocok}</dd>
             <dt className="text-gray-600">Bukan penjualan (diabaikan)</dt><dd className="font-semibold text-gray-500">{hasil.bukanPenjualan}</dd>
+            <dt className="text-gray-500">Processing Fee di file</dt><dd className="text-gray-500">{hasil.tagihanProses} tagihan · {hasil.pembayaranBerbiayaProses} pembayaran sejak 1 Okt</dd>
           </dl>
         </div>
       )}

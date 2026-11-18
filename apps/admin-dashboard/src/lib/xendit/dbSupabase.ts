@@ -46,6 +46,11 @@ export function dbXenditSupabase(supabase: any): DbXendit {
       }
       return s
     },
+    async perbaruiBiaya(rows) {
+      for (const r of rows) {
+        cek((await supabase.from('xendit_pembayaran').update({ biaya_mdr: r.biaya_mdr }).eq('xendit_id', r.xendit_id)).error)
+      }
+    },
     async tautkan(rows) {
       for (const r of rows) {
         const { xendit_id, ...isi } = r

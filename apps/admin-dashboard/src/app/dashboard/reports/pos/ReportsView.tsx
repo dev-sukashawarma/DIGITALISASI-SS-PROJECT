@@ -777,10 +777,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                 {/* Sub-rincian promo vs komisi */}
                 {!isPosKasirOnly && (
                   <div className="mt-3 pt-2.5 border-t border-white/20 flex flex-col gap-1 text-[11px] text-white/90 font-medium">
-                    <div className="flex justify-between items-center">
-                      <span className="text-white/75">Diskon Promo:</span>
-                      <span className="font-bold">{formatRupiah(analytics.totalDeductions)}</span>
-                    </div>
+                    {(analytics.totalDeductions ?? 0) > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-white/75">Diskon Promo:</span>
+                        <span className="font-bold">{formatRupiah(analytics.totalDeductions)}</span>
+                      </div>
+                    )}
                     {!isWebsiteOnly && (
                       <div className="flex justify-between items-center">
                         <span className="text-white/75">Komisi Platform:</span>
@@ -795,16 +797,16 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                         tarif untuk pesanan yang pembayarannya belum ada di file yang diunggah. */}
                     {(analytics.biayaXendit ?? 0) - (analytics.biayaXenditEstimasi ?? 0) > 0 && (
                       <div className="flex justify-between items-center gap-2">
-                        <span className="text-white/75">Biaya Xendit (sesuai file):</span>
+                        <span className="text-white/75">Biaya Xendit:</span>
                         <span className="font-bold">{formatRupiah((analytics.biayaXendit ?? 0) - (analytics.biayaXenditEstimasi ?? 0))}</span>
                       </div>
                     )}
                     {(analytics.biayaXenditEstimasi ?? 0) > 0 && (
                       <div className="flex justify-between items-start gap-2">
                         <span className="text-white/75 leading-snug">
-                          Perkiraan Xendit, belum ada file
+                          Biaya Xendit sementara:
                           <span className="block text-[10px] text-white/70">
-                            ({analytics.jumlahPesananEstimasiXendit} pesanan, dihitung dari tarif)
+                            {analytics.jumlahPesananEstimasiXendit} pesanan, menunggu laporan Xendit
                           </span>
                         </span>
                         <span className="font-bold">{formatRupiah(analytics.biayaXenditEstimasi)}</span>

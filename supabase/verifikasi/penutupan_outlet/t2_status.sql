@@ -33,8 +33,10 @@ BEGIN
   IF (pg_temp.langkah(r,'kanal_online')->>'manual')::boolean IS NOT TRUE THEN RAISE EXCEPTION 'ASERSI GAGAL a2: kanal_online bukan manual'; END IF;
   IF pg_temp.langkah(r,'mitra') IS NOT NULL THEN RAISE EXCEPTION 'ASERSI GAGAL a3: outlet internal punya langkah mitra'; END IF;
 
-  -- (b) crew aktif → belum; dipindah → selesai
-  SELECT id, outlet_id INTO v_crew, v_asal FROM public.outlet_staff WHERE role='crew' AND status='active' AND outlet_id IS NOT NULL LIMIT 1;
+  -- (b) crew aktif → belum (tampil nama & role); dipindah → selesai
+  SELECT id, outlet_id INTO v_crew, v_asal FROM public.outlet_staff
+   WHERE role='crew' AND status='active' AND outlet_id IS NOT NULL
+     AND account_category = 'employee' AND coalesce(name,'') NOT ILIKE 'devai%' LIMIT 1;
   UPDATE public.outlet_staff SET outlet_id = v_o WHERE id = v_crew;
   IF (pg_temp.langkah(public.status_penutupan_outlet(v_o),'crew')->>'selesai')::boolean THEN
     RAISE EXCEPTION 'ASERSI GAGAL b: crew aktif dianggap selesai';

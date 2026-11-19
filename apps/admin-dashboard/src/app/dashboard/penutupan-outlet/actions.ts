@@ -199,11 +199,18 @@ export async function centangLangkah(
   }
 }
 
-export async function tandaiPenutupanSelesai(outletId: string): Promise<HasilAksi> {
+export async function tandaiPenutupanSelesai(
+  outletId: string,
+  /** Diisi hanya untuk selesai paksa (langkah wajib belum beres); RPC menolak bila < 10 karakter. */
+  alasanPaksa?: string,
+): Promise<HasilAksi> {
   try {
     await requireRole(PERAN_TULIS)
     const supabase = await createClient()
-    const { error } = await supabase.rpc('tandai_penutupan_selesai', { p_outlet_id: outletId })
+    const { error } = await supabase.rpc('tandai_penutupan_selesai', {
+      p_outlet_id: outletId,
+      p_alasan_paksa: alasanPaksa?.trim() || null,
+    })
     if (error) return { ok: false, pesan: error.message }
     segarkan(outletId)
     return { ok: true }

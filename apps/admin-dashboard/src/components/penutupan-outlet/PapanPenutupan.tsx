@@ -24,7 +24,7 @@ function formatTanggal(ymd: string): string {
   return new Date(`${ymd}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-type Dialog = 'buka' | 'koreksi' | 'stok' | null
+type Dialog = 'buka' | 'koreksi' | 'stok' | 'selesai_paksa' | null
 
 export function PapanPenutupan({
   status,
@@ -48,6 +48,7 @@ export function PapanPenutupan({
   }, [router])
 
   const ringkas = ringkasPenutupan(status.langkah)
+  const wajibBelum = status.langkah.filter(l => l.wajib && !l.selesai)
   const selesai = Boolean(status.penutupanSelesaiAt)
   // Outlet yang nonaktif sebelum wizard ada (tanpa alasan_tutup): RPC centang,
   // nolkan stok, dan tandai selesai pasti menolaknya, jadi tombolnya tak ditampilkan.
@@ -212,12 +213,17 @@ export function PapanPenutupan({
           </Button>
           {!selesai && lewatWizard && (
             <Button
-              disabled={!status.siapSelesai || proses}
-              onClick={() => jalankan(() => tandaiPenutupanSelesai(status.outletId), 'Penutupan ditandai selesai')}
+              variant={status.siapSelesai ? 'primary' : 'secondary'}
+              disabled={proses}
+              onClick={() =>
+                status.siapSelesai
+                  ? jalankan(() => tandaiPenutupanSelesai(status.outletId), 'Penutupan ditandai selesai')
+                  : setDialog('selesai_paksa')
+              }
             >
               {status.siapSelesai
                 ? 'Tandai Penutupan Selesai'
-                : `Tandai selesai (${ringkas.total - ringkas.selesai} langkah wajib belum)`}
+                : `Tandai selesai paksa (${wajibBelum.length} langkah wajib belum)`}
             </Button>
           )}
         </div>
@@ -272,6 +278,34 @@ export function PapanPenutupan({
               const h = await nolkanSisaStok(status.outletId, alasan)
               return h.ok ? { ok: true, peringatan: undefined } : h
             }, 'Sisa stok dinolkan')
+          }
+          onTutup={() => setDialog(null)}
+        />
+      )}
+      {dialog === 'selesai_paksa' && (
+        <DialogAlasan
+          judul="Tandai selesai paksa"
+          deskripsi={
+            <div className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+              <p className="font-semibold">{wajibBelum.length} langkah wajib belum selesai dan akan dilewati:</p>
+              <ul className="list-disc pl-5">
+                {wajibBelum.map(l => (
+                  <li key={l.kunci}>
+                    {l.label}
+                    {l.info ? ` (${l.info})` : ''}
+                  </li>
+                ))}
+              </ul>
+              <p>Alasan dan daftar langkah yang dilewati dicatat di riwayat penutupan.</p>
+            </div>
+          }
+          labelTombol="Tandai selesai paksa"
+          varianTombol="danger"
+          onKirim={alasan =>
+            jalankan(
+              () => tandaiPenutupanSelesai(status.outletId, alasan),
+              'Penutupan ditandai selesai (paksa)',
+            )
           }
           onTutup={() => setDialog(null)}
         />

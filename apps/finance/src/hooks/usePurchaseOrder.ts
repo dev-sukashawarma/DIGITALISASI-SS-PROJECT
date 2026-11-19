@@ -273,6 +273,7 @@ export function useUploadInvoice() {
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ['purchase-order', vars.poId] })
+      qc.invalidateQueries({ queryKey: ['po_payable', 'invoice'] })
       toast.success('Foto invoice berhasil diupload')
     },
     onError: (e: any) => toast.error(e.message),

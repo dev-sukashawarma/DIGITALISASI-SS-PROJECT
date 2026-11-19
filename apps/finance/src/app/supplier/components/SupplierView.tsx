@@ -320,11 +320,17 @@ export function SupplierView() {
                             <span className="text-amber-700">Sebelum 1 Nov</span>
                           ) : null
                         )}
-                        {tab === 'pending' && tx && (
-                          <>
-                            <div>{tx.pengaju ?? '—'} · {tanggalWaktu(tx.created_at)}</div>
-                            {tx.note && <div className="text-suka-ink/70">{tx.note}</div>}
-                          </>
+                        {tab === 'pending' && (
+                          tx ? (
+                            <>
+                              <div>{tx.pengaju ?? '—'} · {tanggalWaktu(tx.created_at)}</div>
+                              {tx.note && <div className="text-suka-ink/70">{tx.note}</div>}
+                            </>
+                          ) : Number(p.dibayar_kredit) > 0 ? (
+                            <span className="font-semibold text-emerald-700">Diajukan (kredit retur penuh)</span>
+                          ) : (
+                            <span className="text-suka-gray-400">—</span>
+                          )
                         )}
                         {tab === 'paid' && (
                           <>
@@ -333,6 +339,8 @@ export function SupplierView() {
                               tx.proof_url && (
                                 <button onClick={() => lihatBukti(tx.proof_url!, `Bukti bayar ${p.nomor_po}`)} className="text-blue-600 underline">Bukti</button>
                               )
+                            ) : Number(p.dibayar_kredit) > 0 && Number(p.dibayar_kredit) >= p.total ? (
+                              <span className="text-emerald-700">Lunas dengan kredit retur (tanpa transaksi kas)</span>
                             ) : p.lunas_tanpa_kas_at ? (
                               <span className="text-amber-700">Lunas tanpa potong saldo: {p.lunas_tanpa_kas_alasan}</span>
                             ) : (

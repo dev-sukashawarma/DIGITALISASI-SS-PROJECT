@@ -23,13 +23,12 @@ function simpanPosisi(p: Titik) {
 }
 
 export function useUkuranLayar(): Ukuran {
-  const [layar, setLayar] = useState<Ukuran>(() => ({
-    w: typeof window !== 'undefined' ? window.innerWidth : 1280,
-    h: typeof window !== 'undefined' ? window.innerHeight : 800,
-  }))
+  // Inisialisasi statis agar SSR dan render awal klien identik (hindari React hydration #418).
+  const [layar, setLayar] = useState<Ukuran>({ w: 1280, h: 800 })
 
   useEffect(() => {
     const handleResize = () => setLayar({ w: window.innerWidth, h: window.innerHeight })
+    handleResize()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
@@ -38,12 +37,23 @@ export function useUkuranLayar(): Ukuran {
 }
 
 export function useGeserNayra(ukuran: Ukuran, layar: Ukuran) {
-  const [posisi, setPosisi] = useState<Titik>(() =>
-    jepitPosisi(bacaPosisi() ?? posisiAwal(ukuran, layar), ukuran, layar)
-  )
+  // Jangan baca localStorage saat render awal agar tidak memicu hydration mismatch.
+  const [posisi, setPosisi] = useState<Titik>(() => posisiAwal(ukuran, layar))
 
   const posisiTerkini = useRef(posisi)
   posisiTerkini.current = posisi
+
+  const sudahMuatTersimpan = useRef(false)
+  useEffect(() => {
+    if (sudahMuatTersimpan.current) return
+    sudahMuatTersimpan.current = true
+    const tersimpan = bacaPosisi()
+    if (tersimpan) {
+      setPosisi(jepitPosisi(tersimpan, ukuran, { w: window.innerWidth, h: window.innerHeight }))
+    } else {
+      setPosisi(posisiAwal(ukuran, { w: window.innerWidth, h: window.innerHeight }))
+    }
+  }, [ukuran])
 
   const geser = useRef<{
     id: number

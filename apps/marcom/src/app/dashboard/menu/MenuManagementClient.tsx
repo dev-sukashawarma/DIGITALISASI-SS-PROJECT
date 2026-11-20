@@ -74,8 +74,10 @@ import {
   toggleMenuPublished,
   deleteMenuItem,
   toggleSettingBadge,
-  uploadMenuImage,
+  mintaLinkUnggahFotoMenu,
 } from './actions'
+import { createClient } from '@/lib/supabase/client'
+import { MB, unggahLangsung } from '@/lib/upload'
 
 interface FormState {
   id: string | null
@@ -566,11 +568,18 @@ export default function MenuManagementClient({
     try {
       let finalImageUrl = form.image_url
 
-      // If user selected a new image file, upload via server action to avoid client RLS issues
+      // Unggah foto menu langsung ke Supabase Storage via signed URL (hindari Cloudflare WAF / batas body)
       if (imageFile) {
-        const uploadData = new FormData()
-        uploadData.append('file', await compressImage(imageFile))
-        finalImageUrl = await uploadMenuImage(uploadData)
+        const compressed = await compressImage(imageFile)
+        const hasil = await unggahLangsung({
+          supabase: createClient(),
+          file: compressed,
+          mintaLink: mintaLinkUnggahFotoMenu,
+          normalisasi: { format: 'webp', kualitas: 0.85, ukuranMaks: 5 * MB },
+          batas: { ukuranMaks: 5 * MB, bolehPdf: false },
+          _normalisasi: async (f) => f,
+        })
+        finalImageUrl = hasil.url
       }
 
       // Prepare final channel_prices to guarantee all channels are set

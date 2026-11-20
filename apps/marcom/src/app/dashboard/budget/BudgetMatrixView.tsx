@@ -78,11 +78,10 @@ export default function BudgetMatrixView({
   const [isPending, startTransition] = useTransition()
 
   const formatRupiah = (val: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      maximumFractionDigits: 0,
-    }).format(val)
+    const rounded = Math.round(Number(val) || 0)
+    const sign = rounded < 0 ? '-' : ''
+    const formatted = Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+    return `${sign}Rp ${formatted}`
   }
 
   const openEditModal = (outlet: OutletBudgetSummary) => {

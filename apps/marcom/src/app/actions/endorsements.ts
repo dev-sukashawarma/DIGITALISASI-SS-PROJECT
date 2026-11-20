@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { getPosSupabase, fetchPosMenuItems, type PosMenuItem } from '@/lib/supabase-pos'
 import { syncEndorsementOpex, deleteOpexByExpenseId } from '@/lib/sync-finance-opex'
+import { buatLinkUnggah, type LinkUnggah, type PermintaanLink } from '@/lib/upload'
 
 export type ActionState = {
   success?: boolean
@@ -1067,6 +1068,29 @@ export async function getPosMenuItemsAction(): Promise<PosMenuItem[]> {
 /**
  * Mengunggah foto/file bukti transfer atau pembayaran endorsement ke Supabase Storage
  */
+/**
+ * Signed upload URL untuk bukti pembayaran endorsement.
+ * Browser mengunggah langsung ke Supabase Storage (tidak lewat Cloudflare WAF / Server Action).
+ */
+export async function mintaLinkUnggahBuktiEndorsement(permintaan: PermintaanLink): Promise<LinkUnggah> {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return { ok: false, pesan: 'Unauthorized: Harap login terlebih dahulu' }
+    }
+    return await buatLinkUnggah({
+      supabase: getPosSupabase(),
+      bucket: 'payment_proofs',
+      fallbackBucket: 'opex-invoices',
+      folder: 'endorsement-proofs',
+      permintaan,
+    })
+  } catch (err: any) {
+    console.error('[mintaLinkUnggahBuktiEndorsement] Error:', err)
+    return { ok: false, pesan: err?.message || 'Gagal menyiapkan unggahan bukti pembayaran' }
+  }
+}
+
 export async function uploadEndorsementPaymentProof(
   formData: FormData
 ): Promise<{ url?: string; error?: string }> {

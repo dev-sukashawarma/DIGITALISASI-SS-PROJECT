@@ -1,7 +1,9 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { getCurrentUser } from '@/lib/auth'
 import { getPosSupabase } from '@/lib/supabase-pos'
+import { buatLinkUnggah, MB, type LinkUnggah, type PermintaanLink } from '@/lib/upload'
 import type { MenuItem } from '@/types/menu'
 
 const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
@@ -77,6 +79,30 @@ export async function deleteMenuItem(id: string, imageUrl: string | null) {
 
   revalidatePath('/dashboard/menu')
   revalidatePath('/dashboard/menu', 'layout')
+}
+
+/**
+ * Signed upload URL untuk foto menu (`menu-images`, datar di akar bucket agar
+ * kompatibel dengan `deleteMenuItem`). File diunggah langsung dari browser ke Storage.
+ */
+export async function mintaLinkUnggahFotoMenu(permintaan: PermintaanLink): Promise<LinkUnggah> {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return { ok: false, pesan: 'Unauthorized: Harap login terlebih dahulu' }
+    }
+    return await buatLinkUnggah({
+      supabase: getPosSupabase(),
+      bucket: 'menu-images',
+      folder: '',
+      tanpaSubfolder: true,
+      permintaan,
+      batas: { ukuranMaks: 5 * MB, bolehPdf: false },
+    })
+  } catch (err: any) {
+    console.error('[mintaLinkUnggahFotoMenu] Error:', err)
+    return { ok: false, pesan: err?.message || 'Gagal menyiapkan unggahan foto menu' }
+  }
 }
 
 export async function uploadMenuImage(formData: FormData): Promise<string> {

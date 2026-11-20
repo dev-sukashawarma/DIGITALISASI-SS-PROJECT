@@ -20,6 +20,18 @@ import {
   MARCOM_EXPENSE_CATEGORIES,
   isSumberDanaRab,
 } from '@/lib/opex-constants'
+import { buatLinkUnggah, type LinkUnggah, type PermintaanLink } from '@/lib/upload'
+
+type OpexFormInput = FormData | Record<string, string | null | undefined>
+
+function bacaField(input: OpexFormInput, key: string): string {
+  if (typeof FormData !== 'undefined' && input instanceof FormData) {
+    const val = input.get(key)
+    return typeof val === 'string' ? val : ''
+  }
+  const raw = (input as Record<string, string | null | undefined>)?.[key]
+  return typeof raw === 'string' ? raw : ''
+}
 
 
 /**
@@ -265,20 +277,20 @@ export async function getOpexData(
  */
 export async function createMarcomExpense(
   prevState: ActionState,
-  formData: FormData
+  formData: OpexFormInput
 ): Promise<ActionState> {
   const user = await getCurrentUser()
   if (!user) {
     return { error: 'Unauthorized: Harap login terlebih dahulu' }
   }
 
-  const expenseDateStr = formData.get('expenseDate') as string
-  const outletIdStr = formData.get('outletId') as string
-  const category = (formData.get('category') as string)?.trim() || 'LAINNYA'
-  const amountStr = formData.get('amount') as string
-  const description = (formData.get('description') as string)?.trim()
-  const paymentSource = (formData.get('paymentSource') as string)?.trim() || 'transfer_pusat'
-  const receiptUrl = (formData.get('receiptUrl') as string)?.trim() || null
+  const expenseDateStr = bacaField(formData, 'expenseDate')
+  const outletIdStr = bacaField(formData, 'outletId')
+  const category = bacaField(formData, 'category').trim() || 'LAINNYA'
+  const amountStr = bacaField(formData, 'amount')
+  const description = bacaField(formData, 'description').trim()
+  const paymentSource = bacaField(formData, 'paymentSource').trim() || 'transfer_pusat'
+  const receiptUrl = bacaField(formData, 'receiptUrl').trim() || null
 
   if (!expenseDateStr || !description) {
     return { error: 'Tanggal pengeluaran dan deskripsi wajib diisi' }
@@ -443,19 +455,19 @@ export async function deleteMarcomExpense(idStr: string): Promise<ActionState> {
  */
 export async function updateOpexItem(
   prevState: ActionState,
-  formData: FormData
+  formData: OpexFormInput
 ): Promise<ActionState> {
   const user = await getCurrentUser()
   if (!user) {
     return { error: 'Unauthorized: Harap login terlebih dahulu' }
   }
 
-  const source = formData.get('source') as OpexItemSource
-  const sourceId = formData.get('sourceId') as string
-  const category = (formData.get('category') as string)?.trim() || ''
-  const amountStr = formData.get('amount') as string
-  const dateStr = formData.get('date') as string
-  const description = (formData.get('description') as string)?.trim() || ''
+  const source = bacaField(formData, 'source') as OpexItemSource
+  const sourceId = bacaField(formData, 'sourceId')
+  const category = bacaField(formData, 'category').trim() || ''
+  const amountStr = bacaField(formData, 'amount')
+  const dateStr = bacaField(formData, 'date')
+  const description = bacaField(formData, 'description').trim() || ''
 
   if (!sourceId || !source) {
     return { error: 'Data item pengeluaran tidak valid' }
@@ -469,12 +481,12 @@ export async function updateOpexItem(
   try {
     if (source === 'MANUAL') {
       const id = BigInt(sourceId)
-      const outletIdStr = formData.get('outletId') as string
+      const outletIdStr = bacaField(formData, 'outletId')
       const outletId = outletIdStr && outletIdStr !== 'GLOBAL' && outletIdStr !== ''
         ? BigInt(outletIdStr)
         : null
-      const paymentSource = (formData.get('paymentSource') as string)?.trim() || 'transfer_pusat'
-      const receiptUrl = (formData.get('receiptUrl') as string)?.trim() || null
+      const paymentSource = bacaField(formData, 'paymentSource').trim() || 'transfer_pusat'
+      const receiptUrl = bacaField(formData, 'receiptUrl').trim() || null
 
       await prisma.marcomExpense.update({
         where: { id },
@@ -550,7 +562,30 @@ export async function updateOpexItem(
 }
 
 /**
- * Mengunggah foto bukti / nota pengeluaran ke storage Supabase
+ * Signed upload URL untuk foto/PDF nota OPEX Marcom.
+ * File diunggah langsung dari browser ke Supabase Storage (`unggahLangsung`),
+ * sehingga tidak pernah lewat Cloudflare WAF maupun batas body Server Action.
+ */
+export async function mintaLinkUnggahNotaOpex(permintaan: PermintaanLink): Promise<LinkUnggah> {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return { ok: false, pesan: 'Unauthorized: Harap login terlebih dahulu' }
+    }
+    return await buatLinkUnggah({
+      supabase: getPosSupabase(),
+      bucket: 'opex-invoices',
+      folder: 'invoices',
+      permintaan,
+    })
+  } catch (err: any) {
+    console.error('[mintaLinkUnggahNotaOpex] Error:', err)
+    return { ok: false, pesan: err?.message || 'Gagal menyiapkan unggahan bukti nota' }
+  }
+}
+
+/**
+ * Mengunggah foto bukti / nota pengeluaran ke storage Supabase (legacy fallback)
  */
 export async function uploadOpexReceipt(formData: FormData): Promise<{ url?: string; error?: string }> {
   const user = await getCurrentUser()

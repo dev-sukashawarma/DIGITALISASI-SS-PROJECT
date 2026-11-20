@@ -46,7 +46,7 @@ import {
   updateEndorsementStatus,
   deleteEndorsement,
   updateVideoMetrics,
-  uploadEndorsementPaymentProof,
+  mintaLinkUnggahBuktiEndorsement,
 } from '@/app/actions/endorsements'
 import {
   autoFetchVideoMetrics,
@@ -55,7 +55,8 @@ import {
 } from '@/app/actions/sync'
 import EndorsementFinanceView from './EndorsementFinanceView'
 import ImportExcelModal from '@/components/dashboard/ImportExcelModal'
-import { compressReceiptImage } from '@/lib/compress-image'
+import { createClient } from '@/lib/supabase/client'
+import { unggahLangsung } from '@/lib/upload'
 import VideoPreviewModal from './VideoPreviewModal'
 import Pagination from '@/components/dashboard/Pagination'
 import {
@@ -799,45 +800,36 @@ export default function EndorsementList({
     setUploading(true)
 
     try {
+      const supabase = createClient()
       for (let i = 0; i < filesToUpload.length; i++) {
         const file = filesToUpload[i]
         const originalKb = Math.round(file.size / 1024)
         const prefix = filesToUpload.length > 1 ? `[${i + 1}/${filesToUpload.length}] ` : ''
-        setProgress(`${prefix}Mengompresi gambar (${originalKb} KB)...`)
+        setProgress(`${prefix}Mengompresi & mengunggah (${originalKb} KB)...`)
 
-        const compressedFile = await compressReceiptImage(file)
-        const compressedKb = Math.round(compressedFile.size / 1024)
+        // Unggah langsung ke Supabase Storage via signed URL (tidak lewat server aplikasi / Cloudflare WAF)
+        const hasil = await unggahLangsung({
+          supabase,
+          file,
+          mintaLink: mintaLinkUnggahBuktiEndorsement,
+        })
+
+        const compressedKb = Math.round(hasil.ukuran / 1024)
         const savedPct =
-          file.size > compressedFile.size
-            ? Math.round((1 - compressedFile.size / file.size) * 100)
+          file.size > hasil.ukuran
+            ? Math.round((1 - hasil.ukuran / file.size) * 100)
             : 0
+        const uploadedUrl = hasil.url
+        const formatLabel = hasil.tipe === 'application/pdf' ? 'PDF' : 'JPG'
+        const statLabel =
+          hasil.ukuran < file.size
+            ? `${formatLabel} ${compressedKb} KB (-${savedPct}%)`
+            : `${formatLabel} ${compressedKb} KB`
 
-        const uploadMsg =
-          compressedFile.size < file.size
-            ? `${prefix}Mengunggah (${originalKb} KB ➔ ${compressedKb} KB, hemat ${savedPct}%)...`
-            : `${prefix}Mengunggah (${compressedKb} KB)...`
-
-        setProgress(uploadMsg)
-
-        const data = new FormData()
-        data.append('file', compressedFile)
-        const res = await uploadEndorsementPaymentProof(data)
-
-        if (res?.error) {
-          setErrorMessage(res.error)
-          break
-        } else if (res?.url) {
-          const uploadedUrl = res.url
-          const statLabel =
-            compressedFile.size < file.size
-              ? `WebP ${compressedKb} KB (-${savedPct}%)`
-              : `${compressedKb} KB`
-
-          setUrls((prev) =>
-            prev.length < MAX_PAYMENT_PROOFS ? [...prev, uploadedUrl] : prev
-          )
-          setStats((prev) => ({ ...prev, [uploadedUrl]: statLabel }))
-        }
+        setUrls((prev) =>
+          prev.length < MAX_PAYMENT_PROOFS ? [...prev, uploadedUrl] : prev
+        )
+        setStats((prev) => ({ ...prev, [uploadedUrl]: statLabel }))
       }
     } catch (err: any) {
       setErrorMessage(err?.message || 'Gagal mengunggah bukti pembayaran')

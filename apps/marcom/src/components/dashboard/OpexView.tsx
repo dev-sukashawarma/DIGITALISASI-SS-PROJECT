@@ -31,12 +31,12 @@ import {
 import {
   getOpexData,
   createMarcomExpense,
-  updateMarcomExpense,
   updateOpexItem,
   deleteMarcomExpense,
-  uploadOpexReceipt,
+  mintaLinkUnggahNotaOpex,
 } from '@/app/actions/opex'
-import { compressReceiptImage } from '@/lib/compress-image'
+import { createClient } from '@/lib/supabase/client'
+import { unggahLangsung } from '@/lib/upload'
 import {
   type OpexSummary,
   type OpexItem,
@@ -75,7 +75,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<OpexItem | null>(null)
 
   // Form States
-  const [formDate, setFormDate] = useState<string>(new Date().toISOString().split('T')[0])
+  const [formDate, setFormDate] = useState<string>('')
   const [formOutletId, setFormOutletId] = useState<string>('GLOBAL')
   const [formCategory, setFormCategory] = useState<string>('CETAK_BRANDING')
   const [formAmount, setFormAmount] = useState<string>('')
@@ -102,21 +102,20 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
     )
 
     try {
+      const supabase = createClient()
       const newUrls: string[] = []
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
         if (files.length > 1) {
           setUploadProgressText(`Mengunggah nota ${i + 1} dari ${files.length}...`)
         }
-        const compressedFile = await compressReceiptImage(file)
-        const data = new FormData()
-        data.append('file', compressedFile)
-        const res = await uploadOpexReceipt(data)
-        if (res?.error) {
-          setFormError(res.error)
-        } else if (res?.url) {
-          newUrls.push(res.url)
-        }
+        // Unggah langsung ke Supabase Storage via signed URL (tidak lewat server aplikasi / Cloudflare WAF)
+        const hasil = await unggahLangsung({
+          supabase,
+          file,
+          mintaLink: mintaLinkUnggahNotaOpex,
+        })
+        newUrls.push(hasil.url)
       }
       if (newUrls.length > 0) {
         setFormReceiptUrls((prev) => [...prev, ...newUrls])
@@ -142,11 +141,10 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
   }
 
   const formatRupiah = (val: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      maximumFractionDigits: 0,
-    }).format(val)
+    const rounded = Math.round(Number(val) || 0)
+    const sign = rounded < 0 ? '-' : ''
+    const formatted = Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+    return `${sign}Rp ${formatted}`
   }
 
   const loadData = (m: number, y: number, out: string) => {
@@ -212,45 +210,50 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
 
     const serializedReceiptUrl = serializeReceiptUrls(formReceiptUrls)
 
-    const formData = new FormData()
-    if (editingItem) {
-      formData.append('id', editingItem.sourceId)
-      formData.append('source', editingItem.source)
-      formData.append('sourceId', editingItem.sourceId)
-      formData.append('category', formCategory)
-      formData.append('date', formDate)
-      formData.append('expenseDate', formDate)
-      formData.append('outletId', formOutletId)
-      formData.append('amount', formAmount)
-      formData.append('description', formDescription)
-      formData.append('paymentSource', formPaymentSource)
-      if (serializedReceiptUrl) formData.append('receiptUrl', serializedReceiptUrl)
-    } else {
-      formData.append('expenseDate', formDate)
-      formData.append('outletId', formOutletId)
-      formData.append('category', formCategory)
-      formData.append('amount', formAmount)
-      formData.append('description', formDescription)
-      formData.append('paymentSource', formPaymentSource)
-      if (serializedReceiptUrl) formData.append('receiptUrl', serializedReceiptUrl)
-    }
+    const payload: Record<string, string | null> = editingItem
+      ? {
+          id: editingItem.sourceId,
+          source: editingItem.source,
+          sourceId: editingItem.sourceId,
+          category: formCategory,
+          date: formDate,
+          expenseDate: formDate,
+          outletId: formOutletId,
+          amount: formAmount,
+          description: formDescription,
+          paymentSource: formPaymentSource,
+          receiptUrl: serializedReceiptUrl,
+        }
+      : {
+          expenseDate: formDate,
+          outletId: formOutletId,
+          category: formCategory,
+          amount: formAmount,
+          description: formDescription,
+          paymentSource: formPaymentSource,
+          receiptUrl: serializedReceiptUrl,
+        }
 
     startTransition(async () => {
-      const res = editingItem
-        ? await updateOpexItem({}, formData)
-        : await createMarcomExpense({}, formData)
+      try {
+        const res = editingItem
+          ? await updateOpexItem({}, payload)
+          : await createMarcomExpense({}, payload)
 
-      if (res?.error) {
-        setFormError(res.error)
-      } else {
-        setIsModalOpen(false)
-        setBannerMessage({
-          type: 'success',
-          text: editingItem
-            ? 'Perubahan pengeluaran berhasil disimpan dan disinkronkan ke Finance!'
-            : 'Pengeluaran baru berhasil dicatat dan disinkronkan ke Finance!',
-        })
-        loadData(selectedMonth, selectedYear, outletFilter)
+        if (res?.error) {
+          setFormError(res.error)
+        } else {
+          setIsModalOpen(false)
+          setBannerMessage({
+            type: 'success',
+            text: editingItem
+              ? 'Perubahan pengeluaran berhasil disimpan dan disinkronkan ke Finance!'
+              : 'Pengeluaran baru berhasil dicatat dan disinkronkan ke Finance!',
+          })
+          loadData(selectedMonth, selectedYear, outletFilter)
+        }
+      } catch (err: any) {
+        setFormError(err?.message || 'Gagal menyimpan pengeluaran. Coba lagi atau muat ulang halaman.')
       }
     })
   }
@@ -1060,7 +1063,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                               )}
                               <div className="min-w-0">
                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200">
-                                  <CheckCircle2 className="w-2.5 h-2.5" /> Nota #${idx + 1}
+                                  <CheckCircle2 className="w-2.5 h-2.5" /> Nota #{idx + 1}
                                 </span>
                                 <div>
                                   <a
@@ -1199,10 +1202,10 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                 </button>
                 <button
                   type="submit"
-                  disabled={isPending}
+                  disabled={isPending || isUploadingPhoto}
                   className="px-5 py-2 bg-[#D9480F] hover:bg-[#B83808] text-white rounded-xl font-bold transition-all shadow-xs disabled:opacity-50"
                 >
-                  {isPending ? 'Menyimpan...' : editingItem ? 'Simpan Perubahan' : 'Catat Pengeluaran'}
+                  {isPending ? 'Menyimpan...' : isUploadingPhoto ? 'Mengunggah Nota...' : editingItem ? 'Simpan Perubahan' : 'Catat Pengeluaran'}
                 </button>
               </div>
             </form>
@@ -1218,7 +1221,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
               <div>
                 <h3 className="text-base font-bold text-stone-900 flex items-center gap-2">
                   <Camera className="w-4 h-4 text-[#D9480F]" />
-                  Bukti Nota Struk (${previewReceiptsModal.urls.length} Nota)
+                  Bukti Nota Struk ({previewReceiptsModal.urls.length} Nota)
                 </h3>
                 <p className="text-xs text-stone-500 mt-0.5 line-clamp-1">
                   {previewReceiptsModal.title}
@@ -1238,7 +1241,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                 {previewReceiptsModal.urls.map((url, idx) => (
                   <div key={idx} className="border border-stone-200 rounded-xl overflow-hidden bg-stone-50 flex flex-col">
                     <div className="p-2 bg-white border-b border-stone-100 flex items-center justify-between text-xs font-bold text-stone-700">
-                      <span>Nota #${idx + 1}</span>
+                      <span>Nota #{idx + 1}</span>
                       <a
                         href={url}
                         target="_blank"

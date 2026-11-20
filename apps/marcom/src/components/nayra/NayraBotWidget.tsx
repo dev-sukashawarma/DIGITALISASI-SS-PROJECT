@@ -55,7 +55,6 @@ const INITIAL_MESSAGES: ChatMessage[] = [
     role: 'assistant',
     content:
       'Halo Kak! Aku **Suka-Chan**, asisten Marketing & Communication Suka Shawarma! 🌯✨\n\nAku bisa cek data marcom (jadwal konten, endorsement, budget iklan, promo, performa video) sekaligus bantu ide konten & caption. Mau mulai dari mana?',
-    timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
   },
 ]
 

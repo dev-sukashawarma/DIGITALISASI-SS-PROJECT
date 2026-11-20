@@ -16,7 +16,7 @@ import { CurrencyInput, compressImageToWebP } from '@suka/design-system'
 import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category, SalesChannel, Outlet } from '@/pos-types'
 import { useDialogStore } from '@/lib/dialogStore'
-import { MenuPicker } from './MenuPicker'
+import { MenuFormModal } from './MenuFormModal'
 import { saveMenuItem, toggleMenuAvailability, setMenuHiddenPos, deleteMenuItem, nonaktifkanMenu, deleteAllMenuItems, toggleGlobalSetting, toggleMenuPublished, retryMenuOnlineSync, toggleTampilDiApp, quickCreateBahanBaku } from './actions'
 import { computeResepHpp, type HppBahan } from '@/lib/hpp'
 import { getChannel } from '@/lib/channels'
@@ -230,7 +230,9 @@ const SLUG_APLIKASI = 'aplikasi'
 const EMPTY: FormState = {
   id: null, name: '', description: '', price: '', strike_price: '', campaign_price: '', is_campaign_active: false, base_price: '',
   channel_prices: {},
-  category_id: '', is_available: true, is_hidden_pos: false, is_available_online: true, is_published_order_online: false, tampil_di_app: false, available_online_channels: null, image_url: null,
+  category_id: '', is_available: true, is_hidden_pos: false, is_available_online: true, is_published_order_online: false, tampil_di_app: false,
+  available_online_channels: ['pos_kasir', 'gofood', 'grabfood', 'shopeefood'],
+  image_url: null,
   is_package: false, package_items: [], outlet_ids: null
 }
 
@@ -311,7 +313,7 @@ export default function MenuView({
   const [channelDropdownOpen, setChannelDropdownOpen] = useState(false)
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
   const [outletSearch, setOutletSearch] = useState('')
-  const [onlinePriceMode, setOnlinePriceMode] = useState<'unified' | 'per_channel'>('unified')
+  const [modalTab, setModalTab] = useState<'basic' | 'channels' | 'composition'>('basic')
   const [promoNow, setPromoNow] = useState(() => Date.now())
   const fileRef = useRef<HTMLInputElement>(null)
   const channelDropdownRef = useRef<HTMLDivElement>(null)
@@ -617,6 +619,7 @@ export default function MenuView({
     setRecipeItems([])
     setCopyNotice(null)
     setOutletSearch('')
+    setModalTab('basic')
     resetImage(); setError(''); setShowForm(true)
   }
 
@@ -657,6 +660,7 @@ export default function MenuView({
     })))
     setCopyNotice(null)
     setOutletSearch('')
+    setModalTab('basic')
     resetImage(); setError(''); setShowForm(true)
   }
 
@@ -701,6 +705,7 @@ export default function MenuView({
     })))
     setCopyNotice(`Data dan ${existingRecipe.length} bahan resep disalin dari ${item.name}!`)
     setOutletSearch('')
+    setModalTab('basic')
     resetImage(); setError(''); setShowForm(true)
   }
 
@@ -827,6 +832,17 @@ export default function MenuView({
 
   function closeForm() { setShowForm(false); resetImage(); setError('') }
 
+  useEffect(() => {
+    if (!showForm) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !showQuickBahanModal) {
+        closeForm()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [showForm, showQuickBahanModal])
+
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -853,8 +869,8 @@ export default function MenuView({
   async function handleSave(e: React.FormEvent) {
     e.preventDefault(); setError('')
     const price = parseFloat(form.price)
-    if (!form.name.trim()) { setError('Nama menu wajib diisi'); return }
-    if (isNaN(price) || price < 0) { setError('Harga tidak boleh bernilai negatif'); return }
+    if (!form.name.trim()) { setModalTab('basic'); setError('Nama menu wajib diisi'); return }
+    if (isNaN(price) || price < 0) { setModalTab('basic'); setError('Harga offline wajib diisi dan tidak boleh bernilai negatif'); return }
 
     if (price === 0) {
       const confirmZero = await showConfirm(`Menu "${form.name.trim()}" diatur dengan harga Rp 0 (Gratis). Apakah Anda yakin ingin menyimpan menu ini?`)
@@ -902,15 +918,48 @@ export default function MenuView({
             satuan: r.satuan || 'gram',
           }))
 
+    const deliverySlugs = ['gofood', 'grabfood', 'shopeefood']
+    const normAvailChannels = Array.isArray(form.available_online_channels)
+      ? form.available_online_channels.map(c => c.toLowerCase().replace(/\s+/g, ''))
+      : null
+    const isDeliveryActiveOnSave =
+      form.is_available_online &&
+      (normAvailChannels === null || normAvailChannels.some(c => deliverySlugs.includes(c)))
+    const isTiktokActiveOnSave =
+      form.is_available_online &&
+      (normAvailChannels === null || normAvailChannels.includes('tiktokgo') || normAvailChannels.includes('tiktok_go'))
+
+    // Pastikan harga GoFood, GrabFood, ShopeeFood selalu seragam saat Food Apps aktif
+    if (isDeliveryActiveOnSave) {
+      const unifiedDeliveryPrice =
+        parsedChannelPrices['gofood'] ??
+        parsedChannelPrices['grabfood'] ??
+        parsedChannelPrices['shopeefood'] ??
+        parsedChannelPrices['all_food_apps'] ??
+        finalBasePrice
+      deliverySlugs.forEach(s => { parsedChannelPrices[s] = unifiedDeliveryPrice })
+      parsedChannelPrices['all_food_apps'] = unifiedDeliveryPrice
+      parsedChannelPrices['online'] = unifiedDeliveryPrice
+    }
+
+    // Pastikan TikTok Go memiliki harga jika aktif
+    if (isTiktokActiveOnSave) {
+      const tiktokPrice = parsedChannelPrices['tiktokgo'] ?? parsedChannelPrices['tiktok_go'] ?? finalBasePrice
+      parsedChannelPrices['tiktokgo'] = tiktokPrice
+      parsedChannelPrices['tiktok_go'] = tiktokPrice
+    }
+
+    const hasAnyOnlineFoodApp = isDeliveryActiveOnSave || isTiktokActiveOnSave
+
     const payload = {
       id: form.id ?? undefined,
       name: form.name.trim(), description: form.description.trim() || null,
       price: finalBasePrice, 
       strike_price: form.strike_price ? parseFloat(form.strike_price) : null,
       campaign_price: form.campaign_price ? parseFloat(form.campaign_price) : null,
-      is_campaign_active: form.is_campaign_active,
+      is_campaign_active: isTiktokActiveOnSave ? form.is_campaign_active : false,
       category_id: form.category_id || null,
-      is_available: form.is_available, is_hidden_pos: form.is_hidden_pos, is_available_online: form.is_available_online, is_published_order_online: form.is_published_order_online, tampil_di_app: form.tampil_di_app, available_online_channels: form.available_online_channels, image_url: imgUrl,
+      is_available: form.is_available, is_hidden_pos: form.is_hidden_pos, is_available_online: hasAnyOnlineFoodApp, is_published_order_online: form.is_published_order_online, tampil_di_app: form.tampil_di_app, available_online_channels: form.available_online_channels, image_url: imgUrl,
       channel_prices: parsedChannelPrices,
       is_package: form.is_package,
       package_items_to_save: form.is_package ? form.package_items.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity })) : [],
@@ -1022,6 +1071,33 @@ export default function MenuView({
   }
 
   const displayImage = preview ?? form.image_url
+
+  const normFormChannels = Array.isArray(form.available_online_channels)
+    ? form.available_online_channels.map(c => c.toLowerCase().replace(/\s+/g, ''))
+    : null
+
+  const isWalkinChannelActive =
+    normFormChannels === null ||
+    (normFormChannels.length === 0 && !form.is_available_online) ||
+    normFormChannels.includes('pos_kasir')
+
+  const isDeliveryChannelActive =
+    form.is_available_online &&
+    (normFormChannels === null ||
+      normFormChannels.some(c => ['gofood', 'grabfood', 'shopeefood'].includes(c)))
+
+  const isTiktokChannelActive =
+    form.is_available_online &&
+    (normFormChannels === null ||
+      normFormChannels.includes('tiktokgo') ||
+      normFormChannels.includes('tiktok_go'))
+
+  const activeChannelCount =
+    (isWalkinChannelActive ? 1 : 0) +
+    (isDeliveryChannelActive ? 1 : 0) +
+    (isTiktokChannelActive ? 1 : 0) +
+    (form.tampil_di_app ? 1 : 0) +
+    (form.is_published_order_online ? 1 : 0)
 
   
 
@@ -1184,1175 +1260,42 @@ export default function MenuView({
         </div>
       </div>
 
-      {showForm && createPortal(
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-0 sm:p-4 lg:p-6"
-          onClick={(e) => { if (e.target === e.currentTarget) closeForm() }}
-        >
-          <div className="bg-white sm:rounded-3xl shadow-2xl w-full max-w-4xl flex flex-col h-full sm:h-auto max-h-[100dvh] sm:max-h-[90vh] animate-scale-in overflow-hidden border border-slate-100">
-            {/* Sticky header */}
-            <div className="flex items-center justify-between px-5 py-4 sm:px-8 sm:py-5 border-b border-slate-100 shrink-0 bg-white/95 backdrop-blur-md z-10">
-              <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 sm:w-12 sm:h-12 bg-amber-50 rounded-2xl flex items-center justify-center border border-amber-200/60 shadow-xs shrink-0">
-                  <Sandwich className="w-6 h-6 text-amber-500" strokeWidth={1.75} />
-                </div>
-                <div>
-                  <h2 className="font-extrabold text-lg sm:text-xl text-slate-900 tracking-tight">
-                    {form.id ? 'Edit Menu' : 'Tambah Menu Baru'}
-                  </h2>
-                  <p className="text-xs sm:text-sm font-medium text-slate-500">
-                    {form.id ? 'Perbarui data, harga, dan ketersediaan menu' : 'Isi detail menu baru untuk POS & Online'}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={closeForm}
-                className="w-10 h-10 bg-slate-50 hover:bg-red-50 hover:text-red-500 rounded-xl flex items-center justify-center text-slate-400 transition-all border border-slate-200/60 hover:border-red-200 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Scrollable body */}
-            <form onSubmit={handleSave} className="flex flex-col flex-1 min-h-0 overflow-hidden bg-slate-50/60">
-              <div className="overflow-y-auto flex-1 min-h-0 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 space-y-6">
-                
-                {/* Error */}
-                {error && (
-                  <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-2xl p-4 text-red-700 text-sm shadow-xs animate-shake">
-                    <AlertCircle className="w-5 h-5 shrink-0 text-red-500" />
-                    <span className="font-semibold">{error}</span>
-                  </div>
-                )}
-
-                {/* Notifikasi Salin / Duplikat */}
-                {copyNotice && (
-                  <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-2xl p-3.5 text-blue-800 text-xs sm:text-sm shadow-xs animate-in fade-in">
-                    <div className="flex items-center gap-2.5">
-                      <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
-                      <span className="font-bold">{copyNotice}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setCopyNotice(null)}
-                      className="text-blue-500 hover:text-blue-800 p-1 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-
-                {/* ── BANNER SALIN DARI MENU LAIN (DUPLIKASI DI DALAM MODAL) ── */}
-                <div className="bg-gradient-to-r from-blue-50/90 via-indigo-50/80 to-sky-50/90 border border-blue-200/80 rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                      <Copy className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-extrabold text-blue-950 flex items-center gap-1.5">
-                        Salin Data &amp; Resep Menu
-                        <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                          Duplikat Cepat
-                        </span>
-                      </h4>
-                      <p className="text-[11px] text-blue-700/90 font-medium">
-                        Salin harga, kategori, dan racikan resep bahan baku dari menu lain, lalu sesuaikan nama dan perbedaannya.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="w-full sm:w-auto shrink-0">
-                    <select
-                      defaultValue=""
-                      onChange={(e) => {
-                        const sourceId = e.target.value
-                        if (sourceId) {
-                          handleCopyFrom(sourceId)
-                          e.target.value = ''
-                        }
-                      }}
-                      className="w-full sm:w-64 bg-white border border-blue-300 text-slate-800 text-xs font-bold rounded-xl px-3 py-2 shadow-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30 cursor-pointer"
-                    >
-                      <option value="" disabled>-- Salin dari Menu Lain --</option>
-                      {initialItems
-                        .filter(i => i.id !== form.id)
-                        .map(item => (
-                          <option key={item.id} value={item.id}>
-                            {item.name} ({formatRupiah(item.price)})
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                  
-                  {/* ── LEFT COLUMN: Foto, Informasi Menu, Pengaturan Ketersediaan ── */}
-                  <div className="space-y-6">
-                    {/* Card 1: Foto Produk */}
-                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-3">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                          <UploadCloud className="w-4 h-4 text-amber-500" />
-                          Foto Produk
-                        </label>
-                        {displayImage && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              preview ? resetImage() : setForm(p => ({ ...p, image_url: null }))
-                            }}
-                            className="text-xs font-bold text-red-500 hover:text-red-600 flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-red-50 transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Hapus Foto
-                          </button>
-                        )}
-                      </div>
-
-                      <div 
-                        className={`relative border-2 border-dashed rounded-2xl transition-all duration-200 group cursor-pointer overflow-hidden flex flex-col items-center justify-center min-h-[190px] sm:min-h-[210px]
-                          ${displayImage ? 'border-slate-200 bg-slate-900 shadow-inner' : 'border-slate-300 bg-slate-50/60 hover:bg-amber-50/40 hover:border-amber-400'}`}
-                        onClick={() => fileRef.current?.click()}
-                      >
-                        {displayImage ? (
-                          <>
-                            <Image src={displayImage} alt="Preview" fill className="object-cover opacity-95 group-hover:opacity-40 transition-opacity duration-200" unoptimized={true} />
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-                              <div className="w-10 h-10 rounded-full bg-white/30 backdrop-blur-md flex items-center justify-center text-white shadow-md">
-                                <UploadCloud className="w-5 h-5" />
-                              </div>
-                              <span className="text-white text-xs font-bold drop-shadow">Klik untuk Ganti Foto</span>
-                            </div>
-                            {preview && (
-                              <span className="absolute top-3 left-3 bg-amber-500 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-lg shadow-md z-20 flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-                                BARU
-                              </span>
-                            )}
-                          </>
-                        ) : (
-                          <div className="flex flex-col items-center gap-3 text-slate-400 p-6 text-center">
-                            <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center border border-amber-200/50 group-hover:scale-105 group-hover:bg-amber-100 transition-all">
-                              <UploadCloud className="w-6 h-6 text-amber-500" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-slate-700 group-hover:text-amber-600 transition-colors">Klik untuk upload foto menu</p>
-                              <p className="text-xs text-slate-400 mt-0.5 font-medium">Format: JPG, PNG, WebP (Maks. 5MB)</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <input ref={fileRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp" className="hidden" onChange={handleFile} />
-                    </div>
-
-                    {/* Card 2: Informasi Menu (Nama & Deskripsi) */}
-                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-4">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                          Nama Menu <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={form.name}
-                          onChange={(e) => setForm({ ...form, name: e.target.value })}
-                          required
-                          maxLength={100}
-                          className="input bg-slate-50 focus:bg-white text-sm sm:text-base font-semibold py-2.5"
-                          placeholder="Cth: Spesial Suka Lovers"
-                          autoFocus
-                        />
-                      </div>
-
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                            Deskripsi
-                          </label>
-                          <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
-                            Opsional
-                          </span>
-                        </div>
-                        <textarea
-                          value={form.description}
-                          onChange={(e) => setForm({ ...form, description: e.target.value })}
-                          maxLength={300}
-                          rows={2}
-                          className="input resize-none bg-slate-50 focus:bg-white text-xs sm:text-sm py-2.5 font-normal"
-                          placeholder="Deskripsi singkat yang menggugah selera..."
-                        />
-                      </div>
-                    </div>
-
-                    {/* Card 3: Pengaturan Ketersediaan & Visibilitas (Berada tepat di bawah Nama & Deskripsi) */}
-                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-4">
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
-                          Pengaturan Ketersediaan
-                        </h3>
-                        <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                          Stok &amp; Outlet
-                        </span>
-                      </div>
-
-                      {/* Toggle: Status Stok Menu */}
-                      <div
-                        onClick={() => setForm({ ...form, is_available: !form.is_available })}
-                        className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none
-                          ${form.is_available
-                            ? 'border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50/60'
-                            : 'border-rose-200 bg-rose-50/40 hover:bg-rose-50/60'}`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0 pr-2">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs
-                            ${form.is_available ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                            {form.is_available ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
-                          </div>
-                          <div className="min-w-0">
-                            <p className={`text-xs sm:text-sm font-bold truncate ${form.is_available ? 'text-emerald-900' : 'text-rose-900'}`}>
-                              {form.is_available ? 'Status Stok: Tersedia (In Stock)' : 'Status Stok: Habis (Out of Stock)'}
-                            </p>
-                            <p className="text-[11px] text-slate-500 font-medium truncate">
-                              {form.is_available ? 'Menu siap dipesan oleh pelanggan' : 'Menu dinonaktifkan dari pemesanan'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${form.is_available ? 'bg-emerald-500' : 'bg-slate-300'}`}>
-                          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-xs transition-transform duration-200 ${form.is_available ? 'left-6' : 'left-1'}`} />
-                        </div>
-                      </div>
-
-                      {/* Toggle: Sembunyikan dari POS (Hide tanpa Hapus) */}
-                      <div
-                        onClick={() => setForm({ ...form, is_hidden_pos: !form.is_hidden_pos })}
-                        className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none
-                          ${form.is_hidden_pos
-                            ? 'border-slate-300 bg-slate-100/70 hover:bg-slate-200/60'
-                            : 'border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50/60'}`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0 pr-2">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs
-                            ${form.is_hidden_pos ? 'bg-slate-200 text-slate-700' : 'bg-emerald-100 text-emerald-600'}`}>
-                            {form.is_hidden_pos ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </div>
-                          <div className="min-w-0">
-                            <p className={`text-xs sm:text-sm font-bold truncate ${form.is_hidden_pos ? 'text-slate-900' : 'text-emerald-900'}`}>
-                              {form.is_hidden_pos ? 'Disembunyikan dari POS (Hidden)' : 'Tampil di POS Kasir & Kiosk'}
-                            </p>
-                            <p className="text-[11px] text-slate-500 font-medium truncate">
-                              {form.is_hidden_pos ? 'Menu otomatis ter-hide di POS tanpa menghapus riwayat' : 'Menu muncul di katalog POS Kasir & Kiosk'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${!form.is_hidden_pos ? 'bg-emerald-500' : 'bg-slate-400'}`}>
-                          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-xs transition-transform duration-200 ${!form.is_hidden_pos ? 'left-6' : 'left-1'}`} />
-                        </div>
-                      </div>
-
-                      {/* Toggle: Outlet Spesifik */}
-                      <div className="space-y-3">
-                        <div
-                          onClick={() => {
-                            const isSpecific = form.outlet_ids !== null;
-                            if (isSpecific) {
-                              setForm({ ...form, outlet_ids: null }); // Global
-                            } else {
-                              setForm({ ...form, outlet_ids: [] }); // Specific
-                            }
-                          }}
-                          className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none
-                            ${form.outlet_ids !== null
-                              ? 'border-amber-200 bg-amber-50/40 hover:bg-amber-50/60'
-                              : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/60'}`}
-                        >
-                          <div className="flex items-center gap-3 min-w-0 pr-2">
-                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs
-                              ${form.outlet_ids !== null ? 'bg-amber-100 text-amber-600' : 'bg-white border border-slate-200 text-slate-400'}`}>
-                              <Store className="w-4 h-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className={`text-xs sm:text-sm font-bold truncate ${form.outlet_ids !== null ? 'text-amber-900' : 'text-slate-700'}`}>
-                                {form.outlet_ids !== null ? 'Outlet Pilihan (Spesifik)' : 'Berlaku Global (Semua Outlet)'}
-                              </p>
-                              <p className="text-[11px] text-slate-500 font-medium truncate">
-                                {form.outlet_ids !== null ? 'Hanya dijual di cabang yang dipilih' : 'Otomatis aktif di semua cabang'}
-                              </p>
-                            </div>
-                          </div>
-                          <div className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${form.outlet_ids !== null ? 'bg-amber-500' : 'bg-slate-300'}`}>
-                            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-xs transition-transform duration-200 ${form.outlet_ids !== null ? 'left-6' : 'left-1'}`} />
-                          </div>
-                        </div>
-
-                        {/* Outlet Selector Body */}
-                        {form.outlet_ids !== null && initialOutlets.length > 0 && (
-                          <div className="p-4 rounded-xl border border-amber-200/80 bg-amber-50/30 space-y-3 animate-in fade-in duration-200">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                              <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-                                Pilih Outlet:
-                                {form.outlet_ids && form.outlet_ids.length > 0 && (
-                                  <span className="font-semibold text-amber-700 bg-amber-100/70 px-2 py-0.5 rounded-md normal-case">
-                                    {form.outlet_ids.length} dipilih
-                                  </span>
-                                )}
-                              </span>
-                              <div className="relative w-full sm:w-48">
-                                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input
-                                  type="text"
-                                  placeholder="Cari outlet..."
-                                  value={outletSearch}
-                                  onChange={e => setOutletSearch(e.target.value)}
-                                  className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                                />
-                              </div>
-                            </div>
-
-                            {/* Selected Outlets Badges */}
-                            {form.outlet_ids && form.outlet_ids.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 p-2 bg-white/80 border border-amber-100 rounded-lg max-h-24 overflow-y-auto">
-                                {form.outlet_ids.map(id => {
-                                  const out = initialOutlets.find(o => o.id === id)
-                                  if (!out) return null
-                                  return (
-                                    <span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-800 text-xs font-semibold rounded-md border border-amber-200">
-                                      {out.name}
-                                      <button
-                                        type="button"
-                                        onClick={() => setForm({ ...form, outlet_ids: form.outlet_ids!.filter(oid => oid !== id) })}
-                                        className="hover:text-red-500 rounded p-0.5 transition-colors cursor-pointer"
-                                      >
-                                        <X className="w-3 h-3" />
-                                      </button>
-                                    </span>
-                                  )
-                                })}
-                              </div>
-                            )}
-
-                            {/* Outlet List Checkbox Grid */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
-                              {initialOutlets.filter(o => o.name.toLowerCase().includes(outletSearch.toLowerCase())).map(o => {
-                                const isChecked = form.outlet_ids!.includes(o.id)
-                                return (
-                                  <label key={o.id} className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-all border text-xs font-semibold select-none
-                                    ${isChecked ? 'bg-white border-amber-300 text-amber-950 shadow-xs' : 'bg-slate-50/80 border-slate-200/60 text-slate-700 hover:bg-white'}`}>
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={(e) => {
-                                        const curr = form.outlet_ids || []
-                                        if (e.target.checked) {
-                                          setForm({ ...form, outlet_ids: [...curr, o.id] })
-                                        } else {
-                                          setForm({ ...form, outlet_ids: curr.filter(id => id !== o.id) })
-                                        }
-                                      }}
-                                      className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer"
-                                    />
-                                    <span className="truncate">{o.name}</span>
-                                  </label>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Toggle: Tampilkan di Order-Online Website */}
-                      <div
-                        onClick={() => setForm({ ...form, is_published_order_online: !form.is_published_order_online })}
-                        className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none
-                          ${form.is_published_order_online
-                            ? 'border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50/60'
-                            : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/60'}`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0 pr-2">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs
-                            ${form.is_published_order_online ? 'bg-emerald-100 text-emerald-600' : 'bg-white border border-slate-200 text-slate-400'}`}>
-                            <Globe className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className={`text-xs sm:text-sm font-bold truncate ${form.is_published_order_online ? 'text-emerald-900' : 'text-slate-700'}`}>
-                              Tampilkan di Website Order-Online
-                            </p>
-                            <p className="text-[11px] text-slate-500 font-medium truncate">
-                              {form.is_published_order_online ? 'Menu disinkronkan ke katalog website publik' : 'Hanya tersimpan di internal Admin & POS'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${form.is_published_order_online ? 'bg-emerald-500' : 'bg-slate-300'}`}>
-                          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-xs transition-transform duration-200 ${form.is_published_order_online ? 'left-6' : 'left-1'}`} />
-                        </div>
-                      </div>
-
-                      {/* Toggle: Tampilkan di SukaShawarma APP */}
-                      <div
-                        onClick={() => setForm({ ...form, tampil_di_app: !form.tampil_di_app })}
-                        className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none
-                          ${form.tampil_di_app
-                            ? 'border-amber-200 bg-amber-50/40 hover:bg-amber-50/60'
-                            : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/60'}`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0 pr-2">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs
-                            ${form.tampil_di_app ? 'bg-amber-100 text-amber-600' : 'bg-white border border-slate-200 text-slate-400'}`}>
-                            <Smartphone className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className={`text-xs sm:text-sm font-bold truncate ${form.tampil_di_app ? 'text-amber-900' : 'text-slate-700'}`}>
-                              Tampilkan di SukaShawarma APP
-                            </p>
-                            <p className="text-[11px] text-slate-500 font-medium truncate">
-                              {form.tampil_di_app ? 'Pelanggan bisa memesan menu ini dari aplikasi' : 'Tidak muncul di aplikasi pelanggan'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${form.tampil_di_app ? 'bg-amber-500' : 'bg-slate-300'}`}>
-                          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-xs transition-transform duration-200 ${form.tampil_di_app ? 'left-6' : 'left-1'}`} />
-                        </div>
-                      </div>
-
-                      {/* Toggle: Ketersediaan di Food Apps (Online Channels) */}
-                      <div className="space-y-3">
-                        <div
-                          onClick={() => {
-                            const willBeOnline = !form.is_available_online
-                            setForm({ ...form, is_available_online: willBeOnline, available_online_channels: willBeOnline ? null : [] })
-                          }}
-                          className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none
-                            ${form.is_available_online
-                              ? 'border-indigo-200 bg-indigo-50/40 hover:bg-indigo-50/60'
-                              : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/60'}`}
-                        >
-                          <div className="flex items-center gap-3 min-w-0 pr-2">
-                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs
-                              ${form.is_available_online ? 'bg-indigo-100 text-indigo-600' : 'bg-white border border-slate-200 text-slate-400'}`}>
-                              <Globe className="w-4 h-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className={`text-xs sm:text-sm font-bold truncate ${form.is_available_online ? 'text-indigo-950' : 'text-slate-700'}`}>
-                                {form.is_available_online ? 'Tersedia di Food Apps (Online)' : 'Hanya Kasir Toko (Offline Only)'}
-                              </p>
-                              <p className="text-[11px] text-slate-500 font-medium truncate">
-                                {form.is_available_online ? 'Menu dapat dipesan di platform mitra online' : 'Sembunyikan dari aplikasi online'}
-                              </p>
-                            </div>
-                          </div>
-                          <div className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${form.is_available_online ? 'bg-indigo-600' : 'bg-slate-300'}`}>
-                            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-xs transition-transform duration-200 ${form.is_available_online ? 'left-6' : 'left-1'}`} />
-                          </div>
-                        </div>
-
-                        {/* Food Apps Channel Details */}
-                        {form.is_available_online && initialChannels.length > 0 && (
-                          <div className="p-4 rounded-xl border border-indigo-200/70 bg-indigo-50/30 space-y-3 animate-in fade-in duration-200">
-                            <p className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider">
-                              Pilih Saluran Penjualan:
-                            </p>
-                            <div className="flex flex-col sm:flex-row gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setForm({ ...form, available_online_channels: null })}
-                                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all border text-left flex items-center justify-between cursor-pointer ${
-                                  form.available_online_channels === null
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                                }`}
-                              >
-                                <span>Semua Platform</span>
-                                {form.available_online_channels === null && <Check className="w-3.5 h-3.5 ml-1" />}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setForm({ ...form, available_online_channels: ['pos_kasir'] })}
-                                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all border text-left flex items-center justify-between cursor-pointer ${
-                                  form.available_online_channels !== null
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                                }`}
-                              >
-                                <span>Channel Spesifik</span>
-                                {form.available_online_channels !== null && <Check className="w-3.5 h-3.5 ml-1" />}
-                              </button>
-                            </div>
-
-                            {form.available_online_channels !== null && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-indigo-100/70">
-                                <label className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 text-xs font-semibold text-slate-800 cursor-pointer select-none">
-                                  <input
-                                    type="checkbox"
-                                    checked={form.available_online_channels.includes('pos_kasir')}
-                                    onChange={(e) => {
-                                      const curr = form.available_online_channels || []
-                                      if (e.target.checked) {
-                                        setForm({ ...form, available_online_channels: [...curr, 'pos_kasir'] })
-                                      } else {
-                                        setForm({ ...form, available_online_channels: curr.filter(c => c !== 'pos_kasir') })
-                                      }
-                                    }}
-                                    className="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-500"
-                                  />
-                                  <span>Kasir Toko (Offline)</span>
-                                </label>
-
-                                {initialChannels.map(ch => {
-                                  const slug = getSlug(ch.id)
-                                  const isChecked = form.available_online_channels!.includes(slug)
-                                  return (
-                                    <label key={ch.id} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 text-xs font-semibold text-slate-800 cursor-pointer select-none">
-                                      <input
-                                        type="checkbox"
-                                        checked={isChecked}
-                                        onChange={(e) => {
-                                          const curr = form.available_online_channels || []
-                                          if (e.target.checked) {
-                                            setForm({ ...form, available_online_channels: [...curr, slug] })
-                                          } else {
-                                            setForm({ ...form, available_online_channels: curr.filter(c => c !== slug) })
-                                          }
-                                        }}
-                                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
-                                      />
-                                      <ChannelLogoIcon channelKey={slug} />
-                                      <span className="truncate">{ch.name}</span>
-                                    </label>
-                                  )
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                    </div>
-                  </div>
-
-                  {/* ── RIGHT COLUMN: Pengaturan Harga Multi-Channel, Tipe Menu & Paket ── */}
-                  <div className="space-y-6">
-                    {/* Card 4: Pengaturan Harga & Kategori */}
-                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-4">
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                          <Store className="w-4 h-4 text-amber-500" />
-                          Pengaturan Harga &amp; Kategori
-                        </h3>
-                        <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200/60">
-                          Multi-Channel
-                        </span>
-                      </div>
-
-                      {/* Offline Price & Strike Price */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                              Harga Offline <span className="text-red-500">*</span>
-                            </label>
-                            {form.price !== '' && !isNaN(Number(form.price)) && Number(form.price) === 0 && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-fade-in">
-                                GRATIS / Rp 0
-                              </span>
-                            )}
-                          </div>
-                          <CurrencyInput
-                            value={form.price}
-                            onChange={(v) => {
-                              const valStr = String(v)
-                              setForm(prev => ({
-                                ...prev,
-                                price: valStr,
-                                channel_prices: {
-                                  ...prev.channel_prices,
-                                  pos_kasir: valStr
-                                }
-                              }))
-                            }}
-                            required
-                            className="input bg-slate-50 focus:bg-white font-bold text-slate-900 text-sm py-2.5"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                              Harga Coret
-                            </label>
-                            <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                              Opsional
-                            </span>
-                          </div>
-                          <CurrencyInput
-                            value={form.strike_price}
-                            onChange={(v) => setForm({ ...form, strike_price: String(v) })}
-                            className="input bg-slate-50 focus:bg-white text-slate-900 text-sm py-2.5"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Kategori Menu */}
-                      <div>
-                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 block">
-                          Kategori Menu
-                        </label>
-                        <select
-                          value={form.category_id}
-                          onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                          className="input bg-slate-50 focus:bg-white text-sm py-2.5 font-semibold text-slate-800"
-                        >
-                          <option value="">-- Pilih Kategori --</option>
-                          {initialCategories.map((c) => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Online Prices Box */}
-                      <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 pb-2.5">
-                          <label className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                            <Globe className="w-3.5 h-3.5 text-indigo-600" />
-                            Harga Food Apps (Online)
-                          </label>
-
-                          {/* Mode switcher: Unified vs Per App */}
-                          <div className="flex items-center gap-1 bg-slate-200/70 p-1 rounded-xl text-[11px] font-bold">
-                            <button
-                              type="button"
-                              onClick={() => setOnlinePriceMode('unified')}
-                              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                                onlinePriceMode === 'unified'
-                                  ? 'bg-white text-slate-900 shadow-xs'
-                                  : 'text-slate-600 hover:text-slate-900'
-                              }`}
-                            >
-                              Satu Harga Semua
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setOnlinePriceMode('per_channel')}
-                              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                                onlinePriceMode === 'per_channel'
-                                  ? 'bg-white text-slate-900 shadow-xs'
-                                  : 'text-slate-600 hover:text-slate-900'
-                              }`}
-                            >
-                              Per Aplikasi
-                            </button>
-                          </div>
-                        </div>
-
-                        {onlinePriceMode === 'unified' ? (
-                          <div className="space-y-1.5">
-                            <CurrencyInput
-                              value={
-                                form.channel_prices['gofood'] ||
-                                form.channel_prices['grabfood'] ||
-                                form.channel_prices['shopeefood'] ||
-                                form.channel_prices['tiktok_go'] ||
-                                form.channel_prices['all_food_apps'] ||
-                                form.price
-                              }
-                              onChange={(v) => {
-                                const valStr = String(v)
-                                setForm(prev => {
-                                  const newPrices = { ...prev.channel_prices }
-                                  const slugs = ['gofood', 'grabfood', 'shopeefood', 'tiktok_go', 'all_food_apps', 'online']
-                                  slugs.forEach(s => { newPrices[s] = valStr })
-                                  if (initialChannels && initialChannels.length > 0) {
-                                    initialChannels.forEach(ch => {
-                                      const slug = ch.id.toLowerCase().replace(/\s+/g, '')
-                                      if (slug !== 'pos_kasir') newPrices[slug] = valStr
-                                    })
-                                  }
-                                  return { ...prev, channel_prices: newPrices }
-                                })
-                              }}
-                              placeholder={form.price || '0'}
-                              className="input bg-white font-bold text-slate-900 text-sm py-2"
-                            />
-                            <p className="text-[11px] text-slate-500 font-medium">
-                              Harga online ini berlaku seragam untuk GoFood, GrabFood, ShopeeFood, TikTok Go, dsb.
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="space-y-2 pt-1">
-                            <p className="text-[11px] font-bold text-slate-600">Harga spesifik per aplikasi:</p>
-                            <div className="grid grid-cols-1 gap-2">
-                              {initialChannels.filter(c => c.id.toLowerCase() !== 'pos_kasir').map(ch => {
-                                const slug = getSlug(ch.id)
-                                const val = form.channel_prices[slug] || form.price
-                                return (
-                                  <div key={ch.id} className="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between gap-2 shadow-2xs">
-                                    <span className="text-xs font-bold text-slate-800 flex items-center gap-2 shrink-0">
-                                      <ChannelLogoIcon channelKey={slug} />
-                                      <span>{ch.name}</span>
-                                    </span>
-                                    <div className="w-32 shrink-0">
-                                      <CurrencyInput
-                                        value={val}
-                                        onChange={(v) => {
-                                          const valStr = String(v)
-                                          setForm(prev => ({
-                                            ...prev,
-                                            channel_prices: {
-                                              ...prev.channel_prices,
-                                              [slug]: valStr
-                                            }
-                                          }))
-                                        }}
-                                        className="input bg-slate-50 text-xs font-bold text-slate-900 py-1.5 px-2.5 w-full text-right"
-                                      />
-                                    </div>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Harga di Aplikasi -- kartu sendiri, BUKAN bagian Food Apps */}
-                      <div className={`p-4 rounded-xl border space-y-2 transition-colors
-                        ${form.tampil_di_app ? 'bg-amber-50/40 border-amber-200/80' : 'bg-slate-50/60 border-slate-200/70'}`}>
-                        <div className="flex items-center justify-between">
-                          <label className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                            <Smartphone className={`w-3.5 h-3.5 ${form.tampil_di_app ? 'text-amber-600' : 'text-slate-400'}`} />
-                            Harga di Aplikasi
-                          </label>
-                          {form.tampil_di_app && form.channel_prices[SLUG_APLIKASI] === '0' && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-fade-in">
-                              GRATIS / Rp 0
-                            </span>
-                          )}
-                        </div>
-                        <CurrencyInput
-                          value={form.channel_prices[SLUG_APLIKASI] || ''}
-                          onChange={(v) => {
-                            const valStr = String(v)
-                            setForm(prev => ({
-                              ...prev,
-                              channel_prices: { ...prev.channel_prices, [SLUG_APLIKASI]: valStr }
-                            }))
-                          }}
-                          placeholder={form.price || '0'}
-                          className="input bg-white font-bold text-slate-900 text-sm py-2"
-                        />
-                        <p className="text-[11px] text-slate-500 font-medium">
-                          {form.tampil_di_app
-                            ? 'Kosongkan untuk memakai harga kasir. Harga ini TIDAK ikut berubah saat "Satu Harga Semua" food apps diatur.'
-                            : 'Menu ini belum tayang di aplikasi — harga ini baru dipakai setelah togglenya dinyalakan.'}
-                        </p>
-                      </div>
-
-                      {/* Campaign Price */}
-                      <div className="pt-3 border-t border-slate-100 space-y-3">
-                        <label className="flex items-center gap-2.5 cursor-pointer p-3 bg-amber-50/70 hover:bg-amber-50 rounded-xl border border-amber-200/70 transition-colors select-none">
-                          <input
-                            type="checkbox"
-                            checked={form.is_campaign_active}
-                            onChange={(e) => setForm({ ...form, is_campaign_active: e.target.checked })}
-                            className="w-4 h-4 text-amber-500 bg-white border-amber-300 rounded focus:ring-amber-500"
-                          />
-                          <div className="min-w-0">
-                            <span className="font-bold text-amber-950 text-xs sm:text-sm block">
-                              Aktifkan Harga Campaign (TikTok GO dll)
-                            </span>
-                            <span className="text-[11px] text-amber-700">
-                              Kasir dapat memilih harga normal vs harga campaign saat transaksi.
-                            </span>
-                          </div>
-                        </label>
-
-                        {form.is_campaign_active && (
-                          <div className="pl-6 animate-in fade-in duration-200">
-                            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                              Nominal Harga Campaign <span className="text-red-500">*</span>
-                            </label>
-                            <CurrencyInput
-                              value={form.campaign_price}
-                              onChange={(v) => setForm({ ...form, campaign_price: String(v) })}
-                              placeholder="0"
-                              className="input bg-white font-bold text-slate-900 text-sm py-2"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                    </div>
-
-                    {/* Card 5: Tipe Menu & Komposisi Paket */}
-                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-4">
-                      <div>
-                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">
-                          Tipe Menu
-                        </label>
-                        <div className="flex bg-slate-100 p-1 rounded-xl">
-                          <button
-                            type="button"
-                            onClick={() => setForm({ ...form, is_package: false })}
-                            className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all duration-150 cursor-pointer ${
-                              !form.is_package
-                                ? 'bg-white shadow-xs text-slate-900'
-                                : 'text-slate-500 hover:text-slate-800'
-                            }`}
-                          >
-                            Satuan
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setForm({ ...form, is_package: true })}
-                            className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all duration-150 cursor-pointer ${
-                              form.is_package
-                                ? 'bg-white shadow-xs text-slate-900'
-                                : 'text-slate-500 hover:text-slate-800'
-                            }`}
-                          >
-                            Paket (Combo)
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Package Builder if combo */}
-                      {form.is_package && (
-                        <div className="space-y-3 p-4 bg-amber-50/50 rounded-xl border border-amber-200/60 animate-in fade-in duration-200">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-bold text-amber-950 uppercase tracking-wider">Isi Paket Combo</span>
-                            <span className="text-[11px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">
-                              {form.package_items.length} item
-                            </span>
-                          </div>
-
-                          <div className="space-y-2.5">
-                            {form.package_items.map((pi, idx) => (
-                              <div key={pi.temp_id} className="p-3 bg-white rounded-xl border border-amber-100 shadow-2xs space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <div className="flex-1 min-w-0">
-                                    <MenuPicker
-                                      value={pi.menu_item_id}
-                                      items={initialItems.filter(i => !i.is_package && i.id !== form.id)}
-                                      onChange={(val) => {
-                                        const newItems = [...form.package_items]
-                                        newItems[idx].menu_item_id = val
-                                        
-                                        let newBasePrice = 0
-                                        newItems.forEach(item => {
-                                          const m = initialItems.find(x => x.id === item.menu_item_id)
-                                          if (m) newBasePrice += (m.price * item.quantity)
-                                        })
-                                        
-                                        setForm({ ...form, package_items: newItems, price: String(newBasePrice) })
-                                      }}
-                                    />
-                                  </div>
-                                  <div className="w-16 shrink-0">
-                                    <input
-                                      type="number"
-                                      min="1"
-                                      className="input text-center px-1 bg-slate-50 py-2 text-xs font-bold"
-                                      value={pi.quantity}
-                                      onChange={(e) => {
-                                        const qty = parseInt(e.target.value) || 1
-                                        const newItems = [...form.package_items]
-                                        newItems[idx].quantity = qty
-
-                                        let newBasePrice = 0
-                                        newItems.forEach(item => {
-                                          const m = initialItems.find(x => x.id === item.menu_item_id)
-                                          if (m) newBasePrice += (m.price * item.quantity)
-                                        })
-
-                                        setForm({ ...form, package_items: newItems, price: String(newBasePrice) })
-                                      }}
-                                    />
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newItems = form.package_items.filter((_, i) => i !== idx)
-                                      let newBasePrice = 0
-                                      newItems.forEach(item => {
-                                        const m = initialItems.find(x => x.id === item.menu_item_id)
-                                        if (m) newBasePrice += (m.price * item.quantity)
-                                      })
-                                      setForm({ ...form, package_items: newItems, price: String(newBasePrice) })
-                                    }}
-                                    className="w-8 h-8 shrink-0 bg-red-50 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-100 transition-colors cursor-pointer"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </div>
-
-                                {/* ATAU alternative */}
-                                {pi.or_menu_item_id !== undefined && pi.or_menu_item_id !== null && (
-                                  <div className="flex items-center gap-2 pl-3 border-l-2 border-amber-300">
-                                    <span className="text-[10px] font-extrabold text-amber-600 uppercase shrink-0">ATAU</span>
-                                    <div className="flex-1 min-w-0">
-                                      <MenuPicker
-                                        value={pi.or_menu_item_id || ''}
-                                        items={initialItems.filter(i => !i.is_package && i.id !== form.id)}
-                                        onChange={(val) => {
-                                          const newItems = [...form.package_items]
-                                          newItems[idx].or_menu_item_id = val
-                                          setForm({ ...form, package_items: newItems })
-                                        }}
-                                      />
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const newItems = [...form.package_items]
-                                        newItems[idx].or_menu_item_id = null
-                                        setForm({ ...form, package_items: newItems })
-                                      }}
-                                      className="w-7 h-7 shrink-0 bg-slate-100 rounded flex items-center justify-center text-slate-400 hover:text-slate-600"
-                                    >
-                                      <X className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                )}
-
-                                {(pi.or_menu_item_id === undefined || pi.or_menu_item_id === null) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newItems = [...form.package_items]
-                                      newItems[idx].or_menu_item_id = ''
-                                      setForm({ ...form, package_items: newItems })
-                                    }}
-                                    className="text-[11px] font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 pl-1 cursor-pointer"
-                                  >
-                                    <Plus className="w-3 h-3" /> Tambah Opsi Alternatif (Atau)
-                                  </button>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setForm({ ...form, package_items: [...form.package_items, { menu_item_id: '', quantity: 1, temp_id: Math.random().toString() }] })
-                            }}
-                            className="w-full py-2.5 text-xs font-bold text-amber-700 bg-amber-100/60 hover:bg-amber-100 rounded-xl flex items-center justify-center gap-1.5 transition-all border border-amber-200 border-dashed cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" /> Tambah Item Paket
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                  </div>
-
-                </div>
-
-                {/* ── CARD RESEP & BAHAN BAKU (HPP & POTONG STOK OTOMATIS) ── */}
-                {!form.is_package && (
-                  <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-200/60 shadow-xs">
-                          <BookOpen className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 uppercase tracking-wider">
-                              Resep &amp; Bahan Baku (BOM / HPP)
-                            </h3>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                              {recipeItems.length} Bahan
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 font-medium">
-                            Bahan baku ini otomatis memotong stok gudang/outlet saat menu terjual di POS.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Live HPP & Margin Indicators */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 text-right">
-                          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider leading-none">
-                            Total HPP
-                          </span>
-                          <span className="text-xs sm:text-sm font-extrabold text-slate-800">
-                            {formatRupiah(hppResult.totalHpp)}
-                          </span>
-                        </div>
-                        <div className="bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 text-right">
-                          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider leading-none">
-                            Margin
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs sm:text-sm font-extrabold text-slate-800">
-                              {hppResult.marginPct !== null ? `${hppResult.marginPct.toFixed(1)}%` : '—'}
-                            </span>
-                            {hppResult.marginPct !== null && (
-                              <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md ${
-                                hppResult.marginPct >= 35 ? 'bg-emerald-100 text-emerald-700' :
-                                hppResult.marginPct >= 20 ? 'bg-amber-100 text-amber-700' :
-                                'bg-red-100 text-red-700'
-                              }`}>
-                                {hppResult.marginPct >= 35 ? 'SEHAT' : hppResult.marginPct >= 20 ? 'SEDANG' : 'TIPIS'}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Recipe Items Table / List */}
-                    {recipeItems.length === 0 ? (
-                      <div className="text-center py-8 px-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50">
-                        <BookOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                        <p className="text-xs font-bold text-slate-700">Belum ada bahan baku pada resep menu ini</p>
-                        <p className="text-[11px] text-slate-400 max-w-md mx-auto mt-0.5 font-medium">
-                          Tambahkan bahan baku agar stok terpotong otomatis setiap kali menu terjual di kasir POS.
-                        </p>
-                        <div className="mt-3.5 flex items-center justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={handleAddRecipeItem}
-                            className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            Tambah Bahan
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowQuickBahanModal(true)}
-                            className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                            + Buat Bahan Baru
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-                          <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
-                              <tr>
-                                <th className="py-2.5 px-3">Bahan Baku</th>
-                                <th className="py-2.5 px-3 w-32">Qty Porsi</th>
-                                <th className="py-2.5 px-3 w-28">Satuan</th>
-                                <th className="py-2.5 px-3 w-28 text-right">Subtotal HPP</th>
-                                <th className="py-2.5 px-2 w-10 text-center"></th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {recipeItems.map((item, idx) => {
-                                const lineHpp = hppResult.lines.find(l => l.bahan_baku_id === item.bahan_baku_id)
-                                return (
-                                  <tr key={item.temp_id} className="hover:bg-slate-50/60 transition-colors">
-                                    <td className="py-2 px-3">
-                                      <select
-                                        value={item.bahan_baku_id}
-                                        onChange={(e) => handleRecipeBahanChange(idx, e.target.value)}
-                                        className="w-full bg-slate-50/50 hover:bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
-                                      >
-                                        <option value="">-- Pilih Bahan Baku --</option>
-                                        {bahanList.map((bb) => (
-                                          <option key={bb.id} value={bb.id}>
-                                            {bb.nama} ({bb.satuan_kecil || bb.satuan})
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </td>
-                                    <td className="py-2 px-3">
-                                      <input
-                                        type="number"
-                                        step="any"
-                                        min="0"
-                                        value={item.qty_per_porsi}
-                                        onChange={(e) => handleRecipeQtyChange(idx, e.target.value)}
-                                        placeholder="0"
-                                        className="w-full bg-slate-50/50 hover:bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 text-right focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                                      />
-                                    </td>
-                                    <td className="py-2 px-3 text-slate-600 font-semibold">
-                                      <span className="inline-block px-2 py-1 bg-slate-100 rounded-md text-[11px] font-bold text-slate-700">
-                                        {item.satuan || '—'}
-                                      </span>
-                                    </td>
-                                    <td className="py-2 px-3 text-right font-bold text-slate-800">
-                                      {lineHpp ? formatRupiah(lineHpp.subtotal) : 'Rp 0'}
-                                    </td>
-                                    <td className="py-2 px-2 text-center">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveRecipeItem(idx)}
-                                        className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition-colors mx-auto cursor-pointer"
-                                        title="Hapus baris"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </td>
-                                  </tr>
-                                )
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-
-                        {/* Buttons below table */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={handleAddRecipeItem}
-                              className="px-3.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              Tambah Bahan
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setShowQuickBahanModal(true)}
-                              className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                            >
-                              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                              + Buat Bahan Baru
-                            </button>
-                          </div>
-
-                          <span className="text-[11px] text-slate-400 font-medium">
-                            * Satuan otomatis mengikuti satuan pemakaian bahan baku (gram/pcs/lembar/cm).
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-              </div>
-
-              {/* ── STICKY FOOTER (Always visible & fixed on mobile & desktop) ── */}
-              <div className="flex items-center gap-3 sm:gap-4 px-4 py-3.5 sm:px-8 sm:py-4 border-t border-slate-200/80 shrink-0 bg-white/95 backdrop-blur-md z-10 shadow-[0_-4px_12px_rgba(0,0,0,0.03)] pb-[max(0.875rem,env(safe-area-inset-bottom))]">
-                <button
-                  type="button"
-                  onClick={closeForm}
-                  className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all text-xs sm:text-sm flex items-center justify-center border border-slate-200/60 w-24 sm:w-32 shrink-0 cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving || uploading}
-                  className="btn-primary flex-1 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold shadow-md shadow-amber-500/25 hover:shadow-amber-500/35 active:scale-[0.99] transition-all cursor-pointer"
-                >
-                  {(saving || uploading)
-                    ? <div className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /><span>{uploading ? 'Mengupload...' : 'Menyimpan...'}</span></div>
-                    : form.id ? 'Simpan Perubahan' : 'Tambah Menu Baru'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body,
-      )}
+      <MenuFormModal
+        open={showForm}
+        form={form}
+        setForm={setForm}
+        modalTab={modalTab}
+        setModalTab={setModalTab}
+        onClose={closeForm}
+        onSubmit={handleSave}
+        saving={saving}
+        uploading={uploading}
+        error={error}
+        copyNotice={copyNotice}
+        onDismissCopyNotice={() => setCopyNotice(null)}
+        displayImage={displayImage}
+        preview={preview}
+        resetImage={resetImage}
+        fileRef={fileRef}
+        onFileChange={handleFile}
+        initialItems={initialItems}
+        initialCategories={initialCategories}
+        initialOutlets={initialOutlets}
+        onCopyFrom={handleCopyFrom}
+        slugAplikasi={SLUG_APLIKASI}
+        outletSearch={outletSearch}
+        setOutletSearch={setOutletSearch}
+        activeChannelCount={activeChannelCount}
+        recipeItems={recipeItems}
+        bahanList={bahanList}
+        hppResult={hppResult}
+        onAddRecipeItem={handleAddRecipeItem}
+        onRemoveRecipeItem={handleRemoveRecipeItem}
+        onRecipeBahanChange={handleRecipeBahanChange}
+        onRecipeQtyChange={handleRecipeQtyChange}
+        onOpenQuickBahan={() => setShowQuickBahanModal(true)}
+        renderChannelIcon={(slug) => <ChannelLogoIcon channelKey={slug} />}
+      />
 
       {showQuickBahanModal && createPortal(
         <div
@@ -2660,50 +1603,48 @@ export default function MenuView({
                       }
                     </td>
 
-                    {/* Price (Offline & Online) */}
+                    {/* Price (Offline, Food Apps & TikTok Go) */}
                     <td className="py-3.5 px-4 text-right">
                       {(() => {
                         const offlinePrice = item.price;
                         const pricesObj = item.channel_prices || {};
                         const activeSlug = activeChannelFilter ? getSlug(activeChannelFilter) : '';
+                        const deliverySlugs = ['gofood', 'grabfood', 'shopeefood'];
+                        const normChs = Array.isArray(item.available_online_channels)
+                          ? item.available_online_channels.map(c => c.toLowerCase().replace(/\s+/g, ''))
+                          : null;
 
-                        const isChannelOffline = item.available_online_channels === null ||
-                          !Array.isArray(item.available_online_channels) ||
-                          item.available_online_channels.includes('pos_kasir');
+                        const isChannelOffline =
+                          normChs === null ||
+                          (normChs.length === 0 && item.is_available_online === false) ||
+                          normChs.includes('pos_kasir');
 
-                        // Calculate Online Price
-                        let onlineDisplay: string | null = null;
-                        let targetNumericPrice: number | null = null;
+                        const isDeliveryActive =
+                          item.is_available_online !== false &&
+                          (normChs === null || normChs.some(c => deliverySlugs.includes(c)));
 
-                        if (item.is_available_online !== false) {
-                          if (activeSlug && !['pos_kasir', 'all_food_apps', ''].includes(activeSlug)) {
-                            const chPrice = pricesObj[activeSlug] || (activeSlug === 'tiktokgo' ? pricesObj['tiktok_go'] : undefined);
-                            if (chPrice !== undefined && chPrice !== null && !isNaN(Number(chPrice)) && Number(chPrice) >= 0) {
-                              targetNumericPrice = Number(chPrice);
-                              onlineDisplay = formatRupiah(targetNumericPrice);
-                            }
-                          } else {
-                            const validPrices = Object.values(pricesObj)
-                              .map(p => Number(p))
-                              .filter(p => !isNaN(p) && p >= 0);
-
-                            if (validPrices.length > 0) {
-                              const minP = Math.min(...validPrices);
-                              const maxP = Math.max(...validPrices);
-                              targetNumericPrice = minP;
-                              if (minP === maxP) {
-                                onlineDisplay = formatRupiah(minP);
-                              } else {
-                                onlineDisplay = `${formatRupiah(minP)} - ${formatRupiah(maxP)}`;
-                              }
-                            }
-                          }
-                        }
+                        const isTiktokActive =
+                          item.is_available_online !== false &&
+                          (normChs === null || normChs.includes('tiktokgo') || normChs.includes('tiktok_go'));
 
                         // 1. Skenario Filter Channel Spesifik (GoFood, GrabFood, ShopeeFood, TikTok Go, Offline)
                         if (activeSlug && !['all_food_apps', ''].includes(activeSlug)) {
-                          const displayPrice = activeSlug === 'pos_kasir' ? formatRupiah(offlinePrice) : onlineDisplay;
-                          const numericP = activeSlug === 'pos_kasir' ? offlinePrice : targetNumericPrice;
+                          let displayPrice: string | null = null;
+                          let numericP: number | null = null;
+
+                          if (activeSlug === 'pos_kasir') {
+                            numericP = offlinePrice;
+                            displayPrice = formatRupiah(offlinePrice);
+                          } else if (item.is_available_online !== false) {
+                            const rawP =
+                              pricesObj[activeSlug] ??
+                              (activeSlug === 'tiktokgo' ? pricesObj['tiktok_go'] : undefined) ??
+                              (deliverySlugs.includes(activeSlug) ? (pricesObj['gofood'] ?? pricesObj['grabfood'] ?? pricesObj['shopeefood'] ?? pricesObj['all_food_apps']) : undefined);
+                            if (rawP !== undefined && rawP !== null && !isNaN(Number(rawP)) && Number(rawP) >= 0) {
+                              numericP = Number(rawP);
+                              displayPrice = formatRupiah(numericP);
+                            }
+                          }
 
                           if (!displayPrice) {
                             return <span className="text-xs font-bold text-slate-400 font-mono">—</span>;
@@ -2723,26 +1664,43 @@ export default function MenuView({
                           );
                         }
 
-                        // 2. Skenario Menu Khusus Online (Tidak dijual offline)
-                        if (!isChannelOffline) {
-                          const displayPrice = onlineDisplay || formatRupiah(offlinePrice);
-                          const numericP = targetNumericPrice || offlinePrice;
+                        // Hitung harga Food Apps (GoFood / GrabFood / ShopeeFood) secara terpisah dari TikTok Go
+                        let deliveryDisplay: string | null = null;
+                        if (isDeliveryActive) {
+                          const deliveryVals = deliverySlugs
+                            .filter(s => normChs === null || normChs.includes(s))
+                            .map(s => pricesObj[s])
+                            .filter(v => v !== undefined && v !== null && !isNaN(Number(v)) && Number(v) >= 0)
+                            .map(v => Number(v));
 
-                          return (
-                            <div className="flex flex-col items-end gap-0.5">
-                              {item.strike_price && numericP && item.strike_price > numericP && (
-                                <span className="text-xs text-gray-400 line-through decoration-gray-400/50">
-                                  {formatRupiah(item.strike_price)}
-                                </span>
-                              )}
-                              <span className="text-sm font-bold text-gray-900 font-mono">
-                                {displayPrice}
-                              </span>
-                            </div>
-                          );
+                          if (deliveryVals.length === 0) {
+                            const fallback = pricesObj['all_food_apps'] ?? pricesObj['online'];
+                            if (fallback !== undefined && fallback !== null && !isNaN(Number(fallback)) && Number(fallback) >= 0) {
+                              deliveryVals.push(Number(fallback));
+                            }
+                          }
+
+                          if (deliveryVals.length > 0) {
+                            const minP = Math.min(...deliveryVals);
+                            const maxP = Math.max(...deliveryVals);
+                            deliveryDisplay = minP === maxP ? formatRupiah(minP) : `${formatRupiah(minP)} - ${formatRupiah(maxP)}`;
+                          } else {
+                            deliveryDisplay = formatRupiah(offlinePrice);
+                          }
                         }
 
-                        // 3. Skenario Umum (Dijual Offline & Online)
+                        // Hitung harga TikTok Go tersendiri
+                        let tiktokDisplay: string | null = null;
+                        if (isTiktokActive) {
+                          const rawTk = pricesObj['tiktokgo'] ?? pricesObj['tiktok_go'];
+                          const tkNum =
+                            rawTk !== undefined && rawTk !== null && !isNaN(Number(rawTk)) && Number(rawTk) >= 0
+                              ? Number(rawTk)
+                              : offlinePrice;
+                          tiktokDisplay = formatRupiah(tkNum);
+                        }
+
+                        // 2. Skenario Umum: tampilkan badge terpisah untuk Offline, Food Apps, dan TikTok Go
                         return (
                           <div className="flex flex-col items-end gap-1">
                             {item.strike_price && item.strike_price > offlinePrice && (
@@ -2750,14 +1708,22 @@ export default function MenuView({
                                 {formatRupiah(item.strike_price)}
                               </span>
                             )}
-                            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-50/90 border border-amber-200/80 shadow-2xs" title="Harga Jual Offline Kasir Toko">
-                              <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">Offline:</span>
-                              <span className="text-xs font-black text-amber-950 font-mono">{formatRupiah(offlinePrice)}</span>
-                            </div>
-                            {onlineDisplay && (
-                              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-50/90 border border-emerald-200/80 shadow-2xs" title="Harga Jual Online Food Apps">
+                            {isChannelOffline && (
+                              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-50/90 border border-amber-200/80 shadow-2xs" title="Harga Jual Offline Kasir Toko">
+                                <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">Offline:</span>
+                                <span className="text-xs font-black text-amber-950 font-mono">{formatRupiah(offlinePrice)}</span>
+                              </div>
+                            )}
+                            {deliveryDisplay && (
+                              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-50/90 border border-emerald-200/80 shadow-2xs" title="Harga GoFood, GrabFood & ShopeeFood">
                                 <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">Food Apps:</span>
-                                <span className="text-xs font-black text-emerald-950 font-mono">{onlineDisplay}</span>
+                                <span className="text-xs font-black text-emerald-950 font-mono">{deliveryDisplay}</span>
+                              </div>
+                            )}
+                            {tiktokDisplay && (
+                              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-slate-100/90 border border-slate-300/80 shadow-2xs" title={item.is_campaign_active && item.campaign_price ? `TikTok Go (Campaign: ${formatRupiah(item.campaign_price)})` : 'Harga TikTok Go'}>
+                                <span className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider">TikTok Go:</span>
+                                <span className="text-xs font-black text-slate-900 font-mono">{tiktokDisplay}</span>
                               </div>
                             )}
                           </div>

@@ -554,10 +554,29 @@ export async function approveBudgetTopupAction(input: {
   notes?: string
 }) {
   const authedClient = await getAuthedClient()
-  await getCurrentUserId(authedClient)
+  const userId = await getCurrentUserId(authedClient)
 
-  // Otorisasi sederhana berdasarkan role (bisa diperketat lagi nanti jika perlu)
   const supabase = makeServiceClient()
+  const { data: staff } = await supabase
+    .from('outlet_staff')
+    .select('role, status')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (!staff || staff.status !== 'active') {
+    throw new Error('Forbidden: akun tidak aktif')
+  }
+
+  const financeRoles = ['admin_finance', 'admin', 'owner', 'developer']
+  const managerRoles = ['area_manager', 'regional_manager', 'korlap', 'spv', ...financeRoles]
+
+  if (input.action === 'approve_finance' && !financeRoles.includes(staff.role)) {
+    throw new Error('Forbidden: hanya Finance/Admin/Owner yang berwenang menyetujui pencairan budget')
+  }
+  if ((input.action === 'approve_am' || input.action === 'reject') && !managerRoles.includes(staff.role)) {
+    throw new Error('Forbidden: peran Anda tidak berwenang memproses persetujuan budget ini')
+  }
+
   const { data, error } = await supabase.rpc('approve_budget_topup_svc', {
     p_request_id: input.requestId,
     p_action: input.action,

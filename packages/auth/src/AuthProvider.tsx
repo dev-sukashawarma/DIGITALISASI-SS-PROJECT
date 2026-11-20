@@ -103,15 +103,15 @@ export const AuthProvider: React.FC<{
   const signOut = async () => {
     try {
       await Promise.race([
-        supabase.auth.signOut({ scope: 'local' }),
-        new Promise((resolve) => setTimeout(resolve, 1000)),
+        supabase.auth.signOut(),
+        new Promise((resolve) => setTimeout(resolve, 1200)),
       ])
     } catch {}
     if (typeof document !== 'undefined') {
       const domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined
       for (const raw of document.cookie.split(';')) {
         const name = raw.split('=')[0].trim()
-        if (!name.startsWith('sb-')) continue
+        if (!name.startsWith('sb-') && name !== '_suka_gate') continue
         document.cookie = `${name}=; Max-Age=0; path=/`
         if (domain) document.cookie = `${name}=; Max-Age=0; path=/; domain=${domain}`
       }

@@ -9,9 +9,9 @@ async function verifyAdmin() {
   if (!userId) return false
 
   const supabaseService = createServiceClient()
-  const { data: profile } = await supabaseService.from('outlet_staff').select('role').eq('id', userId).single()
+  const { data: profile } = await supabaseService.from('outlet_staff').select('role, status').eq('id', userId).single()
 
-  if (!profile || (profile.role !== 'admin' && profile.role !== 'developer')) return false
+  if (!profile || profile.status !== 'active' || (profile.role !== 'admin' && profile.role !== 'developer')) return false
   return true
 }
 
@@ -60,9 +60,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Username sudah digunakan, silakan pilih username lain.' }, { status: 400 })
   }
 
-  // Update Auth User if password is provided or username changed (email changed)
+  // Update Auth User if password is provided, username changed, or active status toggled
+  const activeFlag = is_active ?? true
   const email = `${username}@ss.com`
-  const updateData: any = { email }
+  const updateData: any = {
+    email,
+    ban_duration: activeFlag ? 'none' : '876000h',
+  }
   if (password && password.trim() !== '') {
     updateData.password = password
   }
@@ -87,8 +91,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     role,
     outlet_id,
     username,
-    is_active: is_active ?? true,
-    inactive_reason: inactive_reason || null
+    status: activeFlag ? 'active' : 'inactive',
+    is_active: activeFlag,
+    inactive_reason: activeFlag ? null : (inactive_reason || null)
   }).eq('id', userId)
 
   if (profileError) {

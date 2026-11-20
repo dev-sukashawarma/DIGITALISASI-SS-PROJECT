@@ -16,11 +16,11 @@ export async function POST(request: Request) {
 
     const { data: profile } = await supabaseAuth
       .from('outlet_staff')
-      .select('role')
+      .select('role, status')
       .eq('id', userId)
       .maybeSingle()
 
-    if (!profile || !['admin', 'owner', 'developer'].includes(profile.role)) {
+    if (!profile || profile.status !== 'active' || !['admin', 'owner', 'developer'].includes(profile.role)) {
       return NextResponse.json({ error: 'Akses ditolak. Harus Admin atau Owner.' }, { status: 403 })
     }
 

@@ -1,7 +1,7 @@
 'use client'
 import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import { createSupabaseBrowserClient, getOutletStaff, BrandProvider, useBrand } from '@suka/auth'
+import { BrandProvider, useBrand } from '@suka/auth'
 import { Button, Input } from '@suka/design-system'
 import { LogIn, AlertCircle, Loader2, ShieldCheck, CheckCircle2, MapPin, QrCode, Eye, EyeOff } from 'lucide-react'
 
@@ -18,87 +18,58 @@ function LoginForm() {
   const router = useRouter()
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
+  const [honeypot, setHoneypot] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (loading) return
     setError(null)
     setLoading(true)
-    const supabase = createSupabaseBrowserClient()
-    const cleanId = identifier.trim()
-    const cleanPassword = password.trim()
-    let authData: any = null
-    let authError: any = null
 
-    if (cleanId.includes('@')) {
-      const res = await supabase.auth.signInWithPassword({ email: cleanId, password: cleanPassword })
-      authData = res.data
-      authError = res.error
-    } else {
-      // Username login: resolve potential email aliases
-      const { data: staffMatch } = await supabase
-        .from('outlet_staff')
-        .select('email, username')
-        .ilike('username', cleanId)
-        .maybeSingle()
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier,
+          password,
+          company_url: honeypot,
+        }),
+      })
 
-      const rawUser = staffMatch?.username || cleanId
-      const candidateEmails = [
-        `${rawUser.toLowerCase()}@ss.com`,
-        staffMatch?.email,
-        `${rawUser.toLowerCase()}@outlet.local`,
-      ].filter(Boolean) as string[]
-
-      const uniqueCandidates = Array.from(new Set(candidateEmails))
-
-      for (const candidate of uniqueCandidates) {
-        const res = await supabase.auth.signInWithPassword({ email: candidate, password: cleanPassword })
-        if (!res.error && res.data?.user) {
-          authData = res.data
-          authError = null
-          break
-        }
-        authError = res.error
+      const payload = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        role?: string
+        error?: string
       }
-    }
 
-    if (authError || !authData?.user) {
+      if (!res.ok || !payload.ok) {
+        setLoading(false)
+        setError(payload.error || 'Email atau kata sandi salah.')
+        return
+      }
+
+      if (payload.role && ['mitra', 'korlap'].includes(payload.role)) {
+        const host = typeof window !== 'undefined' ? window.location.hostname : ''
+        const isLocal = host.includes('localhost') || host.includes('127.0.0.1')
+        const adminUrl =
+          process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD ||
+          (isLocal ? 'http://localhost:3005' : 'https://admin.sukashawarma.com')
+        window.location.href = adminUrl
+        return
+      }
+
+      router.push('/launcher')
+      router.refresh()
+    } catch {
       setLoading(false)
-      const hint = !identifier.includes('@') ? ' Jika Anda admin/owner/leader/regional manager, gunakan email lengkap.' : ''
-      setError(`Email atau kata sandi salah.${hint}`)
-      return
+      setError('Gagal terhubung ke server. Periksa koneksi internet Anda lalu coba kembali.')
     }
-
-    const data = authData
-
-    // Verifikasi status staff sebelum masuk — akun nonaktif/cuti tidak boleh lanjut
-    const { staff, error: staffError } = await getOutletStaff(supabase, data.user.id)
-    if (staffError) console.error('getOutletStaff error:', staffError)
-    
-    if (!staff) {
-      await supabase.auth.signOut()
-      setLoading(false)
-      setError('Akun Anda belum terdaftar sebagai staff. Hubungi admin.')
-      return
-    }
-    if (staff.status !== 'active') {
-      await supabase.auth.signOut()
-      setLoading(false)
-      setError('Akun Anda nonaktif. Hubungi admin untuk mengaktifkan kembali.')
-      return
-    }
-
-    if (['mitra', 'korlap'].includes(staff.role)) {
-      const host = typeof window !== 'undefined' ? window.location.hostname : ''
-      const isLocal = host.includes('localhost') || host.includes('127.0.0.1')
-      const adminUrl = process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD || (isLocal ? 'http://localhost:3005' : 'https://admin.sukashawarma.com')
-      window.location.href = adminUrl
-      return
-    }
-    
-    router.push('/launcher')
   }
 
   return (
@@ -197,6 +168,23 @@ function LoginForm() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Field jebakan bot (honeypot) tak terlihat oleh manusia maupun screen reader */}
+              <div
+                aria-hidden="true"
+                className="absolute -left-[9999px] top-auto w-px h-px overflow-hidden opacity-0 pointer-events-none"
+              >
+                <label htmlFor="company_url">Company URL</label>
+                <input
+                  id="company_url"
+                  name="company_url"
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={honeypot}
+                  onChange={e => setHoneypot(e.target.value)}
+                />
+              </div>
+
               <div className="relative">
                 <Input
                   id="identifier"

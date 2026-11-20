@@ -68,10 +68,14 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
     }
     
     const email = `${String(username).toLowerCase().replace(/[^a-z0-9_]/g, "")}@ss.com`;
+    const effectivePassword =
+      typeof password === 'string' && password.trim().length > 0
+        ? password.trim()
+        : (await import('crypto')).randomBytes(12).toString('base64url');
 
     // 1. Create auth user in Digitalisasi
     const { data: newUser, error: createError } = await admin.auth.admin.createUser({
-      email, password: password || '123456', email_confirm: true,
+      email, password: effectivePassword, email_confirm: true,
       user_metadata: { role, name, outlet_id },
     });
     if (createError) return { ok: false, error: `Gagal membuat akun auth: ${createError.message}` };
@@ -137,7 +141,7 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
           const { error: ooCreateError } = await orderOnline.auth.admin.createUser({
             id: staffId,
             email, 
-            password: password || '123456', 
+            password: effectivePassword, 
             email_confirm: true,
             user_metadata: { role: 'outlet_staff', full_name: name, outlet_id },
           });

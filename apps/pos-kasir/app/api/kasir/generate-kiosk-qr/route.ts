@@ -12,10 +12,14 @@ export async function POST(request: Request) {
     }
 
     const supabaseService = createServiceClient()
-    const { data: profile } = await supabaseService.from('outlet_staff').select('role, outlet_id').eq('id', user.id).single()
+    const { data: profile } = await supabaseService
+      .from('outlet_staff')
+      .select('role, outlet_id, status')
+      .eq('id', user.id)
+      .single()
 
-    if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
-      return NextResponse.json({ error: 'Akses ditolak. Hanya staf kasir/cabang yang diizinkan.' }, { status: 403 })
+    if (!profile || profile.status !== 'active' || !ALLOWED_ROLES.includes(profile.role)) {
+      return NextResponse.json({ error: 'Akses ditolak. Hanya staf kasir/cabang aktif yang diizinkan.' }, { status: 403 })
     }
 
     // 1. Parse body untuk mendapatkan kiosk_id

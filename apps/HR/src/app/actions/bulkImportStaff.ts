@@ -26,7 +26,11 @@ export async function bulkImportStaffAction(
 
   const admin = getAdminSupabase()
   const updateExisting = options?.updateExisting ?? true
-  const defaultPassword = options?.defaultPassword || '123456'
+  const cryptoMod = await import('crypto')
+  const explicitDefaultPassword =
+    typeof options?.defaultPassword === 'string' && options.defaultPassword.trim().length >= 8
+      ? options.defaultPassword.trim()
+      : null
   const syncMonth = options?.syncPayrollMonth || 1
   const syncYear = options?.syncPayrollYear || 2026
 
@@ -125,10 +129,12 @@ export async function bulkImportStaffAction(
             row.statusLabel?.toLowerCase().includes('trainee') ||
             row.positionLabel?.toLowerCase().includes('trainee'))
 
-        // 1. Create Auth User
+        // 1. Create Auth User (hindari fallback '123456' statis bila admin tidak menyuplai password kuat)
+        const initialPassword =
+          explicitDefaultPassword || cryptoMod.randomBytes(12).toString('base64url')
         const { data: authUser, error: authErr } = await admin.auth.admin.createUser({
           email,
-          password: defaultPassword,
+          password: initialPassword,
           email_confirm: true,
           user_metadata: {
             role: row.role,

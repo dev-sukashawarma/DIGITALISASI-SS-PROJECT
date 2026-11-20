@@ -26,8 +26,8 @@ export async function middleware(request: NextRequest) {
     return redirectResponse
   }
 
-  // Rute publik → langsung lolos tanpa cek login
-  if (pathname.startsWith('/public/')) {
+  // Rute publik & endpoint autentikasi portal → langsung lolos tanpa redirect
+  if (pathname.startsWith('/public/') || pathname.startsWith('/api/auth/')) {
     return response
   }
 
@@ -42,7 +42,7 @@ export async function middleware(request: NextRequest) {
     if (!user) {
       const domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined
       for (const { name } of request.cookies.getAll()) {
-        if (!name.startsWith('sb-')) continue
+        if (!name.startsWith('sb-') && name !== '_suka_gate') continue
         // Header mentah: response.cookies.set dengan nama sama saling menimpa,
         // padahal varian host-only DAN varian domain sama-sama harus dihapus.
         response.headers.append('Set-Cookie', `${name}=; Max-Age=0; Path=/`)

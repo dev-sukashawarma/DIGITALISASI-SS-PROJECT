@@ -24,11 +24,11 @@ async function verifyAdmin() {
 
   const { data: profile } = await supabaseAuth
     .from('outlet_staff')
-    .select('role')
+    .select('role, status')
     .eq('id', userId)
     .maybeSingle()
 
-  if (!profile || !['admin', 'owner', 'developer'].includes(profile.role)) return null
+  if (!profile || profile.status !== 'active' || !['admin', 'owner', 'developer'].includes(profile.role)) return null
   return supabaseAuth
 }
 
@@ -100,9 +100,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     const supabaseService = createServiceClient()
 
-    // Update Auth User if password is provided or username changed (email changed)
+    // Update Auth User if password is provided, username changed, or active state toggled
+    const activeFlag = is_active ?? true
     const email = `${username}@ss.com`
-    const updateData: Record<string, string> = { email }
+    const updateData: Record<string, string> = {
+      email,
+      ban_duration: activeFlag ? 'none' : '876000h',
+    }
     if (password && password.trim() !== '') {
       updateData.password = password
     }
@@ -122,14 +126,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: errMsg }, { status: 500 })
     }
 
-    // Update Profile
+    // Update Profile (sinkronkan status & is_active sekaligus)
     const { error: profileError } = await supabaseService.from('outlet_staff').update({
       name: normalizedName,
       role,
       outlet_id: primaryOutletId,
       username,
-      is_active: is_active ?? true,
-      inactive_reason: inactive_reason || null,
+      status: activeFlag ? 'active' : 'inactive',
+      is_active: activeFlag,
+      inactive_reason: activeFlag ? null : (inactive_reason || null),
       is_bonus_eligible: is_bonus_eligible !== undefined ? is_bonus_eligible : true
     }).eq('id', userId)
 

@@ -10,8 +10,11 @@ export default function LogoutButton() {
     const supabase = createSupabaseBrowserClient()
     try {
       await Promise.race([
-        supabase.auth.signOut({ scope: 'local' }),
-        new Promise((resolve) => setTimeout(resolve, 1000)),
+        Promise.allSettled([
+          fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin', cache: 'no-store' }),
+          supabase.auth.signOut(),
+        ]),
+        new Promise((resolve) => setTimeout(resolve, 1200)),
       ])
     } catch {}
     
@@ -19,13 +22,14 @@ export default function LogoutButton() {
       const domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined
       for (const raw of document.cookie.split(';')) {
         const name = raw.split('=')[0].trim()
-        if (!name.startsWith('sb-')) continue
+        if (!name.startsWith('sb-') && name !== '_suka_gate') continue
         document.cookie = `${name}=; Max-Age=0; path=/`
         if (domain) document.cookie = `${name}=; Max-Age=0; path=/; domain=${domain}`
       }
     }
     
     router.push('/')
+    router.refresh()
   }
 
   return (

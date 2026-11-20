@@ -12,9 +12,9 @@ export async function POST(request: Request) {
   }
 
   const supabaseService = createServiceClient()
-  const { data: profile } = await supabaseService.from('outlet_staff').select('role').eq('id', userId).single()
+  const { data: profile } = await supabaseService.from('outlet_staff').select('role, status').eq('id', userId).single()
 
-  if (!profile || (profile.role !== 'admin' && profile.role !== 'developer')) {
+  if (!profile || profile.status !== 'active' || (profile.role !== 'admin' && profile.role !== 'developer')) {
     return NextResponse.json({ error: 'Akses ditolak. Harus Admin.' }, { status: 403 })
   }
 

@@ -33,54 +33,58 @@ export async function POST(request: Request) {
   const supabaseAuth = await createClient()
 
   const userId = await getVerifiedUserId(supabaseAuth)
+  if (!userId) {
+    return NextResponse.json(
+      { error: 'Sesi perangkat Kiosk/Kasir tidak ditemukan. Silakan scan QR login terlebih dahulu.' },
+      { status: 401 }
+    )
+  }
+
+  let outlet_id = PUSAT_OUTLET_ID // Default to Pusat for Admin testing Kiosk Mode
+
+  const { data: profile } = await supabaseService
+    .from('outlet_staff')
+    .select('outlet_id, role, status')
+    .eq('id', userId)
+    .single()
+
+  if (!profile || profile.status !== 'active') {
+    return NextResponse.json({ error: 'Sesi tidak valid atau akun sudah nonaktif' }, { status: 403 })
+  }
   
-  let outlet_id = PUSAT_OUTLET_ID // Default to Pusat for Kiosk Mode
+  // If Admin is testing Kiosk, use the Pusat ID. Else use their outlet_id.
+  // Cek apakah kasir sedang ditugaskan BKO darurat hari ini atau absen di cabang lain
+  const todayWib = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
+  const { data: bko } = await supabaseService
+    .from('emergency_crew_assignments')
+    .select('target_outlet_id')
+    .eq('staff_id', userId)
+    .eq('assignment_date', todayWib)
+    .eq('status', 'active')
+    .maybeSingle()
 
-  if (userId) {
-    const { data: profile } = await supabaseService
-      .from('outlet_staff')
-      .select('outlet_id, role')
-      .eq('id', userId)
-      .single()
-
-    if (!profile) {
-      return NextResponse.json({ error: 'Sesi tidak valid, profil tidak ditemukan' }, { status: 403 })
-    }
-    
-    // If Admin is testing Kiosk, use the Pusat ID. Else use their outlet_id.
-    // Cek apakah kasir sedang ditugaskan BKO darurat hari ini atau absen di cabang lain
-    const todayWib = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
-    const { data: bko } = await supabaseService
-      .from('emergency_crew_assignments')
-      .select('target_outlet_id')
-      .eq('staff_id', userId)
-      .eq('assignment_date', todayWib)
-      .eq('status', 'active')
+  if (bko?.target_outlet_id) {
+    outlet_id = bko.target_outlet_id
+  } else {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const { data: att } = await supabaseService
+      .from('attendance')
+      .select('outlet_id')
+      .eq('outlet_staff_id', userId)
+      .gte('created_at', today.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle()
 
-    if (bko?.target_outlet_id) {
-      outlet_id = bko.target_outlet_id
+    if (att?.outlet_id) {
+      outlet_id = att.outlet_id
+    } else if ((profile.role === 'admin' || profile.role === 'developer') && !profile.outlet_id) {
+      outlet_id = PUSAT_OUTLET_ID
+    } else if (profile.outlet_id) {
+      outlet_id = profile.outlet_id
     } else {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const { data: att } = await supabaseService
-        .from('attendance')
-        .select('outlet_id')
-        .eq('outlet_staff_id', userId)
-        .gte('created_at', today.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (att?.outlet_id) {
-        outlet_id = att.outlet_id
-      } else if ((profile.role === 'admin' || profile.role === 'developer') && !profile.outlet_id) {
-        outlet_id = PUSAT_OUTLET_ID
-      } else if (profile.outlet_id) {
-        outlet_id = profile.outlet_id
-      } else {
-        return NextResponse.json({ error: 'Akun Anda tidak memiliki Cabang (Outlet) yang terhubung.' }, { status: 403 })
-      }
+      return NextResponse.json({ error: 'Akun Anda tidak memiliki Cabang (Outlet) yang terhubung.' }, { status: 403 })
     }
   }
 

@@ -1,8 +1,28 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/server';
+import { resolveApiUser } from '@/lib/api-auth';
 
 export async function POST(req: Request) {
   try {
+    // Wajib autentikasi role developer atau admin aktif agar endpoint testing
+    // tidak dapat ditembak publik untuk membuat pesanan palsu di produksi.
+    const caller = await resolveApiUser(req);
+    if (!caller) {
+      return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
+    }
+
+    const posService = createServiceClient();
+    const { data: staff } = await posService
+      .from('outlet_staff')
+      .select('role, status')
+      .eq('id', caller.id)
+      .maybeSingle();
+
+    if (!staff || staff.status !== 'active' || !['developer', 'admin'].includes(staff.role)) {
+      return NextResponse.json({ error: "Akses ditolak. Khusus Developer/Admin." }, { status: 403 });
+    }
+
     const { posOutletId } = await req.json();
 
     if (!posOutletId) {

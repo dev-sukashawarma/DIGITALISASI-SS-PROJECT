@@ -1,7 +1,8 @@
 import type { PeriodFilterValue } from "@/lib/types";
 import { cleanItemName } from "@/lib/order-item-name";
 import { isTestOutlet, TEST_OUTLET_ID } from "@/lib/outletFilters";
-import { fetchAllPagesParallel } from "@/lib/queryPaging";
+import { fetchAllPagesParallel, runWithConcurrency } from "@/lib/queryPaging";
+import { splitDateRangeChunks } from "@/lib/ownerDashboardAlign";
 import { isMitraOutlet } from "@/lib/outletOwnership";
 import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from "@/lib/hpp/riwayatHpp";
 import { adalahKanalSsOnline } from "@/lib/hpp/kanalSsOnline";
@@ -256,6 +257,42 @@ export function getItemHpp(
 }
 
 const PAGE_SIZE = 1000;
+const HPP_ORDER_CHUNK_DAYS = 3;
+const HPP_CHUNK_CONCURRENCY = 3;
+const HPP_PAGE_CONCURRENCY = 2;
+
+export interface OrderDateChunkBound {
+  gte: string;
+  lt?: string;
+  lte?: string;
+}
+
+function nextDateYmd(ymd: string): string {
+  const ms = Date.parse(`${ymd}T00:00:00Z`);
+  if (!Number.isFinite(ms)) return ymd;
+  return new Date(ms + 86_400_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Memecah rentang tanggal menjadi potongan <= 3 hari dengan batas setengah-terbuka
+ * `[start, nextDay)` pada potongan non-terakhir agar tidak ada celah sub-milidetik
+ * maupun tumpang tindih pada kolom `orders.created_at` (timestamptz mikrodetik).
+ */
+export function buildOrderDateChunks(
+  fromDateStr: string,
+  toDateStr: string,
+  maxDays: number = HPP_ORDER_CHUNK_DAYS,
+): OrderDateChunkBound[] {
+  const rawChunks = splitDateRangeChunks(fromDateStr, toDateStr, maxDays);
+  return rawChunks.map((chunk, idx) => {
+    const isLast = idx === rawChunks.length - 1;
+    const gte = `${chunk.from}T00:00:00+07:00`;
+    if (isLast) {
+      return { gte, lte: `${chunk.to}T23:59:59.999+07:00` };
+    }
+    return { gte, lt: `${nextDateYmd(chunk.to)}T00:00:00+07:00` };
+  });
+}
 
 // Kolom HPP yang dipakai getItemHpp. Ditarik SEKALI dari `menu_items` (50 baris)
 // lalu dipetakan per id, bukan ikut di-join ke tiap order_item.
@@ -322,26 +359,42 @@ export async function fetchHppRows(
   // dulu ikut di-join persis baris yang sama dengan yang sudah ada di
   // penerapHpp.byId di atas.
   //
-  // `status` disaring di server (dulu tiap baris ditarik lalu dibuang di
-  // klien), dan `.order('id')` membuat urutan halaman deterministik —
-  // syarat mutlak sebelum halaman boleh diambil paralel.
-  const buildOrdersPage = (from: number, to: number, withCount: boolean) => {
-    let b = supabase
-      .from("orders")
-      .select(
-        "outlet_id, channel, sales_source, customer_name, is_endorse, created_at, order_items(menu_item_id, menu_item_name, quantity)",
-        withCount ? { count: "exact" } : undefined,
-      )
-      .neq("outlet_id", TEST_OUTLET_ID)
-      .in("status", ["completed", "settled"])
-      .gte("created_at", ordersGte)
-      .lte("created_at", ordersLte)
-      .order("id", { ascending: true });
+  // Rentang dipecah per <= 3 hari dan diurutkan berdasarkan `(created_at, id)`
+  // (bukan `id` saja). Di PostgREST, `LIMIT/OFFSET` berada di luar `LEFT JOIN
+  // LATERAL order_items`: mengurutkan 1 bulan penuh dengan `id` memaksa
+  // PostgreSQL men-join semua ~21.000-35.000 order + disk sort 5,4 MB pada
+  // SETIAP halaman dan memicu `statement_timeout` 8 detik saat 20+ halaman
+  // dijalankan paralel. Dengan potongan <= 3 hari + `ORDER BY created_at, id`
+  // (selaras `idx_orders_created_at`, Incremental Sort 36 KB) + konkurensi
+  // terbatas, tiap halaman selesai ~20-60 ms tanpa spill ke disk.
+  const orderDateChunks = buildOrderDateChunks(fromDateStr, toDateStr);
+  const fetchChunkOrders = (chunk: OrderDateChunkBound) =>
+    fetchAllPagesParallel<any>(
+      (from: number, to: number, withCount: boolean) => {
+        let b = supabase
+          .from("orders")
+          .select(
+            "outlet_id, channel, sales_source, customer_name, is_endorse, created_at, order_items(menu_item_id, menu_item_name, quantity)",
+            withCount ? { count: "exact" } : undefined,
+          )
+          .neq("outlet_id", TEST_OUTLET_ID)
+          .in("status", ["completed", "settled"])
+          .gte("created_at", chunk.gte);
 
-    if (outletIdsTerbatas) b = b.in("outlet_id", outletIdsTerbatas);
-    else if (filter.outletId !== "all") b = b.eq("outlet_id", filter.outletId);
-    return b.range(from, to);
-  };
+        if (chunk.lt) b = b.lt("created_at", chunk.lt);
+        else if (chunk.lte) b = b.lte("created_at", chunk.lte);
+
+        b = b
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true });
+
+        if (outletIdsTerbatas) b = b.in("outlet_id", outletIdsTerbatas);
+        else if (filter.outletId !== "all") b = b.eq("outlet_id", filter.outletId);
+        return b.range(from, to);
+      },
+      PAGE_SIZE,
+      HPP_PAGE_CONCURRENCY,
+    );
 
   const wantsEcommerce =
     !outletIdsTerbatas &&
@@ -356,15 +409,17 @@ export async function fetchHppRows(
       )
       .gte("order_date", ordersGte)
       .lte("order_date", ordersLte)
+      .order("order_date", { ascending: true })
       .order("id", { ascending: true })
       .range(from, to);
 
-  const [allOrders, ecommerceSalesList] = await Promise.all([
-    fetchAllPagesParallel<any>(buildOrdersPage, PAGE_SIZE),
+  const [chunkedOrders, ecommerceSalesList] = await Promise.all([
+    runWithConcurrency(orderDateChunks, HPP_CHUNK_CONCURRENCY, fetchChunkOrders),
     wantsEcommerce
       ? fetchAllPagesParallel<any>(buildEcommercePage, PAGE_SIZE)
       : Promise.resolve([] as any[]),
   ]);
+  const allOrders = chunkedOrders.flat();
 
   const hppMap = new Map<
     string,

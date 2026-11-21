@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { getItemHpp, MENU_HPP_SELECT, MITRA_CILEUNGSI_OUTLET_ID } from './fetchHpp'
+import { buildOrderDateChunks, getItemHpp, MENU_HPP_SELECT, MITRA_CILEUNGSI_OUTLET_ID } from './fetchHpp'
 import { buatPenerapRiwayat } from './riwayatHpp'
 import { cleanItemName } from '@/lib/order-item-name'
+import { fetchAllPagesParallel, runWithConcurrency } from '@/lib/queryPaging'
 
 describe('getItemHpp', () => {
   const globalSapiSedang = {
@@ -181,5 +182,59 @@ describe('getItemHpp', () => {
     const res = getItemHpp(null, 'mitra', 'Original Sapi Sedang', penerap.byName, null, 'mitra-lain', '2026-10-31')
     expect(res.baseHpp).toBe(13205)
     expect(res.hpp).toBe(Math.round(14525.5))
+  })
+})
+
+describe('buildOrderDateChunks', () => {
+  it('satu hari memakai batas inklusif tunggal', () => {
+    expect(buildOrderDateChunks('2026-11-21', '2026-11-21', 3)).toEqual([
+      { gte: '2026-11-21T00:00:00+07:00', lte: '2026-11-21T23:59:59.999+07:00' },
+    ])
+  })
+
+  it('lintas bulan memakai batas setengah-terbuka [gte, lt) tanpa celah dan inklusif di akhir', () => {
+    expect(buildOrderDateChunks('2026-10-29', '2026-11-03', 3)).toEqual([
+      { gte: '2026-10-29T00:00:00+07:00', lt: '2026-11-01T00:00:00+07:00' },
+      { gte: '2026-11-01T00:00:00+07:00', lte: '2026-11-03T23:59:59.999+07:00' },
+    ])
+  })
+})
+
+describe('runWithConcurrency & fetchAllPagesParallel', () => {
+  it('membatasi jumlah kueri bersamaan dan menjaga urutan hasil', async () => {
+    let active = 0
+    let peak = 0
+    const out = await runWithConcurrency([1, 2, 3, 4, 5, 6, 7], 3, async (x) => {
+      active++
+      peak = Math.max(peak, active)
+      await new Promise((r) => setTimeout(r, 5))
+      active--
+      return x * 10
+    })
+    expect(peak).toBeLessThanOrEqual(3)
+    expect(out).toEqual([10, 20, 30, 40, 50, 60, 70])
+  })
+
+  it('fetchAllPagesParallel menghormati maxConcurrency dan menyatukan semua halaman berurutan', async () => {
+    let active = 0
+    let peak = 0
+    const all = Array.from({ length: 25 }, (_, i) => i)
+    const rows = await fetchAllPagesParallel<number>(
+      async (from, to, withCount) => {
+        active++
+        peak = Math.max(peak, active)
+        await new Promise((r) => setTimeout(r, 5))
+        active--
+        return {
+          data: all.slice(from, to + 1),
+          error: null,
+          count: withCount ? all.length : null,
+        }
+      },
+      5,
+      2,
+    )
+    expect(peak).toBeLessThanOrEqual(2)
+    expect(rows).toEqual(all)
   })
 })

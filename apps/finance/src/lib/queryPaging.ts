@@ -14,6 +14,32 @@
  *    jumlah total, sisa halaman bisa diambil bersamaan.
  */
 const PAGE_SIZE = 1000
+const DEFAULT_MAX_CONCURRENCY = 4
+
+/**
+ * Menjalankan tugas asinkron untuk tiap item dengan batas konkurensi agar tidak
+ * membanjiri pool koneksi / CPU PostgreSQL sekaligus (mencegah statement_timeout).
+ */
+export async function runWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) return []
+  const cap = Math.max(1, Math.min(Math.floor(limit), items.length))
+  const results = new Array<R>(items.length)
+  let nextIdx = 0
+
+  const runners = Array.from({ length: cap }, async () => {
+    while (nextIdx < items.length) {
+      const i = nextIdx++
+      results[i] = await worker(items[i], i)
+    }
+  })
+
+  await Promise.all(runners)
+  return results
+}
 
 export async function fetchAllPagesParallel<T = any>(
   // `withCount` hanya true untuk halaman pertama: COUNT(*) di-hitung ulang tiap
@@ -24,6 +50,7 @@ export async function fetchAllPagesParallel<T = any>(
     withCount: boolean,
   ) => PromiseLike<{ data: T[] | null; error: any; count?: number | null }>,
   pageSize: number = PAGE_SIZE,
+  maxConcurrency: number = DEFAULT_MAX_CONCURRENCY,
 ): Promise<T[]> {
   const first = await buildPage(0, pageSize - 1, true)
   if (first.error) throw first.error
@@ -44,12 +71,10 @@ export async function fetchAllPagesParallel<T = any>(
   }
 
   const pages = Math.ceil(total / pageSize)
-  const rest = await Promise.all(
-    Array.from({ length: pages - 1 }, (_, i) => {
-      const offset = (i + 1) * pageSize
-      return buildPage(offset, offset + pageSize - 1, false)
-    }),
-  )
+  const offsets = Array.from({ length: Math.max(0, pages - 1) }, (_, i) => (i + 1) * pageSize)
+  const rest = await runWithConcurrency(offsets, maxConcurrency, async (offset) => {
+    return buildPage(offset, offset + pageSize - 1, false)
+  })
   const all = [...firstPage]
   for (const r of rest) {
     if (r.error) throw r.error

@@ -7,7 +7,19 @@ import { useAuth } from '@suka/auth'
 import type { Opname, OpnameItem } from '@/types/stok'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit'
-import { getThresholdPersen, computeSelisihPersen, getMaterialType, isSelisihFlagged, THRESHOLD_BULK_PERSEN } from '@/lib/stok/selisih'
+import {
+  getThresholdPersen,
+  computeSelisihPersen,
+  getMaterialType,
+  isSelisihFlagged,
+  nilaiToleransiSelisih,
+  hitungSusutAktualPersen,
+  THRESHOLD_BULK_PERSEN,
+  SUSUT_POS_AYAM_SAPI_PERSEN,
+  SUSUT_POS_KENTANG_PERSEN,
+  SUSUT_POS_SAOS_PERSEN,
+} from '@/lib/stok/selisih'
+import { fetchPemakaianPosOpnameAction } from '@/app/actions/opname'
 import { isBahanOpname } from '@/lib/stok/opnameScope'
 import { ringkasWasteOpname, type WasteReportRow, type WasteOpnameRingkas } from '@/lib/stok/wasteOpname'
 import { canViewJurnalMutasi } from '@/lib/stok/navAccess'
@@ -25,6 +37,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
   const [opname, setOpname] = useState<Opname | null>(null)
   const [items, setItems] = useState<OpnameItem[]>([])
   const [bomUsage, setBomUsage] = useState<Record<string, number>>({})
+  const [bomUsageLoaded, setBomUsageLoaded] = useState(false)
   const [wasteRaw, setWasteRaw] = useState<{
     reports: WasteReportRow[]; approvedAt: Record<string, string>; start: string; cutoff: string
   } | null>(null)
@@ -71,23 +84,37 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
         setOpname(opData)
         setItems((itemsRes.data as OpnameItem[]) ?? [])
 
-        // Pemakaian resep (BOM) tanggal opname, bersih per bahan — dihitung
-        // server (migration 20261020100000). Dulu dijumlah di sini dari
-        // ledger_stok mentah: outlet ramai menulis >1.000 baris sehari dan
-        // PostgREST memotong di 1.000, dan order batal tetap terhitung.
-        if (opData?.tanggal && opData?.outlet_id) {
-          const { data: usageData, error: usageError } = await supabase.rpc('pemakaian_resep_harian', {
-            p_outlet_id: opData.outlet_id,
-            p_tanggal: String(opData.tanggal).slice(0, 10),
-          })
-          if (usageError) {
-            console.error('[OpnameDetail] pemakaian_resep_harian:', usageError)
-          } else {
-            const usageMap: Record<string, number> = {}
-            for (const row of (usageData as { bahan_baku_id: string; qty: number | string }[] | null) ?? []) {
-              usageMap[row.bahan_baku_id] = Number(row.qty) || 0
+        // Pemakaian POS bersih periode opname (jendela tutup opname lalu -> opname ini,
+        // sudah gram-scale, order batal dibalik) agar 100% sinkron dengan Jurnal Rekonsiliasi.
+        // Fallback ke RPC `pemakaian_resep_harian` bila server action gagal.
+        if (opData?.outlet_id) {
+          let loaded = false
+          try {
+            const posRes = await fetchPemakaianPosOpnameAction(opData.outlet_id, opData.id)
+            if (!posRes.error && posRes.data) {
+              setBomUsage(posRes.data)
+              setBomUsageLoaded(true)
+              loaded = true
             }
-            setBomUsage(usageMap)
+          } catch (posErr) {
+            console.warn('[OpnameDetail] fetchPemakaianPosOpnameAction:', posErr)
+          }
+
+          if (!loaded && opData?.tanggal) {
+            const { data: usageData, error: usageError } = await supabase.rpc('pemakaian_resep_harian', {
+              p_outlet_id: opData.outlet_id,
+              p_tanggal: String(opData.tanggal).slice(0, 10),
+            })
+            if (usageError) {
+              console.error('[OpnameDetail] pemakaian_resep_harian:', usageError)
+            } else {
+              const usageMap: Record<string, number> = {}
+              for (const row of (usageData as { bahan_baku_id: string; qty: number | string }[] | null) ?? []) {
+                usageMap[row.bahan_baku_id] = Number(row.qty) || 0
+              }
+              setBomUsage(usageMap)
+              setBomUsageLoaded(true)
+            }
           }
         }
 
@@ -188,8 +215,9 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
     for (const it of items) {
       if (it.qty_fisik === null) continue;
       const b = bahanMap[it.bahan_baku_id];
+      const pakaiPos = bomUsageLoaded ? (bomUsage[it.bahan_baku_id] ?? 0) : undefined;
       const isFlagged = b
-        ? isSelisihFlagged(it.selisih, it.qty_system, b.satuan, b.satuan_kecil, b.nama)
+        ? isSelisihFlagged(it.selisih, it.qty_system, b.satuan, b.satuan_kecil, b.nama, pakaiPos)
         : it.flagged;
       if (it.selisih === 0) {
         pas++;
@@ -201,7 +229,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
     }
 
     return { pas, withinTol, flagged };
-  }, [items, bahanMap]);
+  }, [items, bahanMap, bomUsage, bomUsageLoaded]);
 
   const opnamedBahanIds = useMemo(() => new Set(items.map(it => it.bahan_baku_id)), [items]);
   const skippedBahan = useMemo(() => {
@@ -360,7 +388,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                   Analisis Threshold & Loss ({roleLabel})
                 </h4>
                 <p className="text-[10px] text-[#544437]/75 font-medium">
-                  Toleransi: <strong className="text-[#701604]">±{THRESHOLD_BULK_PERSEN}%</strong> (Bulk) • <strong className="text-[#701604]">±40%</strong> (Ayam, Sapi) • <strong className="text-[#701604]">0%</strong> (Count)
+                  Susut POS: <strong className="text-[#701604]">{SUSUT_POS_AYAM_SAPI_PERSEN}%</strong> (Ayam, Sapi · 2×) • <strong className="text-[#701604]">{SUSUT_POS_KENTANG_PERSEN}%</strong> (Kentang) • <strong className="text-[#701604]">{SUSUT_POS_SAOS_PERSEN}%</strong> (Saos) • Bulk lain <strong className="text-[#701604]">±{THRESHOLD_BULK_PERSEN}%</strong> (Sistem) • Count <strong className="text-[#701604]">0%</strong>
                 </p>
               </div>
             </div>
@@ -430,8 +458,9 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
               const jmlFlag = rows.filter((it) => {
                 if (it.qty_fisik === null) return false
                 const b = bahanMap[it.bahan_baku_id]
+                const pakaiPos = bomUsageLoaded ? (bomUsage[it.bahan_baku_id] ?? 0) : undefined
                 return b
-                  ? isSelisihFlagged(it.selisih, it.qty_system, b.satuan, b.satuan_kecil, b.nama)
+                  ? isSelisihFlagged(it.selisih, it.qty_system, b.satuan, b.satuan_kecil, b.nama, pakaiPos)
                   : it.flagged
               }).length
               return (
@@ -468,10 +497,22 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                     const unit = bahan ? bahan.satuan : '';
                     const category = bahan ? bahan.kategori : '';
 
+                    const pakaiPos = bomUsageLoaded ? (bomUsage[it.bahan_baku_id] ?? 0) : undefined;
                     const thresholdPersen = getThresholdPersen(bahan?.satuan, bahan?.satuan_kecil, bahan?.nama);
                     const selisihPersenInfo = computeSelisihPersen(it.selisih, it.qty_system);
+                    const toleransi = nilaiToleransiSelisih(
+                      it.selisih,
+                      it.qty_system,
+                      bahan?.satuan,
+                      bahan?.satuan_kecil,
+                      bahan?.nama,
+                      pakaiPos
+                    );
+                    const susutPersen = toleransi.basis === 'pos' && pakaiPos !== undefined
+                      ? hitungSusutAktualPersen(it.selisih, pakaiPos)
+                      : null;
                     const isFlagged = it.qty_fisik !== null && (bahan
-                      ? isSelisihFlagged(it.selisih, it.qty_system, bahan.satuan, bahan.satuan_kecil, bahan.nama)
+                      ? isSelisihFlagged(it.selisih, it.qty_system, bahan.satuan, bahan.satuan_kecil, bahan.nama, pakaiPos)
                       : it.flagged);
 
                     // qty_fisik/qty_system/selisih SELALU dalam satuan kecil (gram) --
@@ -553,30 +594,47 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                           {/* Keterangan Threshold & Persentase Loss Khusus Kitchen, Admin, Finance */}
                           {canViewThresholdAndLoss && it.qty_fisik !== null && (
                             <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
-                              {/* Persentase Loss / Surplus */}
+                              {/* Persentase Loss / Susut / Surplus */}
                               <span className={`text-[9px] font-black px-2 py-0.5 rounded border inline-flex items-center gap-1 ${
                                 selisihPersenInfo.isLoss
                                   ? isFlagged
                                     ? 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/25'
                                     : 'bg-orange-100 text-orange-800 border-orange-200'
                                   : selisihPersenInfo.isSurplus
-                                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                    ? isFlagged
+                                      ? 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/25'
+                                      : 'bg-emerald-100 text-emerald-800 border-emerald-200'
                                     : 'bg-gray-100 text-gray-700 border-gray-200'
                               }`}>
                                 <span>{selisihPersenInfo.isLoss ? '📉' : selisihPersenInfo.isSurplus ? '📈' : '⚖️'}</span>
                                 <span>
-                                  {selisihPersenInfo.isLoss
-                                    ? `Loss: ${selisihPersenInfo.formatted}`
-                                    : selisihPersenInfo.isSurplus
-                                      ? `Surplus: ${selisihPersenInfo.formatted}`
-                                      : '0.0% (Pas)'}
+                                  {toleransi.basis === 'pos' && susutPersen !== null
+                                    ? `Susut: ${susutPersen.toFixed(1)}%`
+                                    : selisihPersenInfo.isLoss
+                                      ? `Loss: ${selisihPersenInfo.formatted}`
+                                      : selisihPersenInfo.isSurplus
+                                        ? `Surplus: ${selisihPersenInfo.formatted}`
+                                        : '0.0% (Pas)'}
                                 </span>
                               </span>
 
                               {/* Nilai Toleransi Threshold */}
                               <span className="text-[9px] font-medium text-[#544437]/80 bg-[#faf2e9] border border-[#d9c2b2]/40 px-2 py-0.5 rounded">
-                                Threshold: <strong className="text-[#701604] font-bold">±{thresholdPersen}%</strong>
-                                <span className="text-[8px] text-[#544437]/60 ml-0.5">({thresholdPersen === 0 ? 'Hitung' : 'Timbang'})</span>
+                                {toleransi.basis === 'pos' ? (
+                                  <>
+                                    Batas Susut: <strong className="text-[#701604] font-bold">{thresholdPersen}% POS</strong>
+                                    {toleransi.batasLossQty !== null && (
+                                      <span className="text-[8px] text-[#544437]/70 ml-1">
+                                        (maks -{formatGram(Math.round(toleransi.batasLossQty))} · surplus 0%)
+                                      </span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    Threshold: <strong className="text-[#701604] font-bold">±{thresholdPersen}%</strong>
+                                    <span className="text-[8px] text-[#544437]/60 ml-0.5">({thresholdPersen === 0 ? 'Hitung' : 'Timbang'})</span>
+                                  </>
+                                )}
                               </span>
 
                               {/* Status Terhadap Threshold */}
@@ -586,7 +644,11 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                                     ? 'bg-red-50 text-[#ba1a1a] border-red-200 animate-pulse-subtle'
                                     : 'bg-emerald-50 text-[#0a7d2c] border-emerald-200'
                                 }`}>
-                                  {isFlagged ? '⚠️ Melebihi Toleransi' : '✅ Dalam Batas'}
+                                  {toleransi.lewatKarenaSurplus
+                                    ? '⚠️ Surplus (Batas 0%)'
+                                    : isFlagged
+                                      ? '⚠️ Melebihi Toleransi'
+                                      : '✅ Dalam Batas'}
                                 </span>
                               )}
                             </div>
@@ -621,7 +683,9 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                                 <span className={`text-[9px] font-black mt-0.5 ${
                                   isFlagged ? 'text-[#ba1a1a]' : it.selisih < 0 ? 'text-orange-700' : 'text-green-700'
                                 }`}>
-                                  {selisihPersenInfo.formatted}
+                                  {toleransi.basis === 'pos' && susutPersen !== null
+                                    ? `Susut ${susutPersen.toFixed(1)}%`
+                                    : selisihPersenInfo.formatted}
                                 </span>
                               )}
                             </div>
@@ -669,7 +733,7 @@ const TIPE_META = {
   bulk: {
     judul: 'Bulk Material',
     sub: 'Ditimbang / diukur',
-    toleransi: `±${THRESHOLD_BULK_PERSEN}% (Ayam & Sapi ±40%)`,
+    toleransi: `Susut POS (Ayam & Sapi ${SUSUT_POS_AYAM_SAPI_PERSEN}%, Kentang ${SUSUT_POS_KENTANG_PERSEN}%, Saos ${SUSUT_POS_SAOS_PERSEN}%) · Bulk lain ±${THRESHOLD_BULK_PERSEN}%`,
     icon: '⚖️',
     header: 'bg-[#fff4e5] border-[#f29744]/40 border-l-[#f29744]',
     iconBg: 'bg-[#f29744]/20',

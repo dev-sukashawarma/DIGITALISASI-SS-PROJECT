@@ -7,6 +7,7 @@ import { assertOutletAccessible, getAccessibleOutletIds, assertStaffCanAccessOut
 import { getEffectiveTodayWIB } from '@/lib/stok/opnameDate'
 import { isBahanOpname } from '@/lib/stok/opnameScope'
 import { computeSelisih, isSelisihFlagged } from '@/lib/stok/selisih'
+import { hitungPemakaianPosPeriodeOpname } from '@/lib/stok/pemakaianPeriodeOpname'
 import type { Opname, OpnameItem } from '@/types/stok'
 
 function makeServiceClient() {
@@ -211,7 +212,7 @@ export async function upsertOpnameItems(
     // Verifikasi opname ada dan dibuat oleh staff yang sedang login
     const { data: opname, error: opnameErr } = await serviceClient
       .from('opname')
-      .select('outlet_id, created_by, status')
+      .select('id, outlet_id, created_by, status, created_at, updated_at')
       .eq('id', opnameId)
       .maybeSingle()
 
@@ -236,6 +237,19 @@ export async function upsertOpnameItems(
       .select('id, nama, kategori, satuan, satuan_kecil')
       .in('id', bahanIds)
     if (bahanErr) return { error: `DB error: ${bahanErr.message}` }
+
+    // Tarik pemakaian POS periode opname untuk threshold susut (Ayam, Sapi, Kentang, Saos).
+    // Jika gagal sementara, fallback aman ke aturan stok sistem agar opname tidak terblokir.
+    let pakaiPosByBahan: Record<string, number> | null = null
+    try {
+      pakaiPosByBahan = await hitungPemakaianPosPeriodeOpname(serviceClient, {
+        outletId: opname.outlet_id,
+        opname,
+      })
+    } catch (posErr) {
+      console.warn('[upsertOpnameItems] Gagal menghitung pemakaian POS periode opname:', posErr)
+    }
+
     const bahanById = new Map((bahanRows ?? []).map((b) => [b.id, b]))
     const nonOpname = new Set(
       (bahanRows ?? []).filter((b) => !isBahanOpname(b)).map((b) => b.id)
@@ -245,10 +259,11 @@ export async function upsertOpnameItems(
       .map((i) => {
         const b = bahanById.get(i.bahan_baku_id)
         const selisih = computeSelisih(i.qty_fisik, i.qty_system)
+        const pakaiPos = pakaiPosByBahan !== null ? (pakaiPosByBahan[i.bahan_baku_id] ?? 0) : undefined
         return {
           ...i,
           flagged: b
-            ? isSelisihFlagged(selisih, i.qty_system, b.satuan, b.satuan_kecil, b.nama)
+            ? isSelisihFlagged(selisih, i.qty_system, b.satuan, b.satuan_kecil, b.nama, pakaiPos)
             : i.flagged,
         }
       })
@@ -509,5 +524,54 @@ export async function checkPendingSuratJalanAction(
     return { data: (data as any) || [], error: null }
   } catch (e: any) {
     return { data: [], error: e?.message ?? String(e) }
+  }
+}
+
+/**
+ * Ambil total Pemakaian POS bersih per bahan (dalam satuan kecil / gram)
+ * untuk periode opname berjalan (atau sesi opname tertentu bila `opnameId` diisi).
+ * Dipakai oleh OpnameForm & OpnameDetail agar threshold susut POS
+ * (Ayam & Sapi 50%, Kentang 20%, Saos 15%) 100% sinkron dengan Jurnal Rekonsiliasi.
+ */
+export async function fetchPemakaianPosOpnameAction(
+  outletId: string,
+  opnameId?: string
+): Promise<{ data: Record<string, number> | null; error: string | null }> {
+  try {
+    const authedClient = await getAuthedClient()
+    const staffId = await getCurrentStaffId(authedClient)
+    const serviceClient = makeServiceClient()
+
+    await assertStaffCanAccessOutlet(serviceClient, staffId, outletId)
+
+    let opnameTarget: {
+      id: string
+      created_at: string
+      updated_at?: string | null
+      status?: string | null
+    } | null = null
+
+    if (opnameId) {
+      const { data: opRow, error: opErr } = await serviceClient
+        .from('opname')
+        .select('id, outlet_id, created_at, updated_at, status')
+        .eq('id', opnameId)
+        .maybeSingle()
+
+      if (opErr) return { data: null, error: opErr.message }
+      if (!opRow || opRow.outlet_id !== outletId) {
+        return { data: null, error: 'Sesi opname tidak ditemukan untuk outlet ini' }
+      }
+      opnameTarget = opRow
+    }
+
+    const usageMap = await hitungPemakaianPosPeriodeOpname(serviceClient, {
+      outletId,
+      opname: opnameTarget,
+    })
+
+    return { data: usageMap, error: null }
+  } catch (e: any) {
+    return { data: null, error: e?.message ?? String(e) }
   }
 }

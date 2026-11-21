@@ -1,6 +1,15 @@
 import { ReconciliationSnapshotResponse } from '@/app/actions/jurnalMutasi'
 import { formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit'
-import { getMaterialType, getThresholdPersen, isSelisihFlagged, THRESHOLD_BULK_PERSEN } from '@/lib/stok/selisih'
+import {
+  getAturanSusutPos,
+  getMaterialType,
+  getThresholdPersen,
+  isSelisihFlagged,
+  THRESHOLD_BULK_PERSEN,
+  SUSUT_POS_AYAM_SAPI_PERSEN,
+  SUSUT_POS_KENTANG_PERSEN,
+  SUSUT_POS_SAOS_PERSEN,
+} from '@/lib/stok/selisih'
 
 // Urutan kategori sama dengan tabel Rekonsiliasi & papan monitoring; kategori lain di akhir.
 const KATEGORI_ORDER = ['FOOD & BEVERAGE', 'BUMBU', 'PACKAGING', 'OPERASIONAL']
@@ -9,7 +18,7 @@ const kategoriRank = (k: string | null | undefined) => {
   return i === -1 ? KATEGORI_ORDER.length : i
 }
 const TIPE_LABEL = {
-  bulk: `BULK MATERIAL (ditimbang / diukur) -- toleransi ${THRESHOLD_BULK_PERSEN}%, Ayam & Sapi 40%`,
+  bulk: `BULK MATERIAL (ditimbang / diukur) -- susut POS: Ayam & Sapi ${SUSUT_POS_AYAM_SAPI_PERSEN}% (2x), Kentang ${SUSUT_POS_KENTANG_PERSEN}%, Saos ${SUSUT_POS_SAOS_PERSEN}%; bulk lain ${THRESHOLD_BULK_PERSEN}% stok sistem`,
   count: 'COUNT MATERIAL (dihitung per satuan) -- toleransi 0%',
 } as const
 
@@ -143,7 +152,7 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
   // Hanya dinilai bila ada hitung fisik; tanpa itu selisih tidak bermakna.
   const lewat = (item: (typeof data.items)[number]) =>
     item.stok_fisik_qty !== null &&
-    isSelisihFlagged(item.selisih_qty, item.stok_sistem_qty, item.satuan, item.satuan_kecil, item.nama)
+    isSelisihFlagged(item.selisih_qty, item.stok_sistem_qty, item.satuan, item.satuan_kecil, item.nama, item.pakai_qty)
   const jumlahLewat = sortedItems.filter(lewat).length
 
   // Tiap baris body membawa jenisnya: judul tipe, judul kategori, atau bahan.
@@ -195,6 +204,10 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
           ? 'Rp 0'
           : `${item.selisih_rp > 0 ? '+' : ''}${formatRp(item.selisih_rp)}`
 
+      const thresholdPct = getThresholdPersen(item.satuan, item.satuan_kecil, item.nama)
+      const isBasisPos = getAturanSusutPos(item.nama) !== null
+      const thresholdLabel = `${thresholdPct}%${isBasisPos ? ' POS' : ''}${lewat(item) ? ' !' : ''}`
+
       tableBody.push([
         ++no,
         item.nama,
@@ -206,7 +219,7 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
         formatQty(item.stok_sistem_qty, item),
         item.stok_fisik_qty !== null ? formatQty(item.stok_fisik_qty, item) : '-',
         selisihQtyStr,
-        `${getThresholdPersen(item.satuan, item.satuan_kecil, item.nama)}%${lewat(item) ? ' !' : ''}`,
+        thresholdLabel,
         selisihRpStr,
       ])
     }

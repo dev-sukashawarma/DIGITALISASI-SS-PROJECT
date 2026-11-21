@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import type { ReconciliationItem, ReconciliationPeriodInfo, MenuBomBreakdownItem } from '@/app/actions/jurnalMutasi'
 import { formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit'
-import { nilaiToleransiSelisih } from '@/lib/stok/selisih'
+import { nilaiToleransiSelisih, hitungSusutAktualPersen } from '@/lib/stok/selisih'
 import { DrillDownTimeline } from './DrillDownTimeline'
 import { Select } from '@suka/design-system'
 
@@ -534,8 +534,13 @@ export function RekonsiliasiTable({
                   item.stok_sistem_qty,
                   item.satuan,
                   item.satuan_kecil,
-                  item.nama
+                  item.nama,
+                  item.pakai_qty
                 )
+                const susutPersen =
+                  toleransi.basis === 'pos'
+                    ? hitungSusutAktualPersen(item.selisih_qty, item.pakai_qty)
+                    : null
 
                 return (
                   <React.Fragment key={item.bahan_baku_id}>
@@ -706,17 +711,38 @@ export function RekonsiliasiTable({
                                 {toleransi.dalamToleransi && (
                                   <div
                                     className="mt-0.5 text-[9px] font-black text-emerald-700"
-                                    title={`Selisih masih di bawah batas toleransi ${toleransi.thresholdPersen}% dari stok sistem`}
+                                    title={
+                                      toleransi.basis === 'pos' && toleransi.batasLossQty !== null
+                                        ? `Susut aktual ${susutPersen !== null ? `${susutPersen.toFixed(1)}%` : '0%'} — masih di bawah batas susut ${toleransi.thresholdPersen}% POS (maks -${formatQty(item, Math.round(toleransi.batasLossQty))})`
+                                        : `Selisih masih di bawah batas toleransi ${toleransi.thresholdPersen}% dari stok sistem`
+                                    }
                                   >
-                                    ✓ Dalam threshold ({toleransi.thresholdPersen}%)
+                                    {toleransi.basis === 'pos' && toleransi.batasLossQty !== null
+                                      ? `✓ Dalam susut ${toleransi.thresholdPersen}% POS${susutPersen !== null ? ` (${susutPersen.toFixed(1)}%)` : ''}`
+                                      : `✓ Dalam threshold (${toleransi.thresholdPersen}%)`}
                                   </div>
                                 )}
                                 {toleransi.lewatToleransi && (
                                   <div
                                     className="mt-0.5 text-[9px] font-black text-red-700"
-                                    title={`Selisih melewati batas toleransi ${toleransi.thresholdPersen}% dari stok sistem`}
+                                    title={
+                                      toleransi.basis === 'pos'
+                                        ? toleransi.lewatKarenaSurplus
+                                          ? `Surplus pada bahan susut ${toleransi.thresholdPersen}% POS (batas surplus 0%)`
+                                          : `Susut aktual ${susutPersen !== null ? `${susutPersen.toFixed(1)}%` : '>'} melewati batas susut ${toleransi.thresholdPersen}% POS (maks -${formatQty(item, Math.round(toleransi.batasLossQty ?? 0))})`
+                                        : `Selisih melewati batas toleransi ${toleransi.thresholdPersen}% dari stok sistem`
+                                    }
                                   >
-                                    ! Lewat threshold ({toleransi.thresholdPersen}%)
+                                    {toleransi.basis === 'pos'
+                                      ? toleransi.lewatKarenaSurplus
+                                        ? `! Surplus · batas 0% (${toleransi.thresholdPersen}% POS)`
+                                        : `! Lewat susut ${toleransi.thresholdPersen}% POS${susutPersen !== null ? ` (${susutPersen.toFixed(1)}%)` : ''}`
+                                      : `! Lewat threshold (${toleransi.thresholdPersen}%)`}
+                                  </div>
+                                )}
+                                {toleransi.basis === 'pos' && toleransi.batasLossQty !== null && (
+                                  <div className="text-[8px] font-bold text-suka-brown/50">
+                                    Batas susut: -{formatQty(item, Math.round(toleransi.batasLossQty))}
                                   </div>
                                 )}
                               </div>

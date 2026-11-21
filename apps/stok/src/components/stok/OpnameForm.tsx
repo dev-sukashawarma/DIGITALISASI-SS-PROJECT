@@ -17,7 +17,7 @@ import { createClient } from '@/lib/supabase';
 import type { BahanBaku } from '@/types/stok';
 import { sembunyikanKolomBesar, adaSatuanKecil } from '@/lib/stok/satuanOpname';
 import { saringDraftBasi } from '@/lib/stok/draftOpnameLokal';
-import { checkPendingSuratJalanAction } from '@/app/actions/opname';
+import { checkPendingSuratJalanAction, fetchPemakaianPosOpnameAction } from '@/app/actions/opname';
 
 /** Baris vendor untuk satu bahan multi-vendor, dari RPC `saldo_vendor_gudang`. */
 interface VendorInfo {
@@ -106,6 +106,14 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     staleTime: 15000,
   });
   const pendingSuratJalans = pendingSJRes?.data || [];
+
+  const { data: pakaiPosRes } = useQuery({
+    queryKey: ['opname-pemakaian-pos', outletId],
+    queryFn: () => fetchPemakaianPosOpnameAction(outletId),
+    enabled: !!outletId,
+    staleTime: 30000,
+  });
+  const pakaiPosByBahan = pakaiPosRes?.error ? null : (pakaiPosRes?.data ?? null);
   // `isGudang` (berbasis nama) HANYA untuk menyaring bahan bersumber Gudang
   // Pusat di daftar opname -- semantiknya sengaja tetap longgar.
   const isGudang = outlets?.find(o => o.id === outletId)?.nama?.toUpperCase().includes('GUDANG') ?? false;
@@ -573,12 +581,14 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
           rawData.traw = tgt;
         }
 
+        const pakaiPos = pakaiPosByBahan !== null ? (pakaiPosByBahan[b.id] ?? 0) : undefined;
+
         return {
           opname_id: opnameId,
           bahan_baku_id: b.id,
           qty_fisik: qtyFisik,
           qty_system: qtySystem,
-          flagged: isSelisihFlagged(selisih, qtySystem, b.satuan, b.satuan_kecil, b.nama),
+          flagged: isSelisihFlagged(selisih, qtySystem, b.satuan, b.satuan_kecil, b.nama, pakaiPos),
           catatan: `[RAW] ${JSON.stringify(rawData)}`,
         };
       });

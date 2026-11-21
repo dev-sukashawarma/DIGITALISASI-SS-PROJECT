@@ -23,7 +23,7 @@ import {
   type ReconciliationPeriodInfo,
 } from '@/app/actions/jurnalMutasi'
 import { formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit'
-import { nilaiToleransiSelisih } from '@/lib/stok/selisih'
+import { nilaiToleransiSelisih, hitungSusutAktualPersen } from '@/lib/stok/selisih'
 import { ProofDetailModal } from './ProofDetailModal'
 
 interface DrillDownTimelineProps {
@@ -152,8 +152,13 @@ export function DrillDownTimeline({
     item.stok_sistem_qty,
     item.satuan,
     item.satuan_kecil,
-    item.nama
+    item.nama,
+    item.pakai_qty
   )
+  const susutPersen =
+    toleransi.basis === 'pos'
+      ? hitungSusutAktualPersen(item.selisih_qty ?? 0, item.pakai_qty)
+      : null
 
   return (
     <div className="bg-suka-cream/15 p-4 sm:p-5 border-t border-b border-suka-brown/10 text-xs">
@@ -489,13 +494,19 @@ export function DrillDownTimeline({
                     {hasOpname && toleransi.dalamToleransi && (
                       <span className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-black">
                         <CheckCircle2 className="w-3 h-3" />
-                        Masih dalam threshold aman (toleransi {toleransi.thresholdPersen}%)
+                        {toleransi.basis === 'pos' && toleransi.batasLossQty !== null
+                          ? `Masih dalam batas susut ${toleransi.thresholdPersen}% POS${susutPersen !== null ? ` (susut ${susutPersen.toFixed(1)}% · maks -${formatQty(Math.round(toleransi.batasLossQty))})` : ''}`
+                          : `Masih dalam threshold aman (toleransi ${toleransi.thresholdPersen}%)`}
                       </span>
                     )}
                     {hasOpname && toleransi.lewatToleransi && (
                       <span className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-100 text-red-800 border border-red-300 text-[10px] font-black">
                         <AlertTriangle className="w-3 h-3" />
-                        Melewati threshold aman (toleransi {toleransi.thresholdPersen}%)
+                        {toleransi.basis === 'pos'
+                          ? toleransi.lewatKarenaSurplus
+                            ? `Surplus melewati batas 0% pada bahan susut ${toleransi.thresholdPersen}% POS`
+                            : `Melewati batas susut ${toleransi.thresholdPersen}% POS${susutPersen !== null ? ` (susut ${susutPersen.toFixed(1)}% · maks -${formatQty(Math.round(toleransi.batasLossQty ?? 0))})` : ''}`
+                          : `Melewati threshold aman (toleransi ${toleransi.thresholdPersen}%)`}
                       </span>
                     )}
                   </td>

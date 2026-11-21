@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Banknote } from 'lucide-react'
-import { formatRupiah } from '@/lib/format'
+import { ChevronDown, ChevronRight, Banknote, Receipt, MessageCircle } from 'lucide-react'
+import { toast } from 'sonner'
+import { formatDate, formatRupiah } from '@/lib/format'
 import type { CashAdvanceStatus } from '@/lib/types'
 import type { CashAdvanceRow } from '@/hooks/useCashAdvances'
 import { bolehCatatCicilan, labelStatusKasbon, statusEfektifKasbon } from '@/lib/kasbon/statusKasbon'
+import { tautanWaKasbon } from '@/lib/whatsappKasbon'
 
 const statusConfig: Record<
   CashAdvanceStatus,
@@ -49,16 +51,141 @@ function StatusBadge({ status, ditolakFinance = false }: { status: CashAdvanceSt
   )
 }
 
+function ApprovalFinanceCell({
+  row,
+  effectiveStatus,
+  ditolakFinance,
+  proofUrl,
+  loadingProofs,
+  onViewProof,
+}: {
+  row: CashAdvanceRow
+  effectiveStatus: CashAdvanceStatus
+  ditolakFinance: boolean
+  proofUrl: string | null
+  loadingProofs: boolean
+  onViewProof?: (row: CashAdvanceRow) => void
+}) {
+  if (effectiveStatus === 'pending') {
+    return <span className="text-xs text-suka-gray-400">Menunggu HR</span>
+  }
+
+  if (effectiveStatus === 'menunggu_cair') {
+    return (
+      <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2.5 py-0.5 text-[11px] font-bold text-orange-700">
+        Menunggu Pencairan
+      </span>
+    )
+  }
+
+  if (effectiveStatus === 'rejected') {
+    if (!ditolakFinance) {
+      return <span className="text-xs text-suka-gray-400">—</span>
+    }
+    return (
+      <div className="space-y-0.5">
+        <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-[11px] font-bold text-red-700">
+          Ditolak Finance
+        </span>
+        {(row.ditolak_finance_at || row.ditolak_finance_oleh_name) && (
+          <div className="text-[10px] font-medium text-suka-gray-500">
+            {row.ditolak_finance_at ? formatDate(row.ditolak_finance_at) : ''}
+            {row.ditolak_finance_oleh_name ? ` · ${row.ditolak_finance_oleh_name}` : ''}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  if (!row.dicairkan_at && !row.bukti_cair) {
+    return <span className="text-xs text-suka-gray-400">Sebelum alur finance</span>
+  }
+
+  const metodeLabel = row.metode_cair === 'tunai' ? 'Tunai' : 'Transfer'
+  const waHref = tautanWaKasbon({
+    phone: row.staff_phone,
+    staffName: row.outlet_staff?.name ?? 'Staf',
+    amount: row.amount,
+    metodeCair: row.metode_cair,
+    dicairkanAt: row.dicairkan_at,
+    proofUrl,
+  })
+
+  return (
+    <div className="space-y-1">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+          Disetujui · {metodeLabel}
+        </span>
+      </div>
+      {(row.dicairkan_at || row.dicairkan_oleh_name) && (
+        <div className="text-[10px] font-medium text-suka-gray-500">
+          {row.dicairkan_at ? formatDate(row.dicairkan_at) : ''}
+          {row.dicairkan_oleh_name ? ` · ${row.dicairkan_oleh_name}` : ''}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+        {row.bukti_cair && onViewProof ? (
+          <button
+            type="button"
+            onClick={() => onViewProof(row)}
+            className="inline-flex items-center gap-1 rounded-lg border border-suka-orange/40 bg-orange-50/80 px-2 py-1 text-[11px] font-bold text-suka-brown hover:bg-orange-100 transition-colors cursor-pointer"
+            title="Lihat / Unduh / Kirim Bukti Transfer"
+          >
+            <Receipt className="h-3 w-3 text-suka-orange" />
+            <span>Bukti TF</span>
+          </button>
+        ) : (
+          <span className="text-[10px] text-suka-gray-400 italic">Tanpa bukti</span>
+        )}
+
+        {waHref ? (
+          <a
+            href={waHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100 transition-colors"
+            title={
+              loadingProofs && row.bukti_cair && !proofUrl
+                ? 'Memuat tautan bukti transfer...'
+                : 'Kirim info & bukti transfer langsung via WhatsApp'
+            }
+          >
+            <MessageCircle className="h-3 w-3" />
+            <span>Kirim WA</span>
+          </a>
+        ) : (
+          <button
+            type="button"
+            onClick={() => toast.error('Nomor WhatsApp staf belum terdaftar di data karyawan')}
+            className="inline-flex items-center gap-1 rounded-lg border border-suka-gray-200 bg-suka-gray-50 px-2 py-1 text-[11px] font-semibold text-suka-gray-400 hover:bg-suka-gray-100 transition-colors cursor-pointer"
+            title="Nomor WhatsApp staf belum terdaftar"
+          >
+            <MessageCircle className="h-3 w-3" />
+            <span>Kirim WA</span>
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function ExpandableRow({
   row,
+  proofUrl,
+  loadingProofs,
   onAddPayment,
   onApprove,
   onReject,
+  onViewProof,
 }: {
   row: CashAdvanceRow
+  proofUrl: string | null
+  loadingProofs: boolean
   onAddPayment: (row: CashAdvanceRow) => void
   onApprove?: (row: CashAdvanceRow) => void
   onReject?: (id: string) => void
+  onViewProof?: (row: CashAdvanceRow) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const payments = row.cash_advance_payments ?? []
@@ -93,13 +220,16 @@ function ExpandableRow({
         </td>
         <td className="whitespace-nowrap px-4 py-3 text-center">
           <StatusBadge status={effectiveStatus} ditolakFinance={ditolakFinance} />
-          {effectiveStatus === 'active' && (
-            <div className="mt-1 text-[10px] font-medium text-suka-gray-500">
-              {row.dicairkan_at
-                ? `Dicairkan ${new Date(row.dicairkan_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })} · ${row.metode_cair === 'tunai' ? 'tunai' : 'transfer'}`
-                : 'Dicairkan sebelum alur finance'}
-            </div>
-          )}
+        </td>
+        <td className="whitespace-nowrap px-4 py-3">
+          <ApprovalFinanceCell
+            row={row}
+            effectiveStatus={effectiveStatus}
+            ditolakFinance={ditolakFinance}
+            proofUrl={proofUrl}
+            loadingProofs={loadingProofs}
+            onViewProof={onViewProof}
+          />
         </td>
         <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500 font-mono">
           {row.created_at
@@ -151,7 +281,7 @@ function ExpandableRow({
       {/* Payment sub-table */}
       {expanded && (
         <tr>
-          <td colSpan={6} className="bg-stone-50/80 px-6 py-3 border-y border-stone-200">
+          <td colSpan={7} className="bg-stone-50/80 px-6 py-3 border-y border-stone-200">
             <div className="space-y-2">
               <div className="flex flex-wrap justify-between items-center gap-2">
                 <span className="text-xs font-bold text-suka-brown uppercase">Riwayat Pembayaran Cicilan:</span>
@@ -209,16 +339,22 @@ function ExpandableRow({
 
 interface CashAdvanceTableProps {
   rows: CashAdvanceRow[]
+  proofUrls?: Record<string, string>
+  loadingProofs?: boolean
   onAddPayment: (row: CashAdvanceRow) => void
   onApprove?: (row: CashAdvanceRow) => void
   onReject?: (id: string) => void
+  onViewProof?: (row: CashAdvanceRow) => void
 }
 
 export function CashAdvanceTable({
   rows,
+  proofUrls = {},
+  loadingProofs = false,
   onAddPayment,
   onApprove,
   onReject,
+  onViewProof,
 }: CashAdvanceTableProps) {
   if (rows.length === 0) {
     return (
@@ -238,6 +374,7 @@ export function CashAdvanceTable({
               <th className="whitespace-nowrap px-4 py-3.5 text-right">Total Pinjaman</th>
               <th className="whitespace-nowrap px-4 py-3.5 text-right">Sisa Hutang</th>
               <th className="whitespace-nowrap px-4 py-3.5 text-center">Status</th>
+              <th className="whitespace-nowrap px-4 py-3.5">Approval Finance</th>
               <th className="whitespace-nowrap px-4 py-3.5">Tanggal Pengajuan</th>
               <th className="whitespace-nowrap px-4 py-3.5 text-center">Aksi</th>
             </tr>
@@ -247,9 +384,12 @@ export function CashAdvanceTable({
               <ExpandableRow
                 key={row.id}
                 row={row}
+                proofUrl={row.bukti_cair ? (proofUrls[row.bukti_cair] ?? null) : null}
+                loadingProofs={loadingProofs}
                 onAddPayment={onAddPayment}
                 onApprove={onApprove}
                 onReject={onReject}
+                onViewProof={onViewProof}
               />
             ))}
           </tbody>

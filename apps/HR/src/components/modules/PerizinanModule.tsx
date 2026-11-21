@@ -30,7 +30,7 @@ import { Pagination } from '@/components/ui/Pagination'
 import { DEFAULT_PAGE_SIZE } from '@/lib/paging'
 import { todayWib } from '@/lib/dateIso'
 import { useLeaveMutations } from '@/hooks/useLeaveMutations'
-import { useCashAdvances, type CashAdvanceRow } from '@/hooks/useCashAdvances'
+import { useCashAdvances, useKasbonProofUrls, type CashAdvanceRow } from '@/hooks/useCashAdvances'
 import { useCashAdvanceMutations } from '@/hooks/useCashAdvanceMutations'
 import { useOutlets } from '@/hooks/useOutlets'
 import { LeaveRequestForm } from '@/components/modules/LeaveRequestForm'
@@ -38,6 +38,7 @@ import { LeaveRequestTable } from '@/components/modules/LeaveRequestTable'
 import { LeaveRejectDialog } from '@/components/modules/LeaveRejectDialog'
 import { KasbonRejectDialog } from '@/components/modules/KasbonRejectDialog'
 import { KasbonApproveModal } from '@/components/modules/KasbonApproveModal'
+import { KasbonProofModal } from '@/components/modules/KasbonProofModal'
 import { labelStatusKasbon, statusEfektifKasbon } from '@/lib/kasbon/statusKasbon'
 import { CashAdvanceTable } from '@/components/modules/CashAdvanceTable'
 import { CashAdvanceForm } from '@/components/modules/CashAdvanceForm'
@@ -175,6 +176,7 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
   const [payingKasbon, setPayingKasbon] = useState<CashAdvanceRow | null>(null)
   const [rejectKasbonTarget, setRejectKasbonTarget] = useState<CashAdvanceRow | null>(null)
   const [approveKasbonTarget, setApproveKasbonTarget] = useState<CashAdvanceRow | null>(null)
+  const [proofKasbonTarget, setProofKasbonTarget] = useState<CashAdvanceRow | null>(null)
 
   // Data fetching
   const { data: outlets = [] } = useOutlets()
@@ -224,6 +226,7 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
   const kasbonTotal = kasbonQuery.data?.total ?? 0
   const loadingLeaves = leaveQuery.isLoading
   const loadingKasbon = kasbonQuery.isLoading
+  const kasbonProofs = useKasbonProofUrls(kasbonRows, activeTab === 'kasbon')
 
   // Kartu ringkasan: dihitung di database atas SELURUH data (bukan halaman ini)
   const { data: summary } = usePerizinanSummary()
@@ -441,16 +444,33 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
     } finally {
       setExporting(false)
     }
-    const exportData = all.map((k) => ({
-      nama: k.outlet_staff?.name ?? '-',
-      jabatan: k.outlet_staff?.role ?? '-',
-      cabang: k.outlet_staff?.outlets?.name ?? '-',
-      nominal: k.amount,
-      sisa: k.remaining,
-      status: labelStatusKasbon(statusEfektifKasbon(k), Boolean(k.ditolak_finance_at)),
-      alasan: k.reason ?? '-',
-      tanggal_pengajuan: k.created_at ? new Date(k.created_at).toLocaleDateString('id-ID') : '-',
-    }))
+    const exportData = all.map((k) => {
+      const eff = statusEfektifKasbon(k)
+      const approvalFinance =
+        eff === 'pending'
+          ? 'Menunggu HR'
+          : eff === 'menunggu_cair'
+            ? 'Menunggu Pencairan'
+            : k.ditolak_finance_at
+              ? 'Ditolak Finance'
+              : eff === 'rejected'
+                ? '-'
+                : k.dicairkan_at
+                  ? `Disetujui (${k.metode_cair === 'tunai' ? 'Tunai' : 'Transfer'})`
+                  : 'Sebelum alur finance'
+
+      return {
+        nama: k.outlet_staff?.name ?? '-',
+        jabatan: k.outlet_staff?.role ?? '-',
+        cabang: k.outlet_staff?.outlets?.name ?? '-',
+        nominal: k.amount,
+        sisa: k.remaining,
+        status: labelStatusKasbon(eff, Boolean(k.ditolak_finance_at)),
+        approval_finance: approvalFinance,
+        alasan: k.reason ?? '-',
+        tanggal_pengajuan: k.created_at ? new Date(k.created_at).toLocaleDateString('id-ID') : '-',
+      }
+    })
 
     exportCsv(
       exportData,
@@ -461,6 +481,7 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
         { key: 'nominal', label: 'Nominal Pinjaman' },
         { key: 'sisa', label: 'Sisa Belum Lunas' },
         { key: 'status', label: 'Status' },
+        { key: 'approval_finance', label: 'Approval Finance' },
         { key: 'alasan', label: 'Alasan' },
         { key: 'tanggal_pengajuan', label: 'Tgl Pengajuan' },
       ],
@@ -861,9 +882,12 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
             <div className={kasbonQuery.isFetching ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
               <CashAdvanceTable
                 rows={kasbonRows}
+                proofUrls={kasbonProofs.urlByPath}
+                loadingProofs={kasbonProofs.isLoading}
                 onAddPayment={setPayingKasbon}
                 onApprove={handleApproveKasbon}
                 onReject={handleOpenRejectKasbon}
+                onViewProof={setProofKasbonTarget}
               />
               <Pagination page={kasbonPage} pageSize={DEFAULT_PAGE_SIZE} total={kasbonTotal} onPageChange={setKasbonPage} />
             </div>
@@ -907,6 +931,21 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
               submitting={kasbonMutations.approve.isPending}
               onSubmit={handleConfirmApproveKasbon}
               onClose={() => setApproveKasbonTarget(null)}
+            />
+          )}
+
+          {/* Finance Proof & WhatsApp Modal */}
+          {proofKasbonTarget && (
+            <KasbonProofModal
+              row={proofKasbonTarget}
+              proofUrl={
+                proofKasbonTarget.bukti_cair
+                  ? (kasbonProofs.urlByPath[proofKasbonTarget.bukti_cair] ?? null)
+                  : null
+              }
+              loadingUrl={kasbonProofs.isLoading && Boolean(proofKasbonTarget.bukti_cair)}
+              urlError={kasbonProofs.error}
+              onClose={() => setProofKasbonTarget(null)}
             />
           )}
         </div>

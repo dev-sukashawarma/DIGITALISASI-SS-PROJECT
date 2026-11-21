@@ -307,8 +307,13 @@ export interface CashAdvance {
   approval_note?: string | null
   /** Diisi RPC finance_cairkan_kasbon; NULL pada kasbon aktif = dicairkan sebelum alur finance. */
   dicairkan_at?: string | null
+  dicairkan_oleh?: string | null
+  dicairkan_dari?: string | null
   metode_cair?: 'transfer' | 'tunai' | null
+  bukti_cair?: string | null
+  cash_transaction_id?: string | null
   ditolak_finance_at?: string | null
+  ditolak_finance_oleh?: string | null
   created_at: string
   outlet_staff?: { name: string }
   cash_advance_payments?: CashAdvancePayment[]

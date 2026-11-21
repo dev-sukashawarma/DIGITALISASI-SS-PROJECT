@@ -11,6 +11,7 @@ export interface DirectoryStaff {
   username: string | null
   role: string | null
   outlet_id: string | null
+  phone: string | null
 }
 
 export interface HrDirectory {
@@ -35,14 +36,21 @@ export function useHrDirectory() {
     queryFn: async () => {
       const supabase = createClient()
       const [staffRes, outletRes] = await Promise.all([
-        supabase.from('outlet_staff').select('id, name, role, username, account_category, outlet_id, email'),
+        supabase.from('outlet_staff').select('id, name, role, username, account_category, outlet_id, email, phone'),
         supabase.from('outlets').select('id, name, slug, type'),
       ])
       if (staffRes.error) throw staffRes.error
       if (outletRes.error) throw outletRes.error
       const all = staffRes.data ?? []
       return {
-        staff: all.map(({ id, name, username, role, outlet_id }) => ({ id, name, username, role, outlet_id })),
+        staff: all.map(({ id, name, username, role, outlet_id, phone }) => ({
+          id,
+          name,
+          username,
+          role,
+          outlet_id,
+          phone: phone ?? null,
+        })),
         excludedStaffIds: all.filter((s) => isTestOrDevStaff(s)).map((s) => s.id),
         excludedOutletIds: (outletRes.data ?? [])
           .filter((o) => o.type === 'marketplace' || isTestOutlet(o))

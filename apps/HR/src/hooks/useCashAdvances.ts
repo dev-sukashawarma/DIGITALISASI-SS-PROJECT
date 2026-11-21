@@ -1,20 +1,37 @@
 'use client'
 
-import { useEffect, useId } from 'react'
+import { useEffect, useId, useMemo } from 'react'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { CashAdvance, CashAdvancePayment, CashAdvanceStatus } from '@/lib/types'
 import { useHrDirectory, type HrDirectory } from '@/hooks/useHrDirectory'
 import { DEFAULT_PAGE_SIZE, fetchAllPages, type Paged } from '@/lib/paging'
+import { getKasbonProofSignedUrls } from '@/app/actions/kasbonProof'
 
 interface CashAdvanceRow extends CashAdvance {
   outlet_staff: {
     name: string
     role: string
     outlet_id?: string | null
+    phone?: string | null
     outlets?: { name: string } | null
   }
   cash_advance_payments: CashAdvancePayment[]
+  staff_phone?: string | null
+  dicairkan_oleh_name?: string | null
+  ditolak_finance_oleh_name?: string | null
+}
+
+function enrichCashAdvanceRows(rows: CashAdvanceRow[], staffList: HrDirectory['staff']): CashAdvanceRow[] {
+  const staffMap = new Map(staffList.map((s) => [s.id, s]))
+  return rows.map((row) => ({
+    ...row,
+    staff_phone: row.outlet_staff?.phone ?? staffMap.get(row.staff_id)?.phone ?? null,
+    dicairkan_oleh_name: row.dicairkan_oleh ? (staffMap.get(row.dicairkan_oleh)?.name ?? null) : null,
+    ditolak_finance_oleh_name: row.ditolak_finance_oleh
+      ? (staffMap.get(row.ditolak_finance_oleh)?.name ?? null)
+      : null,
+  }))
 }
 
 export interface CashAdvanceListParams {
@@ -53,9 +70,9 @@ export async function fetchCashAdvancesPage(
     let query = supabase
       .from('cash_advances')
       .select(`
-        id, staff_id, amount, amount_requested, remaining, installment_months, reason, status, status_hr, created_at, approved_at, rejection_note, approval_note, dicairkan_at, metode_cair, ditolak_finance_at,
+        id, staff_id, amount, amount_requested, remaining, installment_months, reason, status, status_hr, created_at, approved_at, rejection_note, approval_note, dicairkan_at, dicairkan_oleh, dicairkan_dari, metode_cair, bukti_cair, cash_transaction_id, ditolak_finance_at, ditolak_finance_oleh,
         outlet_staff!cash_advances_staff_id_fkey!inner(
-          name, role, username, account_category, outlet_id,
+          name, role, username, account_category, outlet_id, phone,
           outlets!outlet_staff_outlet_id_fkey(name)
         ),
         cash_advance_payments(id, amount, payment_date, note, created_at)
@@ -105,7 +122,10 @@ export async function fetchCashAdvancesPage(
 
     const { data, error, count } = await query
     if (error) throw error
-    return { rows: (data || []) as unknown as CashAdvanceRow[], total: count ?? 0 }
+    return {
+      rows: enrichCashAdvanceRows((data || []) as unknown as CashAdvanceRow[], dir.staff),
+      total: count ?? 0,
+    }
   }
 
   // Jika tanpa filter tanggal, gunakan RPC hr_kasbon_daftar
@@ -119,7 +139,10 @@ export async function fetchCashAdvancesPage(
   })
   if (error) throw error
   const res = data as { rows: CashAdvanceRow[]; total: number }
-  return { rows: res.rows ?? [], total: res.total ?? 0 }
+  return {
+    rows: enrichCashAdvanceRows(res.rows ?? [], dir.staff),
+    total: res.total ?? 0,
+  }
 }
 
 export function useCashAdvances(params: CashAdvanceListParams) {
@@ -161,6 +184,51 @@ export function useCashAdvances(params: CashAdvanceListParams) {
   }
 
   return { ...query, isLoading: query.isLoading || !dir, exportAll }
+}
+
+/**
+ * Menandatangani semua bukti_cair di halaman aktif dalam satu batch request server action
+ * agar preview & tautan WhatsApp langsung siap tanpa popup blocker.
+ */
+export function useKasbonProofUrls(rows: CashAdvanceRow[], enabled = true) {
+  const rawPaths = useMemo(
+    () => [...new Set(rows.map((r) => r.bukti_cair?.trim()).filter((p): p is string => Boolean(p)))].sort(),
+    [rows],
+  )
+  const storagePaths = useMemo(
+    () => rawPaths.filter((p) => !/^https?:\/\//i.test(p)),
+    [rawPaths],
+  )
+
+  const query = useQuery<Record<string, string>>({
+    queryKey: ['kasbon-proof-urls', storagePaths],
+    enabled: enabled && storagePaths.length > 0,
+    staleTime: 50 * 60_000,
+    gcTime: 60 * 60_000,
+    queryFn: async () => {
+      const res = await getKasbonProofSignedUrls(storagePaths)
+      if (!res.ok) throw new Error(res.error)
+      return res.urls
+    },
+  })
+
+  const urlByPath = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const p of rawPaths) {
+      if (/^https?:\/\//i.test(p)) {
+        map[p] = p
+      } else if (query.data?.[p]) {
+        map[p] = query.data[p]
+      }
+    }
+    return map
+  }, [rawPaths, query.data])
+
+  return {
+    urlByPath,
+    isLoading: query.isLoading && storagePaths.length > 0,
+    error: query.error instanceof Error ? query.error.message : null,
+  }
 }
 
 export type { CashAdvanceRow }

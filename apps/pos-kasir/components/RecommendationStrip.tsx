@@ -67,7 +67,7 @@ export default function RecommendationStrip({ productId, cartIds, title = 'Serin
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-gray-900 leading-snug line-clamp-1">{item.name}</p>
+                <p className="text-xs font-bold text-gray-900 leading-snug line-clamp-1 uppercase">{item.name}</p>
                 <span className="text-amber-600 font-bold text-xs">{formatRupiah(item.price)}</span>
               </div>
               <button
@@ -104,7 +104,7 @@ export default function RecommendationStrip({ productId, cartIds, title = 'Serin
               )}
             </div>
             <div className="p-2.5">
-              <p className="text-xs font-bold text-gray-900 leading-snug line-clamp-1">{item.name}</p>
+              <p className="text-xs font-bold text-gray-900 leading-snug line-clamp-1 uppercase">{item.name}</p>
               <div className="mt-1.5 flex items-center justify-between gap-1">
                 <span className="text-amber-600 font-bold text-xs">{formatRupiah(item.price)}</span>
                 <button

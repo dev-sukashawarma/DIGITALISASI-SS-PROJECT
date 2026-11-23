@@ -1276,7 +1276,7 @@ export default function OrderManualPage() {
                               {Array.isArray(end.items) && end.items.length > 0 ? (
                                 end.items.map((it, idx) => (
                                   <div key={idx} className="flex items-center justify-between text-xs">
-                                    <span className="font-semibold text-gray-800">
+                                    <span className="font-semibold text-gray-800 uppercase">
                                       {it.quantity}x {it.name}
                                     </span>
                                     <span className="text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded text-[10px]">
@@ -1384,7 +1384,7 @@ export default function OrderManualPage() {
                       {!disabled && <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200" />}
                     </div>
                     <div className="p-2.5 flex flex-col justify-between">
-                      <p className="font-bold text-gray-800 text-xs leading-snug line-clamp-2 min-h-[2rem]">{it.name}</p>
+                      <p className="font-bold text-gray-800 text-xs leading-snug line-clamp-2 min-h-[2rem] uppercase">{it.name}</p>
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex flex-col">
                           {hasDiscount && (
@@ -1565,7 +1565,7 @@ export default function OrderManualPage() {
         <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
           <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] shadow-2xl animate-[popIn_0.2s_ease-out]">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-              <h2 className="font-bold text-lg text-gray-800 line-clamp-1">{selectedMenu.name}</h2>
+              <h2 className="font-bold text-lg text-gray-800 line-clamp-1 uppercase">{selectedMenu.name}</h2>
               <button onClick={() => {
                 setSelectedMenu(null)
                 setSelectedPackageChoices({})
@@ -1609,7 +1609,7 @@ export default function OrderManualPage() {
                               <button
                                 key={optionId}
                                 onClick={() => setSelectedPackageChoices(prev => ({ ...prev, [pi.id]: optionId }))}
-                                className={`p-2.5 rounded-lg border text-sm font-bold text-center transition-all active:scale-95 ${selected === optionId ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-600 hover:border-amber-200'}`}
+                                className={`p-2.5 rounded-lg border text-sm font-bold text-center uppercase transition-all active:scale-95 ${selected === optionId ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-600 hover:border-amber-200'}`}
                               >
                                 {items.find(i => i.id === optionId)?.name ?? 'Menu'}
                               </button>
@@ -1651,7 +1651,7 @@ export default function OrderManualPage() {
                               </div>
                             )}
                             <div className="flex-1 min-w-0">
-                              <p className="font-bold text-sm text-gray-800 line-clamp-1">{ex.name}</p>
+                              <p className="font-bold text-sm text-gray-800 line-clamp-1 uppercase">{ex.name}</p>
                               <p className="text-amber-600 font-bold text-xs mt-0.5">+{formatRupiah(wrappedCalculateItemPrice(ex.price, ex.id, ex.channel_prices))}</p>
                             </div>
                           </div>
@@ -1885,7 +1885,7 @@ function CartPanel(props: {
                   <div className="relative z-10 bg-white rounded-xl p-3 border border-gray-200 shadow-sm transition-all hover:border-amber-200">
                     <div className="flex items-start gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-800 text-sm leading-snug">{root.item.name}</p>
+                        <p className="font-semibold text-gray-800 text-sm leading-snug uppercase">{root.item.name}</p>
                         <div className="flex items-center gap-1.5 mt-1">
 
                           <p className="text-amber-600 font-bold text-sm">{formatRupiah(discountedPrice * root.quantity)}</p>
@@ -1924,7 +1924,7 @@ function CartPanel(props: {
                             <div className="bg-amber-50/30 rounded-xl p-2 border border-amber-100/50 transition-all hover:border-amber-200 shadow-sm">
                               <div className="flex items-start gap-3">
                                 <div className="flex-1 min-w-0">
-                                  <p className="font-semibold text-amber-900 leading-snug text-xs">
+                                  <p className="font-semibold text-amber-900 leading-snug text-xs uppercase">
                                     <span className="font-extrabold text-amber-500 mr-1.5">↳ Extra</span>
                                     {child.item.name}
                                   </p>

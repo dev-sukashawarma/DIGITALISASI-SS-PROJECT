@@ -186,7 +186,7 @@ function CartItemRow({
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className={`font-semibold text-gray-900 leading-tight truncate ${isChild ? 'text-[13px]' : 'text-sm'}`}>
+            <p className={`font-semibold text-gray-900 leading-tight truncate uppercase ${isChild ? 'text-[13px]' : 'text-sm'}`}>
               {item.name}
             </p>
             <div className="flex items-center gap-1.5 mt-0.5">

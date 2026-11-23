@@ -139,7 +139,7 @@ export function WalkInCartPanel(props: {
                     <div className="flex items-start gap-3">
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-800 leading-snug text-sm flex items-center gap-1.5 flex-wrap">
-                          <span>{root.item.name}</span>
+                          <span className="uppercase">{root.item.name}</span>
                           {isEndorseItem && (
                             <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
                               ⭐ Endorse Rp 0
@@ -199,7 +199,7 @@ export function WalkInCartPanel(props: {
                                 <div className="flex-1 min-w-0">
                                   <p className="font-semibold text-amber-900 leading-snug text-xs flex items-center gap-1.5 flex-wrap">
                                     <span className="font-extrabold text-amber-500 mr-1.5">↳ Extra</span>
-                                    <span>{child.item.name}</span>
+                                    <span className="uppercase">{child.item.name}</span>
                                     {isChildEndorse && (
                                       <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
                                         Endorse Rp 0

@@ -767,7 +767,7 @@ export default function ReportsPage() {
                       return (
                         <div key={index} className="space-y-1">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="font-bold text-gray-700 truncate max-w-[190px]">{cleanItemName(item.name)}</span>
+                            <span className="font-bold text-gray-700 truncate max-w-[190px] uppercase">{cleanItemName(item.name)}</span>
                             <span className="font-extrabold text-gray-900">{item.qty} <span className="text-gray-400 font-medium">porsi ({pct}%)</span></span>
                           </div>
                           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -897,7 +897,7 @@ export default function ReportsPage() {
                           </span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
-                              <p className="text-sm font-semibold text-gray-800 print-dark-text truncate">{cleanItemName(item.name)}</p>
+                              <p className="text-sm font-semibold text-gray-800 print-dark-text truncate uppercase">{cleanItemName(item.name)}</p>
                               <div className="flex items-center gap-3 flex-shrink-0 ml-2">
                                 <span className="text-xs text-gray-500 print-dark-text font-medium">{item.qty} terjual</span>
                                 <span className="text-xs font-bold text-gray-900">{formatRupiah(item.revenue)}</span>
@@ -999,7 +999,7 @@ export default function ReportsPage() {
                           })}
                         </td>
                         <td className="px-5 py-4 text-gray-600 truncate max-w-[250px] font-medium">
-                          <div title={(order.order_items || []).map((i: any) => cleanItemName(i.menu_item_name)).join(', ')}>
+                          <div className="uppercase" title={(order.order_items || []).map((i: any) => cleanItemName(i.menu_item_name)).join(', ')}>
                             {(order.order_items || []).map((i: any) => cleanItemName(i.menu_item_name)).join(', ')}
                           </div>
                           {discount > 0 && (

@@ -531,7 +531,7 @@ export default function AdminOrdersPage() {
                                 <span className="w-5 h-5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-md flex items-center justify-center flex-shrink-0 relative z-10 mt-0.5">
                                   {oi.quantity}
                                 </span>
-                                <span className="font-medium text-gray-800 break-words min-w-0 flex-1 leading-snug">{oi.parsedName}</span>
+                                <span className="font-medium text-gray-800 break-words min-w-0 flex-1 leading-snug uppercase">{oi.parsedName}</span>
                               </div>
                               <span className="font-semibold text-gray-900 flex-shrink-0">{formatRupiah(oi.subtotal)}</span>
                             </div>
@@ -556,7 +556,7 @@ export default function AdminOrdersPage() {
                                   <div className="min-w-0 flex-1">
                                     <div className="leading-snug font-medium flex items-center gap-1.5 flex-wrap">
                                       <span className="text-[9px] font-bold uppercase bg-amber-100 text-amber-700 px-1 rounded-sm">Extra</span>
-                                      <span className="break-words min-w-0">{child.parsedName}</span>
+                                      <span className="break-words min-w-0 uppercase">{child.parsedName}</span>
                                     </div>
                                     {child.parsedNote && (
                                       <div className="relative mt-1 flex items-start">

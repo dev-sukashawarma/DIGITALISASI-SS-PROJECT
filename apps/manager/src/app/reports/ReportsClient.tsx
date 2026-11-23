@@ -470,7 +470,7 @@ export default function ReportsClient({ analytics, outlets, initialFilters, isLo
                       ) : (
                         <span className="text-[11px] font-bold text-suka-gray-400 w-5 shrink-0 text-left">#{index + 1}</span>
                       )}
-                      <span className="text-xs font-bold text-suka-brown truncate">{item.name}</span>
+                      <span className="text-xs font-bold text-suka-brown truncate uppercase">{item.name}</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-[10px] text-suka-gray-400 font-medium">{item.qty} terjual</span>

@@ -480,7 +480,7 @@ export default function KasirMenuClient({
 
                       {/* Name */}
                       <td className="py-3.5 px-4">
-                        <p className="font-semibold text-gray-900 leading-none flex items-center gap-2">
+                        <p className="font-semibold text-gray-900 leading-none flex items-center gap-2 uppercase">
                           {item.name}
                         </p>
                         {item.description && (

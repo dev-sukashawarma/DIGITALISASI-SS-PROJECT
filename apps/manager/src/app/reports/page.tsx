@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import ReportsClient from './ReportsClient';
 import { TEST_OUTLET_ID } from '@/lib/outletFilters';
 import { cleanItemName } from '@/lib/order-item-name';
+import { resolveOrderSource } from '@/lib/order-source';
 import { getMenuItemsData, getRiwayatHppData } from '@/lib/menuCache';
 import {
   buildFoodAppsSettlementPromoMap,
@@ -14,6 +15,49 @@ import {
   filterOrdersByChannel,
   mapEcommerceSaleToOrder,
 } from '@/lib/posReportKpi';
+
+type BestSellerPrefixCode = 'TTGO' | 'FA' | 'WEB' | 'SSO' | null;
+const FOOD_APP_KEYS = new Set(['gofood', 'grabfood', 'shopeefood', 'generic_food_app', 'food_apps', 'foodapp', 'foodapps']);
+const BEST_SELLER_DUPLICATE_PREFIX_RE: Record<Exclude<BestSellerPrefixCode, null>, RegExp> = {
+  TTGO: /^(?:\[TTGO\]|TTGO)(?:\s+|-\s*)/i,
+  FA: /^(?:\[FA\]|FA)(?:\s+|-\s*)/i,
+  WEB: /^(?:\[WEB\]|WEB)(?:\s+|-\s*)/i,
+  SSO: /^(?:\[SSO\]|SSO)(?:\s+|-\s*)/i,
+};
+const PAWOON_FA_PREFIX_RE = /^(?:\[FA\]|FA)(?:\s+|-\s*)/i;
+
+function formatBestSellerItemName(rawItemName: string, order: any, resolvedSourceKey: string): string {
+  let clean = cleanItemName(rawItemName).trim().replace(/\s+/g, ' ');
+  if (!clean) clean = 'ITEM';
+
+  const src = resolvedSourceKey.toLowerCase();
+  let code: BestSellerPrefixCode = null;
+  if (
+    order.outlet_id === 'ss-online' ||
+    src === 'tiktok_shop' ||
+    src === 'shopee_shop' ||
+    src.includes('tiktok_shop') ||
+    src.includes('shopee_shop')
+  ) {
+    code = 'SSO';
+  } else if (src === 'tiktokgo' || src === 'tiktok' || src === 'tiktok_go') {
+    code = 'TTGO';
+  } else if (FOOD_APP_KEYS.has(src)) {
+    code = 'FA';
+  } else if (src === 'online' || src === 'website') {
+    code = 'WEB';
+  } else if ((src === 'pos_pawoon' || src === 'pos') && PAWOON_FA_PREFIX_RE.test(clean)) {
+    code = 'FA';
+  }
+
+  if (code) {
+    const stripped = clean.replace(BEST_SELLER_DUPLICATE_PREFIX_RE[code], '').trim();
+    if (stripped) clean = stripped;
+  }
+
+  const upper = clean.toUpperCase();
+  return code ? `[${code}] ${upper}` : upper;
+}
 
 type DateRange = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom';
 
@@ -532,18 +576,20 @@ export default async function ReportsPage({
 
     // 4. Best Sellers & HPP (menggunakan cleanItemName & riwayatHpp seperti Admin)
     if (Array.isArray(o.order_items)) {
+      const resolvedSourceKey = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key;
       o.order_items.forEach((oi: any) => {
         const name = cleanItemName(oi.menu_item_name) || 'Item';
         const qty = Number(oi.quantity) || 0;
         const sub = Number(oi.subtotal) || 0;
 
-        const menuItem = (oi.menu_item_id ? penerap.byId.get(oi.menu_item_id) : null) || penerap.byName.get(name);
+        const menuItem = (oi.menu_item_id ? penerap.byId.get(oi.menu_item_id) : null) || penerap.byName.get(name) || penerap.byName.get(name.trim().toLowerCase());
         const unitHpp = hitungHppItem(menuItem, outType, name, penerap.byName, ordChannel, oi.menu_item_id, penerap.byId, outletId, tglWib);
         totalHPP += unitHpp * qty;
 
-        if (!itemMap[name]) itemMap[name] = { name, qty: 0, revenue: 0 };
-        itemMap[name].qty += qty;
-        itemMap[name].revenue += sub;
+        const bestSellerName = formatBestSellerItemName(oi.menu_item_name, o, resolvedSourceKey);
+        if (!itemMap[bestSellerName]) itemMap[bestSellerName] = { name: bestSellerName, qty: 0, revenue: 0 };
+        itemMap[bestSellerName].qty += qty;
+        itemMap[bestSellerName].revenue += sub;
 
         if (outletId) {
           outletSalesMap[outletId].itemsSold += qty;

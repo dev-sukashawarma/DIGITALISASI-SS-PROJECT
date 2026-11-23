@@ -372,6 +372,81 @@ export function computeAvailableChannels(orders: OrderRow[], isPawoonVisible: bo
 // ─── Shared helper (used in analytics AND exports) ───
 const isFoodApp = (ch: string) => ['gofood', 'grabfood', 'shopeefood', 'generic_food_app', 'food_apps', 'foodapp', 'foodapps'].includes(ch.toLowerCase())
 
+export type BestSellerPrefixCode = 'TTGO' | 'FA' | 'WEB' | 'SSO' | null
+
+const BEST_SELLER_DUPLICATE_PREFIX_RE: Record<Exclude<BestSellerPrefixCode, null>, RegExp> = {
+  TTGO: /^(?:\[TTGO\]|TTGO)(?:\s+|-\s*)/i,
+  FA: /^(?:\[FA\]|FA)(?:\s+|-\s*)/i,
+  WEB: /^(?:\[WEB\]|WEB)(?:\s+|-\s*)/i,
+  SSO: /^(?:\[SSO\]|SSO)(?:\s+|-\s*)/i,
+}
+const PAWOON_FA_PREFIX_RE = /^(?:\[FA\]|FA)(?:\s+|-\s*)/i
+
+export function getOrderBestSellerPrefixCode(
+  outletId?: string | null,
+  resolvedSourceKey?: string | null,
+): BestSellerPrefixCode {
+  const src = (resolvedSourceKey || '').toLowerCase()
+  if (
+    outletId === 'ss-online' ||
+    src === 'tiktok_shop' ||
+    src === 'shopee_shop' ||
+    src.includes('tiktok_shop') ||
+    src.includes('shopee_shop')
+  ) {
+    return 'SSO'
+  }
+  if (src === 'tiktokgo' || src === 'tiktok' || src === 'tiktok_go') {
+    return 'TTGO'
+  }
+  if (isFoodApp(src)) {
+    return 'FA'
+  }
+  if (src === 'online' || src === 'website') {
+    return 'WEB'
+  }
+  return null
+}
+
+/**
+ * Format nama tampilan & kunci agregasi khusus kartu "Item Yang Terjual" (bestSellers):
+ * - Semua huruf dijadikan CAPSLOCK
+ * - Kode sumber di depan memakai kurung siku: [TTGO], [FA], [WEB], [SSO] (POS Offline tanpa kode)
+ * - TIDAK mengubah `cleanItemName` murni yang dipakai pemetaan master menu / HPP.
+ */
+export function formatBestSellerItemName(
+  rawItemName: string,
+  order: {
+    outlet_id?: string | null
+    channel?: string | null
+    sales_source?: string | null
+    customer_name?: string | null
+    is_endorse?: boolean | null
+  },
+  resolvedSourceKey?: string,
+): string {
+  let clean = cleanItemName(rawItemName).trim().replace(/\s+/g, ' ')
+  if (!clean) clean = 'ITEM'
+
+  const srcKey = (
+    resolvedSourceKey ??
+    resolveOrderSource(order.channel, order.sales_source, order.customer_name, order.is_endorse).key
+  ).toLowerCase()
+
+  let code = getOrderBestSellerPrefixCode(order.outlet_id, srcKey)
+  if (!code && (srcKey === 'pos_pawoon' || srcKey === 'pos') && PAWOON_FA_PREFIX_RE.test(clean)) {
+    code = 'FA'
+  }
+
+  if (code) {
+    const stripped = clean.replace(BEST_SELLER_DUPLICATE_PREFIX_RE[code], '').trim()
+    if (stripped) clean = stripped
+  }
+
+  const upper = clean.toUpperCase()
+  return code ? `[${code}] ${upper}` : upper
+}
+
 export function isChannelSelected(target: string, order: any, src: string) {
   if (target === 'food_apps') return isFoodApp(src)
   if (target === 'pos_kasir') return src === 'pos_kasir' || src === 'endors'
@@ -524,7 +599,8 @@ export function computeAnalytics({
       const orderChannel = o.channel || o.sales_source
       const orderTglWib = tanggalWib(o.created_at)
       const pHpp = penerapHpp.untuk(orderTglWib)
-      const channelName = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).label
+      const resolvedSource = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse)
+      const channelName = resolvedSource.label
       const pdfShares = computeItemShares(items)
       let hasBogo = false
       let orderHpp = 0
@@ -537,14 +613,15 @@ export function computeAnalytics({
         }
 
         const key = cleanItemName(oi.menu_item_name)
-        const menuItem = pHpp.terapkan(oi.menu_items) || (oi.menu_item_id ? pHpp.byId.get(oi.menu_item_id) : null) || pHpp.byName.get(key)
+        const menuItem = pHpp.terapkan(oi.menu_items) || (oi.menu_item_id ? pHpp.byId.get(oi.menu_item_id) : null) || pHpp.byName.get(key) || pHpp.byName.get(key.trim().toLowerCase())
         const hpp = getItemHpp(menuItem, outletType, oi.menu_item_name, pHpp.byName, orderChannel, oi.menu_item_id, pHpp.byId, o.outlet_id, orderTglWib)
         orderHpp += hpp * oi.quantity
 
-        let im = itemMap[key]
+        const bestSellerName = formatBestSellerItemName(oi.menu_item_name, o, resolvedSource.key)
+        let im = itemMap[bestSellerName]
         if (!im) {
-          im = { name: key, qty: 0, revenue: 0 }
-          itemMap[key] = im
+          im = { name: bestSellerName, qty: 0, revenue: 0 }
+          itemMap[bestSellerName] = im
         }
         im.qty += oi.quantity
         im.revenue += oi.subtotal

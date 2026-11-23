@@ -191,7 +191,7 @@ export default function CheckoutPage() {
                           {root.quantity}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-gray-900 text-[15px] font-bold leading-tight">{root.item.name}</p>
+                          <p className="text-gray-900 text-[15px] font-bold leading-tight uppercase">{root.item.name}</p>
                           {wrappedCalculateItemPrice(root.item.price, root.item.id) < root.item.price && (
                             <p className="text-[11px] text-emerald-600 font-semibold mt-0.5">Diskon Promo Item!</p>
                           )}
@@ -232,7 +232,7 @@ export default function CheckoutPage() {
                             {child.quantity}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="text-gray-600 text-sm font-semibold leading-tight flex items-center gap-1.5 flex-wrap">
+                            <p className="text-gray-600 text-sm font-semibold leading-tight flex items-center gap-1.5 flex-wrap uppercase">
                               <span className="text-[9px] font-bold uppercase bg-gray-100 text-gray-500 px-1 rounded-sm">Extra</span>
                               {child.item.name}
                             </p>

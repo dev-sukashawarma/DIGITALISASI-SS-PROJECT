@@ -388,7 +388,7 @@ const cardBg = isPending ? 'bg-amber-50/50 border-amber-200/60' : 'bg-blue-50/50
 
                     <div className="min-w-0 flex-1 mt-0.5">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-sm font-semibold text-slate-800 leading-snug break-words">{oi.parsedName}</span>
+                        <span className="text-sm font-semibold text-slate-800 leading-snug break-words uppercase">{oi.parsedName}</span>
                         {pkgItems.length > 0 && (
                           <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-sm ${isPending ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>PAKET</span>
                         )}
@@ -423,7 +423,7 @@ const cardBg = isPending ? 'bg-amber-50/50 border-amber-200/60' : 'bg-blue-50/50
                               ? (isPending ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-700')
                               : (isPending ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600')
                           }`}>ISI</span>
-                          <span className="text-xs font-semibold text-slate-700 break-words min-w-0">{displayName}</span>
+                          <span className="text-xs font-semibold text-slate-700 break-words min-w-0 uppercase">{displayName}</span>
                           {pi.or_menu_item_id && !isAlternative && (
                             <span className="text-[9px] text-slate-400 font-medium italic hidden sm:inline">atau {pi.or_menu_item?.name}</span>
                           )}
@@ -439,7 +439,7 @@ const cardBg = isPending ? 'bg-amber-50/50 border-amber-200/60' : 'bg-blue-50/50
                       <div className="min-w-0 flex-1">
                         <div className="text-xs font-medium text-slate-600 leading-snug flex items-center gap-1.5 flex-wrap">
                           <span className={`text-[9px] font-bold uppercase ${isPending ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'} px-1 rounded-sm`}>Extra</span>
-                          <span className="break-words min-w-0 text-slate-700 font-semibold">{child.parsedName}</span>
+                          <span className="break-words min-w-0 text-slate-700 font-semibold uppercase">{child.parsedName}</span>
                         </div>
                         {child.parsedNote && (
                           <div className={`mt-1.5 ${noteBg} border text-[11px] px-2.5 py-1.5 rounded-md font-semibold leading-snug break-words whitespace-pre-wrap`}>
@@ -1729,7 +1729,7 @@ export default function KasirOrderClient({
                             )}
 
                             <div className="min-w-0 flex-1 mt-0.5">
-                              <span className="text-sm font-semibold text-slate-800/80 leading-snug break-words">{oi.parsedName}</span>
+                              <span className="text-sm font-semibold text-slate-800/80 leading-snug break-words uppercase">{oi.parsedName}</span>
                             </div>
                           </div>
 
@@ -1749,7 +1749,7 @@ export default function KasirOrderClient({
                               <div className="min-w-0 flex-1">
                                 <div className="text-xs font-medium text-slate-800/60 leading-snug flex items-center gap-1.5 flex-wrap">
                                   <span className="text-[8px] font-bold uppercase bg-[#701604]/5 text-slate-800/80 px-1 rounded-sm">Extra</span>
-                                  <span className="break-words min-w-0">{child.parsedName}</span>
+                                  <span className="break-words min-w-0 uppercase">{child.parsedName}</span>
                                 </div>
                                 {child.parsedNote && (
                                   <div className="relative mt-1 flex items-start">
@@ -1885,7 +1885,7 @@ export default function KasirOrderClient({
                               )}
                             </div>
                             <div className="flex flex-col">
-                              <span className="font-bold text-slate-800 text-sm">{oi.name}</span>
+                              <span className="font-bold text-slate-800 text-sm uppercase">{oi.name}</span>
                               {oi.note && (
                                 <span className="text-xs text-slate-500 font-medium">({oi.note})</span>
                               )}
@@ -1903,7 +1903,7 @@ export default function KasirOrderClient({
                                 <div key={exIdx} className="flex justify-between items-start">
                                   <div className="flex items-center gap-2 text-xs">
                                     <div className="font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">Extra</div>
-                                    <span className="font-semibold text-slate-700">{ex.name}</span>
+                                    <span className="font-semibold text-slate-700 uppercase">{ex.name}</span>
                                     {ex.note && <span className="text-slate-400 italic">({ex.note})</span>}
                                   </div>
                                 </div>
@@ -2040,7 +2040,7 @@ export default function KasirOrderClient({
                           </div>
 
                           <div className="min-w-0 flex-1 mt-0.5">
-                            <span className="text-sm font-semibold text-slate-800 leading-snug break-words">{oi.parsedName}</span>
+                            <span className="text-sm font-semibold text-slate-800 leading-snug break-words uppercase">{oi.parsedName}</span>
                           </div>
                         </div>
 
@@ -2060,7 +2060,7 @@ export default function KasirOrderClient({
                             <div className="min-w-0 flex-1">
                               <div className="text-xs font-medium text-slate-600 leading-snug flex items-center gap-1.5 flex-wrap">
                                 <span className="text-[9px] font-bold uppercase bg-indigo-100 text-indigo-700 px-1 rounded-sm">Extra</span>
-                                <span className="break-words min-w-0 text-slate-700 font-semibold">{child.parsedName}</span>
+                                <span className="break-words min-w-0 text-slate-700 font-semibold uppercase">{child.parsedName}</span>
                               </div>
                               {child.parsedNote && (
                                 <div className="mt-1.5 bg-indigo-50 border border-indigo-100 text-indigo-900 text-[11px] px-2.5 py-1.5 rounded-md font-semibold leading-snug break-words whitespace-pre-wrap">

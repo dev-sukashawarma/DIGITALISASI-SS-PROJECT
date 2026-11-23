@@ -1063,7 +1063,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                           </span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
-                              <p className="text-sm font-semibold text-gray-800 truncate">{item.name}</p>
+                              <p className="text-sm font-semibold text-gray-800 truncate uppercase">{item.name}</p>
                               <div className="flex items-center gap-3 flex-shrink-0 ml-2">
                                 <span className="text-xs text-gray-500 font-medium">{item.qty} terjual</span>
                                 <span className="text-xs font-bold text-gray-900">{formatRupiah(item.revenue)}</span>

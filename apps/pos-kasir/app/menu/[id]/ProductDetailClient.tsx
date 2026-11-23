@@ -87,7 +87,7 @@ export default function ProductDetailClient({
           <Link href="/" className="w-10 h-10 bg-white border border-gray-200 shadow-sm hover:bg-gray-50 rounded-full flex items-center justify-center transition-all active:scale-95">
             <ArrowLeft className="w-5 h-5 text-gray-700" strokeWidth={2.5} />
           </Link>
-          <h1 className="font-extrabold text-gray-900 text-lg leading-none truncate">{item.name}</h1>
+          <h1 className="font-extrabold text-gray-900 text-lg leading-none truncate uppercase">{item.name}</h1>
         </div>
       </div>
 
@@ -116,7 +116,7 @@ export default function ProductDetailClient({
                 {item.categories.name}
               </span>
             )}
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight leading-tight">{item.name}</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight leading-tight uppercase">{item.name}</h2>
             {item.description && <p className="text-gray-500 text-[15px] leading-relaxed mt-2">{item.description}</p>}
           </div>
           <div className="pt-3 border-t border-gray-100 flex flex-col justify-end">
@@ -173,13 +173,13 @@ export default function ProductDetailClient({
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => setSelectedPackageChoices(prev => ({ ...prev, [pi.id]: mainItem.id }))}
-                        className={`p-3 rounded-xl border text-sm font-bold text-center transition-all active:scale-[0.98] ${selected === mainItem.id ? 'border-amber-500 bg-amber-50 text-amber-700 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300'}`}
+                        className={`p-3 rounded-xl border text-sm font-bold text-center uppercase transition-all active:scale-[0.98] ${selected === mainItem.id ? 'border-amber-500 bg-amber-50 text-amber-700 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300'}`}
                       >
                         {mainItem.name}
                       </button>
                       <button
                         onClick={() => setSelectedPackageChoices(prev => ({ ...prev, [pi.id]: orItem.id }))}
-                        className={`p-3 rounded-xl border text-sm font-bold text-center transition-all active:scale-[0.98] ${selected === orItem.id ? 'border-amber-500 bg-amber-50 text-amber-700 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300'}`}
+                        className={`p-3 rounded-xl border text-sm font-bold text-center uppercase transition-all active:scale-[0.98] ${selected === orItem.id ? 'border-amber-500 bg-amber-50 text-amber-700 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300'}`}
                       >
                         {orItem.name}
                       </button>
@@ -257,7 +257,7 @@ export default function ProductDetailClient({
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-gray-900 text-[15px] leading-tight truncate">{u.name}</h3>
+                    <h3 className="font-bold text-gray-900 text-[15px] leading-tight truncate uppercase">{u.name}</h3>
                     <p className="font-extrabold text-amber-600 mt-0.5 text-sm">{formatRupiah(u.price)}</p>
                   </div>
                   <div className="flex items-center flex-shrink-0">

@@ -120,7 +120,7 @@ export default function MenuItem({ item, calculateItemPrice, applicablePromo, sc
       {/* Content */}
       <div className="p-3.5 sm:p-4 flex flex-col flex-1">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="font-semibold text-gray-900 text-sm sm:text-[15px] leading-snug line-clamp-2">
+          <h3 className="font-semibold text-gray-900 text-sm sm:text-[15px] leading-snug line-clamp-2 uppercase">
             {item.name}
           </h3>
           {item.is_package && (

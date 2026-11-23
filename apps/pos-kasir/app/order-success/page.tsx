@@ -141,7 +141,7 @@ function OrderSuccessContent() {
                   <div className="absolute left-[8px] top-1.5 w-2 h-2 bg-amber-400 rounded-full ring-4 ring-white" />
                   
                   <div className="min-w-0">
-                    <p className="text-gray-800 font-semibold text-sm truncate">{cleanItemName(oi.menu_item_name)}</p>
+                    <p className="text-gray-800 font-semibold text-sm truncate uppercase">{cleanItemName(oi.menu_item_name)}</p>
                     <p className="text-gray-400 text-xs mt-0.5">{oi.quantity}x @ {formatRupiah(oi.unit_price)}</p>
                   </div>
                   <span className="text-gray-900 text-sm font-bold flex-shrink-0">

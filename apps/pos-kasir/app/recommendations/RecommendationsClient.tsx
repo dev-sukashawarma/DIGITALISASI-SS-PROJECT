@@ -214,7 +214,7 @@ export default function RecommendationsClient({ settings }: { settings: Recommen
 
                 {/* Content Section */}
                 <div className="p-4 flex flex-col flex-1">
-                  <h3 className="font-bold text-gray-900 text-[14px] sm:text-[15px] leading-snug line-clamp-2 min-h-[42px]">{u.name}</h3>
+                  <h3 className="font-bold text-gray-900 text-[14px] sm:text-[15px] leading-snug line-clamp-2 min-h-[42px] uppercase">{u.name}</h3>
                   <p className="font-black text-amber-600 mt-1 mb-4 text-[15px]">{formatRupiah(u.price)}</p>
 
                   <div className="mt-auto space-y-3">
@@ -258,7 +258,7 @@ export default function RecommendationsClient({ settings }: { settings: Recommen
                                       )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <h5 className="font-bold text-gray-900 text-[11px] leading-tight truncate">{up.name}</h5>
+                                      <h5 className="font-bold text-gray-900 text-[11px] leading-tight truncate uppercase">{up.name}</h5>
                                       <p className="font-bold text-amber-600 mt-0.5 text-[10px]">{formatRupiah(up.price)}</p>
                                     </div>
                                     <div className="flex-shrink-0">

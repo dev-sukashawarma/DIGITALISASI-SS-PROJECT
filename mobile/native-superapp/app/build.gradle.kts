@@ -34,6 +34,8 @@ android {
         // (RLS tabel attendance: INSERT hanya service_role; insert langsung dari device mustahil by design).
         buildConfigField("String", "ABSENSI_API_BASE",
             "\"${localProps.getProperty("ABSENSI_API_BASE") ?: "https://absensi.sukashawarma.com"}\"")
+        buildConfigField("String", "FINANCE_API_BASE",
+            "\"${localProps.getProperty("FINANCE_API_BASE") ?: "https://finance.sukashawarma.com"}\"")
     }
 
     buildTypes {

@@ -40,6 +40,7 @@ import {
   DollarSign,
   Store,
   HeartHandshake,
+  CreditCard,
 } from 'lucide-react'
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
@@ -90,6 +91,7 @@ const FINANCE_NAV_GROUPS: NavGroup[] = [
       { href: '/supplier', label: 'Pembayaran Vendor', icon: Truck },
       { href: '/payroll', label: 'Pencairan Gaji', icon: Wallet },
       { href: '/laporan/buku-kas', label: 'Buku Kas (OPEX)', icon: Receipt, aliases: ['/pengeluaran'] },
+      { href: '/etoll', label: 'Kartu e-Toll', icon: CreditCard },
     ],
   },
   {

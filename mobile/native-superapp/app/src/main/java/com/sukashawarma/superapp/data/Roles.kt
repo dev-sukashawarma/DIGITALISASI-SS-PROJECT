@@ -17,6 +17,12 @@ object Roles {
     /** Pengantaran surat jalan + pelacakan GPS selama perjalanan. */
     val PENGANTARAN = setOf("driver")
 
+    /** Scan NFC kartu e-Toll operasional & tagging ringan. */
+    val ETOLL_SCAN = setOf(
+        "driver", "area_manager", "regional_manager", "korlap", "spv", "leader",
+        "staff_pusat", "admin_finance", "admin_hr", "admin", "owner", "developer"
+    )
+
     /** Boleh mendaftarkan/re-enroll wajah crew: leader, admin, area_manager, regional_manager, admin_hr, owner, spv, korlap */
     val ENROLLMENT = setOf(
         "leader", "area_manager", "regional_manager", "admin_hr", "admin", "owner", "spv", "korlap"

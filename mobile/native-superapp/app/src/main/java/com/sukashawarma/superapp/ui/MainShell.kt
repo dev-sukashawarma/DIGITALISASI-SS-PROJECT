@@ -120,6 +120,7 @@ fun MainShell(
                         "Setting Absensi" -> Screen.AttendanceSettings
                         "Kalibrasi Wajah" -> Screen.FaceDebug
                         "Pengantaran" -> Screen.Pengantaran
+                        "Scan e-Toll" -> Screen.EtollScan
                         else -> null
                     }
                     if (target != null && navigationManager.navigateTo(target, currentStaff)) {
@@ -171,6 +172,12 @@ fun MainShell(
             }
             composable(Screen.FaceDebug.route) {
                 com.sukashawarma.superapp.ui.features.facedebug.FaceDebugScreen(onBackClick = { navController.popBackStack() })
+            }
+            composable(Screen.EtollScan.route) {
+                com.sukashawarma.superapp.ui.features.etoll.EtollScanScreen(
+                    currentStaff = currentStaff,
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
     }

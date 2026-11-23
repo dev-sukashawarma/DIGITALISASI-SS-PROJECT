@@ -24,6 +24,7 @@ class NavigationManager(private val authRepository: AuthRepository) {
                 Screen.AttendanceSettings -> staff.role in Roles.ATTENDANCE_SETTINGS
                 Screen.Inventory, Screen.Fulfillment -> staff.role in Roles.STUB_MODULES
                 Screen.Pengantaran -> staff.role in Roles.PENGANTARAN
+                Screen.EtollScan -> staff.role in Roles.ETOLL_SCAN
             }
             if (!allowed) {
                 return false // Navigation Gated

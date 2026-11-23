@@ -10,4 +10,5 @@ sealed class Screen(val route: String) {
     object AttendanceSettings : Screen("attendance_settings")
     object FaceDebug : Screen("face_debug")
     object Pengantaran : Screen("pengantaran")
+    object EtollScan : Screen("etoll_scan")
 }

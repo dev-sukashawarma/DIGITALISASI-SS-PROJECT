@@ -24,6 +24,7 @@ import { assertStaffCanAccessOutlet } from '@/lib/stok/outletAccess'
 import { canViewJurnalMutasi } from '@/lib/stok/navAccess'
 import { isMutasiOrder, pemakaianPosPerBahan } from '@/lib/stok/mutasiOrder'
 import { ambilWaktuTutupOpname } from '@/lib/stok/waktuTutupOpname'
+import { cariTukarBahan, isKelipatanKemasan } from '@/lib/stok/diagnosaSelisih'
 import { INFLOW_TIPE, klasifikasiMutasi } from '@/lib/stok/klasifikasiMutasi'
 import { gabungPosisiOutlet, saldoAwalOutlet, type PosisiOutletBahan } from '@/lib/stok/rekonsiliasiOutlet'
 import { serapLapisan, type BarisLapisan } from '@/lib/stok/lapisanAwalFifo'
@@ -461,7 +462,7 @@ export interface OpnameSessionSummary {
 }
 
 export interface DiagnosticAlert {
-  type: 'ANOMALI_SKALA' | 'BOM_MISMATCH' | 'SJ_GANTUNG' | 'NOMINAL_EKSTREM'
+  type: 'ANOMALI_SKALA' | 'TUKAR_BAHAN' | 'BOM_MISMATCH' | 'SJ_GANTUNG' | 'NOMINAL_EKSTREM'
   severity: 'danger' | 'warning' | 'info'
   message: string
 }
@@ -555,6 +556,8 @@ export interface ReconciliationTotals {
   total_selisih_rp: number
   bahan_berselisih_count: number
   anomali_skala_count: number
+  /** Bahan sejenis dengan selisih berlawanan (kemungkinan salah pilih bahan). */
+  tukar_bahan_count?: number
   ekstrem_count: number
   // Efisiensi bahan: omzet periode vs biaya bahan
   omzet_rp: number // omzet KOTOR (sebelum diskon/promo)
@@ -824,7 +827,7 @@ export async function fetchMultiOutletOverview(): Promise<OutletOverviewItem[]> 
         const unitPriceKecil = kemasanQty > 0 ? hargaMaster / kemasanQty : hargaMaster
         totalSelisihRp += Math.round(selisih * unitPriceKecil)
 
-        if (kemasanQty > 1 && Math.abs(selisih) >= kemasanQty && Math.abs(selisih) % kemasanQty === 0) {
+        if (isKelipatanKemasan(selisih, kemasanQty)) {
           anomaliSkalaCount++
         }
       }
@@ -1996,19 +1999,17 @@ export async function fetchReconciliationSnapshot(
     // Diagnostik Anomali
     const diagnostics: DiagnosticAlert[] = []
 
-    // 1. Deteksi Skala / Salah Input Satuan (kelipatan faktor tampilan)
-    if (stokFisik !== null && Math.abs(selisihQty) > 0 && kemasanQty > 1) {
-      const absDiff = Math.abs(selisihQty)
-      // Cek apakah selisih merupakan kelipatan tepat (atau toleransi +/- 2) dari faktor kemasan
-      if (absDiff >= kemasanQty && (absDiff % kemasanQty === 0 || Math.abs((absDiff % kemasanQty) - kemasanQty) <= 2)) {
-        const estUnitBesar = Math.round(absDiff / kemasanQty)
-        diagnostics.push({
-          type: 'ANOMALI_SKALA',
-          severity: 'danger',
-          message: `Selisih pas ${estUnitBesar} ${b.satuan} (${estUnitBesar * kemasanQty} ${b.satuan_kecil || 'gram'}). Kemungkinan salah input skala satuan!`,
-        })
-        anomaliSkalaCount++
-      }
+    // 1. Selisih pas kelipatan isi kemasan (tepat 1 tabung / 1 Dus). Jarang salah skala;
+    // lebih sering salah hitung atau barang dicatat di bahan yang salah -- lihat
+    // lib/stok/diagnosaSelisih.ts. Kode tipe tetap ANOMALI_SKALA (dipakai ekspor).
+    if (stokFisik !== null && isKelipatanKemasan(selisihQty, kemasanQty)) {
+      const estUnitBesar = Math.round(Math.abs(selisihQty) / kemasanQty)
+      diagnostics.push({
+        type: 'ANOMALI_SKALA',
+        severity: 'danger',
+        message: `Selisih pas ${selisihQty > 0 ? '+' : '-'}${estUnitBesar} ${b.satuan}. Cek salah hitung (mis. barang kosong/cadangan ikut atau tidak dihitung) atau salah pilih bahan.`,
+      })
+      anomaliSkalaCount++
     }
 
     // 2. Deteksi Pemakaian POS vs Resep
@@ -2143,6 +2144,49 @@ export async function fetchReconciliationSnapshot(
     })
   }
 
+  // Bahan sejenis dengan selisih berlawanan (FOIL 5M kurang, FOIL 7,6M lebih, dst.):
+  // pola barang yang dihitung di bawah nama bahan yang salah.
+  let tukarBahanCount = 0
+  if (!isAll) {
+    let pasanganSubstitusi: [string, string][] = []
+    try {
+      const { data: subs } = await supabase
+        .from('bahan_baku_substitusi')
+        .select('bahan_baku_utama_id, bahan_baku_pengganti_id')
+      pasanganSubstitusi = (subs || []).map((x: any) => [x.bahan_baku_utama_id, x.bahan_baku_pengganti_id])
+    } catch (e) {
+      console.warn('Gagal memuat pasangan substitusi:', e)
+    }
+    const tukar = cariTukarBahan(
+      reconciliationItems
+        .filter((it) => it.has_opname && Math.abs(it.selisih_qty) > 0.01)
+        .map((it) => ({
+          id: it.bahan_baku_id,
+          nama: it.nama,
+          satuan: it.satuan,
+          selisih: it.selisih_qty,
+          kemasan: faktorPenuhMap.get(it.bahan_baku_id) || 1,
+        })),
+      pasanganSubstitusi
+    )
+    for (const it of reconciliationItems) {
+      const pasangan = tukar.get(it.bahan_baku_id)
+      if (!pasangan) continue
+      tukarBahanCount++
+      const daftar = pasangan
+        .map((p) => {
+          const besar = p.kemasan > 1 ? Math.round((p.selisih / p.kemasan) * 10) / 10 : p.selisih
+          return `${p.nama} (${p.selisih > 0 ? '+' : ''}${besar.toLocaleString('id-ID')} ${p.satuan})`
+        })
+        .join(', ')
+      it.diagnostics.unshift({
+        type: 'TUKAR_BAHAN',
+        severity: 'danger',
+        message: `Selisih berlawanan dengan ${daftar}. Kemungkinan dihitung/dicatat di bahan yang salah.`,
+      })
+    }
+  }
+
   return {
     outlet: { id: isAll ? 'ALL' : outletId, name: outletName },
     period: {
@@ -2167,6 +2211,7 @@ export async function fetchReconciliationSnapshot(
       total_selisih_rp: totalSelisihRp,
       bahan_berselisih_count: berselisihCount,
       anomali_skala_count: anomaliSkalaCount,
+      tukar_bahan_count: tukarBahanCount,
       ekstrem_count: ekstremCount,
       omzet_rp: omzetRp,
       potongan_rp: potonganRp,

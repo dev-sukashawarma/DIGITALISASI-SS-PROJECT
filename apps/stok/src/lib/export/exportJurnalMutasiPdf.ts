@@ -91,11 +91,15 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
   doc.setTextColor(51, 65, 85)
   doc.text(`Cabang: ${data.outlet.name}`, rightX, currentY + 4, { align: 'right' })
 
-  let periodeLabel = `${data.period.start_date.slice(0, 10)} s/d ${data.period.end_date.slice(0, 10)}`
+  // Mode rentang: pakai tanggal yang dipilih pengguna. start_date/end_date kini = batas
+  // jendela sebenarnya (waktu tutup opname, UTC), jadi slice(0,10)-nya bisa sehari meleset.
+  const tglMulai = data.period.tanggal_mulai ?? data.period.start_date.slice(0, 10)
+  const tglAkhir = data.period.tanggal_akhir ?? data.period.end_date.slice(0, 10)
+  let periodeLabel = `${tglMulai} s/d ${tglAkhir}`
   if (data.period.mode === 'opname_session' && data.period.opname_terpilih) {
     periodeLabel = `Sesi Opname: ${data.period.opname_terpilih.tanggal} (${data.period.opname_terpilih.tipe})`
   } else if (data.period.opname_terpilih) {
-    periodeLabel = `${data.period.start_date.slice(0, 10)} s/d ${data.period.end_date.slice(0, 10)} (Opname: ${data.period.opname_terpilih.tanggal})`
+    periodeLabel = `${tglMulai} s/d ${tglAkhir} (Opname: ${data.period.opname_terpilih.tanggal})`
   }
   doc.text(periodeLabel, rightX, currentY + 9, { align: 'right' })
 
@@ -701,7 +705,7 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
 
   // Simpan / Unduh Dokumen PDF
   const sanitizedOutlet = data.outlet.name.replace(/[^a-zA-Z0-9]/g, '_')
-  const dateStamp = data.period.end_date.slice(0, 10)
+  const dateStamp = data.period.tanggal_akhir ?? data.period.opname_terpilih?.tanggal ?? data.period.end_date.slice(0, 10)
   const filename = `Laporan_Rekonsiliasi_Mutasi_${sanitizedOutlet}_${dateStamp}.pdf`
 
   doc.save(filename)

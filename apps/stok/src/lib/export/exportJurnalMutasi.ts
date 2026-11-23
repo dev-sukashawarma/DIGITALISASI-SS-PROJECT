@@ -17,7 +17,7 @@ export function exportReconciliationToCsv(data: ReconciliationSnapshotResponse) 
   lines.push(`Outlet;${escapeCsv(outlet.name)}`)
   lines.push(`Mode Periode;${period.mode === 'opname_session' ? 'Sesi Opname' : 'Rentang Tanggal'}`)
   lines.push(
-    `Rentang Tanggal Cut-Off;${new Date(period.start_date).toLocaleString('id-ID')} s/d ${new Date(period.end_date).toLocaleString('id-ID')}`
+    `Rentang Tanggal Cut-Off;${new Date(period.start_date).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} s/d ${new Date(period.end_date).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB`
   )
   if (period.opname_terpilih) {
     lines.push(`Sesi Opname Terpilih;${period.opname_terpilih.tanggal} (${period.opname_terpilih.tipe})`)

@@ -523,6 +523,8 @@ export interface ReconciliationItem {
   masuk_rp_master: number
   masuk_rp_riil: number | null
   pakai_rp: number
+  /** Pemakaian dinilai harga kiriman yang stoknya terpakai (FIFO); opsional untuk data lama. */
+  pakai_rp_riil?: number
   waste_rp: number
   mutasi_lain_rp: number
   stok_sistem_rp: number
@@ -544,6 +546,9 @@ export interface ReconciliationTotals {
   total_masuk_rp_master: number
   total_masuk_rp_riil: number
   total_pakai_rp: number
+  total_pakai_rp_riil?: number
+  /** Mutasi lain (transfer, retur, penyesuaian) dalam harga master -- penutup persamaan kartu. */
+  total_mutasi_lain_rp?: number
   total_waste_rp: number
   total_sistem_rp: number
   total_fisik_rp: number
@@ -1882,9 +1887,8 @@ export async function fetchReconciliationSnapshot(
     return qty > 0 ? nilai / qty : null
   }
 
-  // Biaya bahan menurut resep (teoritis) = kebutuhan resep x harga pemakaian per satuan
-  // kecil (rata-rata FIFO, sama dengan pakai_rp; master bila tak ada pemakaian), supaya
-  // selisih aktual vs resep murni selisih jumlah, bukan selisih harga.
+  // Biaya bahan menurut resep (teoritis) = kebutuhan resep x harga master per satuan kecil
+  // (skala yang sama dengan pakai_rp, jadi selisih aktual vs resep murni selisih jumlah).
   // Baris tanpa harga master (unit price 0) dilewati & dihitung jumlahnya.
   let teoritisPakaiRp = 0
   let teoritisTidakTerhitung = 0
@@ -1895,8 +1899,7 @@ export async function fetchReconciliationSnapshot(
         const b = bahanById.get(ing.bahan_baku_id)
         const h = hargaMap.get(ing.bahan_baku_id)
         const kemasan = Number(b?.faktor_tampilan) || Number(h?.kemasan_qty) || 1
-        const unitMaster = kemasan > 0 ? (h?.harga_beli || 0) / kemasan : 0
-        const unit = unitMaster > 0 ? hargaPakaiKecilOf(ing.bahan_baku_id) ?? unitMaster : 0
+        const unit = kemasan > 0 ? (h?.harga_beli || 0) / kemasan : 0
         // Potongan stok BOM selalu dalam satuan kecil bahan; label satuan resep (mis. "pcs",
         // "lembar") hanya penamaan -- jadi tidak dipakai untuk menolak baris.
         if (b && unit > 0) {
@@ -1916,6 +1919,8 @@ export async function fetchReconciliationSnapshot(
   let totalMasukRpMaster = 0
   let totalMasukRpRiil = 0
   let totalPakaiRp = 0
+  let totalPakaiRpRiil = 0
+  let totalMutasiLainRp = 0
   let totalWasteRp = 0
   let totalSistemRp = 0
   let totalFisikRp = 0
@@ -1974,9 +1979,12 @@ export async function fetchReconciliationSnapshot(
     const saldoAwalRp = Math.round(saldoAwal * unitPriceKecil)
     const masukRpMaster = Math.round(masukQty * unitPriceKecil)
     const masukRpRiil = riil?.hasRealPrice ? Math.round(riil.total) : masukRpMaster
-    // Pemakaian dinilai dengan harga rata-rata lapisan FIFO yang terpakai (harga kiriman),
-    // sama dengan timeline; saldo/stok/selisih tetap harga master (kebijakan harga terakhir).
-    const pakaiRp = Math.round(pakaiQty * (hargaPakaiKecilOf(b.id) ?? unitPriceKecil))
+    // pakai_rp memakai harga master -- skala yang sama dengan saldo awal, masuk, waste,
+    // dan stok sistem, sehingga kartu Saldo Awal + Masuk - Pakai - Waste +/- Lain = Stok
+    // Sistem tetap utuh. Nilai menurut harga kiriman yang stoknya terpakai (FIFO, sama
+    // dengan timeline) dilaporkan terpisah sebagai pakai_rp_riil -- pola masuk_rp_riil.
+    const pakaiRp = Math.round(pakaiQty * unitPriceKecil)
+    const pakaiRpRiil = Math.round(pakaiQty * (hargaPakaiKecilOf(b.id) ?? unitPriceKecil))
     const wasteRp = Math.round(wasteQty * unitPriceKecil)
     const mutasiLainRp = Math.round(mutasiLainQty * unitPriceKecil)
     const stokSistemRp = Math.round(stokSistem * unitPriceKecil)
@@ -2039,7 +2047,9 @@ export async function fetchReconciliationSnapshot(
     totalMasukRpMaster += masukRpMaster
     totalMasukRpRiil += masukRpRiil
     totalPakaiRp += pakaiRp
+    totalPakaiRpRiil += pakaiRpRiil
     totalWasteRp += wasteRp
+    totalMutasiLainRp += mutasiLainRp
     totalSistemRp += stokSistemRp
     if (stokFisikRp !== null) totalFisikRp += stokFisikRp
     totalSelisihRp += selisihRp
@@ -2096,6 +2106,7 @@ export async function fetchReconciliationSnapshot(
       masuk_rp_master: masukRpMaster,
       masuk_rp_riil: masukRpRiil,
       pakai_rp: pakaiRp,
+      pakai_rp_riil: pakaiRpRiil,
       waste_rp: wasteRp,
       mutasi_lain_rp: mutasiLainRp,
       stok_sistem_rp: stokSistemRp,
@@ -2148,6 +2159,8 @@ export async function fetchReconciliationSnapshot(
       total_masuk_rp_master: totalMasukRpMaster,
       total_masuk_rp_riil: totalMasukRpRiil,
       total_pakai_rp: totalPakaiRp,
+      total_pakai_rp_riil: totalPakaiRpRiil,
+      total_mutasi_lain_rp: totalMutasiLainRp,
       total_waste_rp: totalWasteRp,
       total_sistem_rp: totalSistemRp,
       total_fisik_rp: totalFisikRp,

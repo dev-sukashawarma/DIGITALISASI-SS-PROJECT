@@ -500,8 +500,8 @@ export function RekonsiliasiTable({
                 <th className="p-3.5 text-right">Waste</th>
                 {!isAll && (
                   <>
-                    <th className="p-3.5 text-right bg-black/10">Stok Sistem</th>
-                    <th className="p-3.5 text-right bg-black/10">Fisik Opname</th>
+                    <th className="p-3.5 text-right bg-black/10">Seharusnya Ada</th>
+                    <th className="p-3.5 text-right bg-black/10">Hasil Hitung</th>
                     <th className="p-3.5 text-right">Selisih (Varian)</th>
                     <th className="p-3.5 text-center">Diagnostik Anomali</th>
                   </>
@@ -631,6 +631,14 @@ export function RekonsiliasiTable({
                         <div className="text-[10px] font-semibold text-blue-700/80">
                           {formatRp(item.pakai_rp)}
                         </div>
+                        {item.pakai_rp_riil !== undefined && item.pakai_rp_riil !== item.pakai_rp && (
+                          <div
+                            className="text-[9px] font-bold text-amber-600 truncate"
+                            title="Pemakaian dinilai harga kiriman (surat jalan) dari stok yang terpakai, metode FIFO"
+                          >
+                            Riil: {formatRp(item.pakai_rp_riil)}
+                          </div>
+                        )}
                         {item.vendor_pakai?.map((v) => (
                           <div
                             key={v.vendor_nama}

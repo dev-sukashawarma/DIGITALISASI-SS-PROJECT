@@ -75,7 +75,7 @@ interface LaporanPenjualanClientProps {
     hourly: number[];
     hourlyRevenue: number[];
     hourlyPorsi: number[];
-    channelStats: Record<string, { label: string; count: number; revenue: number; porsi: number }>;
+    channelStats: Record<string, { label: string; count: number; revenue: number; porsi: number; pesananTakDihitung?: number }>;
     bestSellers: Array<{ name: string; qty: number; revenue: number; orderCount: number; fromPackage?: string | null }>;
     outletVolumeList: Array<{
       outletId: string;
@@ -213,11 +213,13 @@ export default function LaporanPenjualanClient({
 
   // Channel configuration
   const CHANNEL_CONFIG: Record<string, { label: string; bg: string; text: string; bar: string; icon: string }> = {
-    offline: { label: 'Offline (Kasir)', bg: 'bg-emerald-50', text: 'text-emerald-700', bar: 'bg-emerald-500', icon: '🏪' },
+    offline: { label: 'Offline (Kasir + PreOrder WA)', bg: 'bg-emerald-50', text: 'text-emerald-700', bar: 'bg-emerald-500', icon: '🏪' },
+    website: { label: 'Website', bg: 'bg-sky-50', text: 'text-sky-700', bar: 'bg-sky-500', icon: '🌐' },
     gofood: { label: 'GoFood', bg: 'bg-red-50', text: 'text-red-700', bar: 'bg-red-500', icon: '🛵' },
     grabfood: { label: 'GrabFood', bg: 'bg-emerald-50', text: 'text-green-700', bar: 'bg-green-600', icon: '🟢' },
     shopeefood: { label: 'ShopeeFood', bg: 'bg-orange-50', text: 'text-orange-700', bar: 'bg-orange-500', icon: '🛒' },
     tiktok: { label: 'TikTok GO', bg: 'bg-gray-100', text: 'text-gray-900', bar: 'bg-gray-800', icon: '🎵' },
+    endorse: { label: 'Endorse', bg: 'bg-pink-50', text: 'text-pink-700', bar: 'bg-pink-500', icon: '🎁' },
     lainnya: { label: 'Lainnya', bg: 'bg-amber-50', text: 'text-amber-700', bar: 'bg-amber-500', icon: '📦' },
   };
 
@@ -465,11 +467,13 @@ export default function LaporanPenjualanClient({
             {[
               { id: 'all', label: 'Semua Channel' },
               { id: 'offline', label: 'Offline / Kasir' },
+              { id: 'website', label: 'Website' },
               { id: 'food_apps', label: 'Semua Food Apps' },
               { id: 'gofood', label: 'GoFood' },
               { id: 'grabfood', label: 'GrabFood' },
               { id: 'shopeefood', label: 'ShopeeFood' },
               { id: 'tiktok', label: 'TikTok GO' },
+              { id: 'endorse', label: 'Endorse' },
             ].map((ch) => (
               <button
                 key={ch.id}
@@ -578,7 +582,7 @@ export default function LaporanPenjualanClient({
 
             <div className="space-y-3.5 pt-1">
               {Object.entries(analytics.channelStats)
-                .filter(([_, data]) => data.count > 0 || analytics.totalOrders === 0)
+                .filter(([_, data]) => data.count > 0 || data.porsi > 0 || analytics.totalOrders === 0)
                 .sort((a, b) => b[1].revenue - a[1].revenue)
                 .map(([chKey, data]) => {
                   const cfg = CHANNEL_CONFIG[chKey] || CHANNEL_CONFIG.lainnya;
@@ -593,7 +597,9 @@ export default function LaporanPenjualanClient({
                           <div>
                             <p className="text-xs font-black text-[#1e1b15]">{cfg.label}</p>
                             <p className="text-[10px] font-bold text-[#544437]/70">
-                              {data.count} Transaksi • <span className="text-[#701604] font-black">{data.porsi} Porsi ({porsiPercent.toFixed(1)}%)</span>
+                              {data.pesananTakDihitung
+                                ? `${data.pesananTakDihitung} Pesanan (bukan transaksi)`
+                                : `${data.count} Transaksi`} • <span className="text-[#701604] font-black">{data.porsi} Porsi ({porsiPercent.toFixed(1)}%)</span>
                             </p>
                           </div>
                         </div>

@@ -1,6 +1,9 @@
 // Hanya untuk kode server (Server Component / Server Action).
 import { unstable_cache } from 'next/cache'
-import { summarizeDay, extractPackageDrinks, cleanMenuName, KNOWN_DRINK_NAMES_BY_ID, type DaySummary, type RawOrder } from './aggregate'
+import {
+  summarizeDay, extractPackageDrinks, cleanMenuName, KNOWN_DRINK_NAMES_BY_ID, kanalOrder, minumanPaket, susunPaketMinuman,
+  MINUMAN_TAK_TERCATAT, KATEGORI_MINUMAN, minumanDariCatatan, type DaySummary, type PaketMinumanMap, type RawOrder,
+} from './aggregate'
 import { dayGeneration } from '@/lib/server/dayGenerations'
 
 /* ── Pemuat ringkasan harian Laporan Penjualan, dengan cache ─────────────────
@@ -16,11 +19,12 @@ import { dayGeneration } from '@/lib/server/dayGenerations'
 
 export const laporanDayTag = (date: string) => `laporan-penjualan-day:${date}`
 
-const ORDER_SELECT = 'id, status, payment_method, channel, sales_source, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, order_items(id, menu_item_name, quantity, subtotal, package_choices)'
+const ORDER_SELECT = 'id, status, payment_method, channel, sales_source, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, order_items(id, menu_item_id, menu_item_name, quantity, subtotal, package_choices)'
 const PAGE = 1000
 const CONCURRENCY = 6
 const PAST_DAY_TTL_S = 3600
 const TODAY_MEMO_TTL_MS = 20_000
+const PAKET_MEMO_TTL_MS = 10 * 60_000
 
 export function jakartaDate(instant: Date | string | number = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date(instant))
@@ -60,6 +64,30 @@ async function fetchDayOrders(supabase: any, date: string): Promise<RawOrder[]> 
 }
 
 /**
+ * Peta slot minuman paket (menu_packages + kategori menu). Hanya ±100 baris,
+ * di-memo 10 menit. Sengaja TIDAK masuk kunci cache harian: hari lampau
+ * dihitung ulang tiap jam (PAST_DAY_TTL_S) dengan peta terbaru.
+ */
+async function fetchPaketMinuman(supabase: any): Promise<PaketMinumanMap> {
+  const [slotRes, menuRes] = await Promise.all([
+    supabase.from('menu_packages').select('package_id, menu_item_id, or_menu_item_id, quantity'),
+    supabase.from('menu_items').select('id, name, categories(name)'),
+  ])
+  if (slotRes.error) throw slotRes.error
+  if (menuRes.error) throw menuRes.error
+  return susunPaketMinuman(slotRes.data ?? [], menuRes.data ?? [])
+}
+
+let paketMemo: { at: number; value: Promise<PaketMinumanMap> } | null = null
+function getPaketMinuman(supabase: any): Promise<PaketMinumanMap> {
+  if (paketMemo && Date.now() - paketMemo.at < PAKET_MEMO_TTL_MS) return paketMemo.value
+  const value = fetchPaketMinuman(supabase)
+  paketMemo = { at: Date.now(), value }
+  value.catch(() => { if (paketMemo?.value === value) paketMemo = null })
+  return value
+}
+
+/**
  * Sidik jari pendek dari kode yang menentukan BENTUK isi cache. Cache disimpan
  * permanen (volume Coolify, tahan redeploy): begitu kode pengambil/peringkas
  * berubah, sidik jarinya berubah dan cache lama otomatis tak terpakai —
@@ -81,6 +109,13 @@ const DAY_CACHE_FINGERPRINT = codeFingerprint(
   ORDER_SELECT,
   fetchDayOrders,
   summarizeDay,
+  kanalOrder,
+  minumanPaket,
+  susunPaketMinuman,
+  fetchPaketMinuman,
+  minumanDariCatatan,
+  MINUMAN_TAK_TERCATAT,
+  String(KATEGORI_MINUMAN),
   extractPackageDrinks,
   cleanMenuName,
   JSON.stringify(KNOWN_DRINK_NAMES_BY_ID),
@@ -104,22 +139,23 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (x: T) => Promise<R
 export async function loadDaySummaries(supabase: any, from: string, to: string): Promise<{ days: DaySummary[]; fetchedAt: string }> {
   const today = jakartaDate()
   const dates = eachDate(from, to > today ? today : to)
+  const paket = dates.length > 0 ? await getPaketMinuman(supabase) : {}
 
   const getDay = (date: string): Promise<DaySummary> => {
     if (date === today) {
       const hit = todayMemo.get(date)
       if (hit && Date.now() - hit.at < TODAY_MEMO_TTL_MS) return hit.promise
       todayMemo.clear() // buang memo hari sebelumnya setelah lewat tengah malam
-      const promise = fetchDayOrders(supabase, date).then(summarizeDay)
+      const promise = fetchDayOrders(supabase, date).then((orders) => summarizeDay(orders, paket))
       todayMemo.set(date, { at: Date.now(), promise })
       promise.catch(() => { if (todayMemo.get(date)?.promise === promise) todayMemo.delete(date) })
       return promise
     }
     return unstable_cache(
-      async () => summarizeDay(await fetchDayOrders(supabase, date)),
+      async () => summarizeDay(await fetchDayOrders(supabase, date), paket),
       // dayGeneration: naik tiap tombol Refresh membuang tanggal ini, tersimpan
       // di disk → pembuangan tetap berlaku sesudah restart/redeploy.
-      ['laporan-penjualan-day-v1', DAY_CACHE_FINGERPRINT, date, String(dayGeneration(date))],
+      ['laporan-penjualan-day-v2', DAY_CACHE_FINGERPRINT, date, String(dayGeneration(date))],
       { revalidate: PAST_DAY_TTL_S, tags: ['laporan-penjualan', laporanDayTag(date)] }
     )()
   }
@@ -130,6 +166,7 @@ export async function loadDaySummaries(supabase: any, from: string, to: string):
 
 export function clearLaporanTodayMemo() {
   todayMemo.clear()
+  paketMemo = null // tombol Refresh ikut memuat ulang peta paket
 }
 
 /** Tanggal order paling awal (WIB) — batas bawah filter "Semua waktu". */

@@ -3,9 +3,13 @@ import {
   summarizeDay,
   buildAnalytics,
   channelMatches,
-  channelKey,
+  kanalOrder,
   cleanMenuName,
   extractPackageDrinks,
+  minumanPaket,
+  susunPaketMinuman,
+  MINUMAN_TAK_TERCATAT,
+  type PaketMinumanMap,
   type RawOrder,
 } from './aggregate'
 
@@ -16,8 +20,8 @@ const info = new Map([
 ])
 const valid = new Set([A, B])
 
-const order = (id: string, outlet: string | null, channel: string | null, at: string, total: number, items: [string, number, number][], status = 'completed'): RawOrder => ({
-  id, status, channel, outlet_id: outlet, created_at: at, total_amount: total, discount_amount: 1000, promo_subsidy: 0,
+const order = (id: string, outlet: string | null, channel: string | null, at: string, total: number, items: [string, number, number][], status = 'completed', sales_source: string | null = 'pos'): RawOrder => ({
+  id, status, channel, sales_source, outlet_id: outlet, created_at: at, total_amount: total, discount_amount: 1000, promo_subsidy: 0,
   order_items: items.map(([menu_item_name, quantity, subtotal]) => ({ menu_item_name, quantity, subtotal })),
 })
 
@@ -74,14 +78,14 @@ describe('Laporan Penjualan — ringkasan per hari', () => {
     expect(a.outletVolumeList[0].outletName).toBe('outlet-t')
   })
 
-  it('filter channel mengikuti aturan query lama (offline = channel NULL)', () => {
+  it('filter channel memakai kunci kanal (offline, food apps, tiktok, gofood)', () => {
     expect(build('offline').totalOrders).toBe(1)
     expect(build('food_apps').totalOrders).toBe(2)
     expect(build('tiktok').totalOrders).toBe(1)
     expect(build('gofood').canceledCount).toBe(1)
-    expect(channelMatches('offline', '')).toBe(false)
-    expect(channelKey('')).toBe('offline')
-    expect(channelKey('GrabFood')).toBe('grabfood')
+    expect(channelMatches('food_apps', 'tiktok')).toBe(true)
+    expect(channelMatches('food_apps', 'website')).toBe(false)
+    expect(channelMatches('tiktokgo', 'tiktok')).toBe(true)
   })
 
   it('urutan seri outlet = urutan kemunculan order pertamanya', () => {
@@ -231,6 +235,142 @@ describe('Laporan Penjualan — ringkasan per hari', () => {
 
       // Total porsi = 3 (combo) + 3 (drink combo) + 1 (drink standalone) = 7
       expect(analytics.totalItemsSold).toBe(7)
+    })
+  })
+
+  describe('Kanal penjualan (keputusan owner)', () => {
+    it('kanalOrder memetakan channel + sales_source', () => {
+      expect(kanalOrder(null, 'pos')).toBe('offline')
+      expect(kanalOrder(null, null)).toBe('offline')
+      expect(kanalOrder('', 'pos')).toBe('offline')
+      expect(kanalOrder('pos', 'pos')).toBe('offline')
+      expect(kanalOrder('preorder_wa', 'pos')).toBe('offline')
+      expect(kanalOrder(null, 'online')).toBe('website')
+      expect(kanalOrder('website', 'pos')).toBe('website')
+      expect(kanalOrder('direct_web', 'online')).toBe('website')
+      expect(kanalOrder('gofood', 'online')).toBe('gofood')
+      expect(kanalOrder('GrabFood', 'pos')).toBe('grabfood')
+      expect(kanalOrder('shopeefood', 'shopeefood')).toBe('shopeefood')
+      expect(kanalOrder('tiktokgo', 'tiktok')).toBe('tiktok')
+      expect(kanalOrder('tiktok_go', 'pos')).toBe('tiktok')
+      expect(kanalOrder('endorse', 'pos')).toBe('endorse')
+      expect(kanalOrder('app', 'app')).toBe('lainnya')
+    })
+
+    const hari = summarizeDay([
+      order('k1', A, null, '2026-11-20T03:00:00Z', 50000, [['Sapi', 1, 50000]]),                         // kasir 10:00
+      order('k2', A, 'preorder_wa', '2026-11-20T03:10:00Z', 70000, [['Ayam', 2, 70000]]),               // PreOrder WA
+      order('k3', A, null, '2026-11-20T03:20:00Z', 40000, [['Sapi', 1, 40000]], 'completed', 'online'),  // website
+      order('k4', A, 'endorse', '2026-11-20T04:00:00Z', 0, [['Sapi', 3, 0]]),                           // endorse 11:00
+      order('k5', A, 'endorse', '2026-11-20T04:10:00Z', 0, [], 'cancelled'),                            // endorse batal
+      order('k6', A, null, '2026-11-20T04:20:00Z', 0, [], 'cancelled', 'online'),                        // website batal
+    ])
+    const b = (channelFilter: string) =>
+      buildAnalytics([hari], { channelFilter, outletFilter: 'all', validOutletIdSet: valid, outletInfoMap: info })
+
+    it('PreOrder WA masuk Offline, website jadi kanal sendiri', () => {
+      const a = b('all')
+      expect(a.channelStats.offline.count).toBe(2)
+      expect(a.channelStats.offline.revenue).toBe(120000)
+      expect(a.channelStats.website.count).toBe(1)
+      expect(a.channelStats.website.revenue).toBe(40000)
+      expect(a.channelStats.lainnya.count).toBe(0)
+      expect(b('offline').totalOrders).toBe(2)
+      expect(b('website').totalOrders).toBe(1)
+      expect(b('website').canceledCount).toBe(1)
+    })
+
+    it('endorse: bukan transaksi (tidak masuk jumlah order, rata-rata, jam, batal) tapi porsinya dihitung', () => {
+      const a = b('all')
+      expect(a.totalOrders).toBe(3)
+      expect(a.netRevenue).toBe(160000)
+      expect(a.avgOrderValue).toBe(Math.round(160000 / 3))
+      expect(a.canceledCount).toBe(1) // hanya website batal
+      expect(a.hourly[11]).toBe(0)     // jam 11 WIB hanya order endorse
+      expect(a.hourlyPorsi[11]).toBe(3)
+      expect(a.totalItemsSold).toBe(1 + 2 + 1 + 3)
+      expect(a.channelStats.endorse.count).toBe(0)
+      expect(a.channelStats.endorse.porsi).toBe(3)
+      expect(a.channelStats.endorse.pesananTakDihitung).toBe(1)
+      expect(a.outletVolumeList[0].totalOrders).toBe(3)
+      expect(a.outletVolumeList[0].itemsSold).toBe(7)
+      expect(a.peakHour).toBe(10)
+    })
+  })
+
+  describe('Minuman komponen paket (pilihan maupun tetap)', () => {
+    const ITEMS = [
+      { id: 'p-aqua', name: 'AYAM BESAR + AQUA', categories: { name: 'Promo Bundling Aqua' } },
+      { id: 'p-combo', name: 'Combo #1', categories: { name: 'Combo' } },
+      { id: 'p-c4', name: 'Combo 4', categories: { name: 'Combo' } },
+      { id: 'p-tanpa', name: 'SHAWARMA DUO COMBO', categories: { name: 'Combo' } },
+      { id: 'm-ayam', name: 'Original Ayam Besar', categories: { name: 'Original Shawarma Ayam' } },
+      { id: 'm-aqua', name: 'Aqua', categories: { name: 'Suka Drink' } },
+      { id: 'm-tea', name: 'Ice Tea', categories: { name: 'Suka Drink' } },
+      { id: 'm-oj', name: 'Orange Juice', categories: { name: 'Suka Drink' } },
+    ]
+    const SLOTS = [
+      { id: 's1', package_id: 'p-aqua', menu_item_id: 'm-ayam', or_menu_item_id: null, quantity: 1 },
+      { id: 's2', package_id: 'p-aqua', menu_item_id: 'm-aqua', or_menu_item_id: null, quantity: 1 },
+      { id: 's3', package_id: 'p-combo', menu_item_id: 'm-ayam', or_menu_item_id: null, quantity: 1 },
+      { id: 's4', package_id: 'p-combo', menu_item_id: 'm-tea', or_menu_item_id: 'm-oj', quantity: 1 },
+      { id: 's5', package_id: 'p-c4', menu_item_id: 'm-tea', or_menu_item_id: 'm-oj', quantity: 2 },
+      { id: 's6', package_id: 'p-tanpa', menu_item_id: 'm-ayam', or_menu_item_id: null, quantity: 2 },
+    ]
+    const paket: PaketMinumanMap = susunPaketMinuman(SLOTS, ITEMS)
+
+    it('susunPaketMinuman hanya menyimpan slot minuman', () => {
+      expect(paket['p-aqua']).toEqual([{ qty: 1, opsi: [{ id: 'm-aqua', name: 'Aqua' }] }])
+      expect(paket['p-combo']).toEqual([{ qty: 1, opsi: [{ id: 'm-tea', name: 'Ice Tea' }, { id: 'm-oj', name: 'Orange Juice' }] }])
+      expect(paket['p-tanpa']).toBeUndefined()
+    })
+
+    it('minuman tetap (+ AQUA) ikut dihitung', () => {
+      expect(minumanPaket({ menu_item_id: 'p-aqua', menu_item_name: 'AYAM BESAR + AQUA' }, paket)).toEqual([{ name: 'Aqua', qty: 1 }])
+    })
+
+    it('minuman pilihan dari catatan nama atau package_choices', () => {
+      expect(minumanPaket({ menu_item_id: 'p-combo', menu_item_name: 'Combo #1|NOTE|pedas (Paket: Orange Juice)' }, paket))
+        .toEqual([{ name: 'Orange Juice', qty: 1 }])
+      expect(minumanPaket({ menu_item_id: 'p-combo', menu_item_name: 'Combo #1', package_choices: { s4: 'm-tea' } }, paket))
+        .toEqual([{ name: 'Ice Tea', qty: 1 }])
+    })
+
+    it('pilihan tak tercatat tetap menambah porsi minuman tanpa menebak jenisnya', () => {
+      expect(minumanPaket({ menu_item_id: 'p-combo', menu_item_name: 'Combo #1|NOTE|Sedang' }, paket))
+        .toEqual([{ name: MINUMAN_TAK_TERCATAT, qty: 1 }])
+    })
+
+    it('jumlah minuman per slot mengikuti menu_packages.quantity', () => {
+      expect(minumanPaket({ menu_item_id: 'p-c4', menu_item_name: 'Combo 4|NOTE|Paket: Orange Juice' }, paket))
+        .toEqual([{ name: 'Orange Juice', qty: 2 }])
+      expect(minumanPaket({ menu_item_id: 'p-c4', menu_item_name: 'Combo 4 (Paket: Orange Juice, Ice Tea)' }, paket))
+        .toEqual([{ name: 'Orange Juice', qty: 1 }, { name: 'Ice Tea', qty: 1 }])
+    })
+
+    it('paket tanpa komponen minuman / menu bukan paket: tanpa minuman', () => {
+      expect(minumanPaket({ menu_item_id: 'p-tanpa', menu_item_name: 'SHAWARMA DUO COMBO' }, paket)).toEqual([])
+      expect(minumanPaket({ menu_item_id: 'm-ayam', menu_item_name: 'Original Ayam Besar' }, paket)).toEqual([])
+    })
+
+    it('menu tak dikenal di menu_packages: jatuh ke catatan nama seperti dulu', () => {
+      expect(minumanPaket({ menu_item_id: null, menu_item_name: 'Combo X (Paket: Ice Tea)' }, paket))
+        .toEqual([{ name: 'Ice Tea', qty: 1 }])
+    })
+
+    it('summarizeDay: paket + AQUA menambah porsi Aqua, porsi makanan paket tetap', () => {
+      const ord: RawOrder = {
+        id: 'q1', status: 'completed', channel: null, sales_source: 'pos', outlet_id: A,
+        created_at: '2026-11-20T03:00:00Z', total_amount: 60000, discount_amount: 0, promo_subsidy: 0,
+        order_items: [{ menu_item_id: 'p-aqua', menu_item_name: 'AYAM BESAR + AQUA', quantity: 2, subtotal: 60000 }],
+      }
+      const day = summarizeDay([ord], paket)
+      expect(day.groups[0].porsi).toBe(4)
+      expect(day.items.find(i => i.name === 'AYAM BESAR + AQUA')?.qty).toBe(2)
+      const aqua = day.items.find(i => i.name === 'Aqua')
+      expect(aqua?.qty).toBe(2)
+      expect(aqua?.rev).toBe(0)
+      expect(aqua?.fromPackage).toBe('AYAM BESAR + AQUA')
     })
   })
 })

@@ -7,9 +7,9 @@
  * Semua angka di halaman ini aditif, jadi yang di-cache per hari adalah
  * ringkasan harian — bukan order mentah — dengan dimensi secukupnya agar
  * filter channel & outlet bisa diterapkan saat menjumlahkan:
- *   - `groups` : per (outlet, channel mentah, jam WIB) → order selesai, omzet, potongan, porsi
- *   - `items`  : per (outlet, channel mentah, nama menu) → qty, omzet, jumlah baris
- *   - `cancel` : per (outlet, channel mentah) → order batal
+ *   - `groups` : per (outlet, kanal, jam WIB) → order selesai, omzet, potongan, porsi
+ *   - `items`  : per (outlet, kanal, nama menu) → qty, omzet, jumlah baris
+ *   - `cancel` : per (outlet, kanal) → order batal
  * Setiap entri mencatat `f` (urutan kemunculan pertama di hari itu) supaya
  * urutan seri (tie) di daftar menu & outlet sama persis dengan versi lama,
  * yang mengikuti urutan kemunculan order (created_at, id).
@@ -21,12 +21,15 @@ export type RawOrder = {
   id: string
   status: string
   channel: string | null
+  /** pos | online | app | gofood | … — dipakai membedakan pesanan website dari kasir. */
+  sales_source?: string | null
   total_amount: number | string | null
   discount_amount: number | string | null
   promo_subsidy: number | string | null
   created_at: string
   outlet_id: string | null
   order_items?: {
+    menu_item_id?: string | null
     menu_item_name: string | null
     quantity: number | string | null
     subtotal: number | string | null
@@ -34,10 +37,35 @@ export type RawOrder = {
   }[] | null
 }
 
-export type DayGroup = { o: string | null; c: string | null; h: number; n: number; rev: number; ded: number; porsi: number; f: number }
-export type DayItem = { o: string | null; c: string | null; name: string; qty: number; rev: number; cnt: number; f: number; fromPackage?: string | null }
-export type DayCancel = { o: string | null; c: string | null; n: number }
-export type DaySummary = { v: 1; groups: DayGroup[]; items: DayItem[]; cancel: DayCancel[] }
+/** Kunci kanal laporan — hasil `kanalOrder(channel, sales_source)`. */
+export type KanalKey = 'offline' | 'website' | 'gofood' | 'grabfood' | 'shopeefood' | 'tiktok' | 'endorse' | 'lainnya'
+
+// `c` = kunci kanal (KanalKey), BUKAN lagi channel mentah (sejak v2).
+export type DayGroup = { o: string | null; c: KanalKey; h: number; n: number; rev: number; ded: number; porsi: number; f: number }
+export type DayItem = { o: string | null; c: KanalKey; name: string; qty: number; rev: number; cnt: number; f: number; fromPackage?: string | null }
+export type DayCancel = { o: string | null; c: KanalKey; n: number }
+export type DaySummary = { v: 2; groups: DayGroup[]; items: DayItem[]; cancel: DayCancel[] }
+
+/**
+ * Kanal sebuah order (keputusan owner):
+ * - Offline / Kasir : channel kosong/'pos'/'offline' (selain pesanan website) + PreOrder WA.
+ * - Website         : channel kosong & sales_source 'online', atau channel 'website'/'direct_web'.
+ * - Endorse         : channel 'endorse' — bukan transaksi, hanya porsinya yang dihitung.
+ * - Food apps       : menurut channel (gofood/grab/shopee/tiktok), apa pun sales_source-nya.
+ */
+export function kanalOrder(channel: string | null | undefined, salesSource: string | null | undefined): KanalKey {
+  const ch = (channel || '').trim().toLowerCase()
+  const src = (salesSource || '').trim().toLowerCase()
+  if (!ch) return src === 'online' ? 'website' : 'offline'
+  if (ch === 'offline' || ch === 'pos' || ch === 'preorder_wa') return 'offline'
+  if (ch === 'website' || ch === 'direct_web') return 'website'
+  if (ch === 'endorse') return 'endorse'
+  if (ch.includes('gofood')) return 'gofood'
+  if (ch.includes('grab')) return 'grabfood'
+  if (ch.includes('shopee')) return 'shopeefood'
+  if (ch.includes('tiktok')) return 'tiktok'
+  return 'lainnya'
+}
 
 export function cleanMenuName(raw: string | null | undefined): string {
   let name = (raw || 'Item Tanpa Nama').trim()
@@ -95,8 +123,122 @@ export function extractPackageDrinks(oi: {
   return drinks
 }
 
-/** Ringkas order satu hari. `orders` WAJIB urut created_at, id (seperti query lama). */
-export function summarizeDay(orders: RawOrder[]): DaySummary {
+/* ── Minuman komponen paket ─────────────────────────────────────────────────
+ *
+ * Paket = 1 porsi makanan (baris order_items-nya sendiri) + porsi minuman
+ * komponennya. Komponen dibaca dari `menu_packages` (slot per paket):
+ *   - slot tetap   : satu opsi (mis. "AYAM BESAR + AQUA" → Aqua)
+ *   - slot pilihan : menu_item_id ATAU or_menu_item_id (mis. Ice Tea / Orange Juice);
+ *     pilihan diambil dari `package_choices` (nilai = id menu) atau catatan
+ *     "(Paket: …)" di nama item. Bila tak tercatat, porsinya tetap dihitung
+ *     dengan nama `MINUMAN_TAK_TERCATAT` — jenisnya tidak ditebak.
+ * Hanya slot yang SEMUA opsinya minuman (kategori ber-"drink"/"minum") yang
+ * dihitung; slot makanan tidak menambah porsi (paket tetap 1 porsi makanan).
+ */
+export type PaketMinumanSlot = { qty: number; opsi: { id: string; name: string }[] }
+export type PaketMinumanMap = Record<string, PaketMinumanSlot[]>
+
+export const MINUMAN_TAK_TERCATAT = 'Minuman paket (pilihan tak tercatat)'
+
+export const KATEGORI_MINUMAN = /drink|minum/i
+
+type SlotPaketDb = { package_id: string; menu_item_id: string | null; or_menu_item_id: string | null; quantity: number | string | null }
+type MenuDb = { id: string; name: string | null; categories?: { name: string | null } | { name: string | null }[] | null }
+
+/** Susun peta paket → slot minuman dari baris `menu_packages` + `menu_items` (dengan kategori). */
+export function susunPaketMinuman(slots: SlotPaketDb[], menus: MenuDb[]): PaketMinumanMap {
+  const menuById = new Map(menus.map((m) => [m.id, m]))
+  const isMinuman = (id: string) => {
+    const m = menuById.get(id)
+    const kat = Array.isArray(m?.categories) ? m?.categories[0] : m?.categories
+    return !!m && KATEGORI_MINUMAN.test(kat?.name || '')
+  }
+  const out: PaketMinumanMap = {}
+  for (const s of slots) {
+    const ids = [s.menu_item_id, s.or_menu_item_id].filter((x): x is string => !!x)
+    if (ids.length === 0 || !ids.every(isMinuman)) continue
+    const qty = Number(s.quantity) || 1
+    const opsi = ids.map((id) => ({ id, name: (menuById.get(id)?.name || '').trim() }))
+    ;(out[s.package_id] ??= []).push({ qty, opsi })
+  }
+  return out
+}
+
+/** Nama minuman dari catatan "(Paket: …)" di nama item, dengan ejaan baku lama. */
+export function minumanDariCatatan(raw: string | null): string[] {
+  if (!raw) return []
+  const match = /(?:Paket:\s*|\(Paket:\s*)([^)\|]+)/i.exec(raw)
+  if (!match) return []
+  return match[1].replace(/\)/g, '').split(',').map((p) => {
+    const s = p.toLowerCase().trim()
+    if (s.includes('orange')) return 'Orange Juice'
+    if (s.includes('tea') || s.includes('teh')) return 'Ice Tea'
+    if (s.includes('aqua')) return 'Aqua'
+    return p.trim()
+  }).filter(Boolean)
+}
+
+/**
+ * Minuman yang ikut disiapkan untuk SATU unit paket (qty per unit).
+ * Item yang paketnya tak dikenal di `menu_packages` jatuh ke perilaku lama
+ * (`extractPackageDrinks`, 1 per minuman yang tercatat).
+ */
+export function minumanPaket(
+  oi: { menu_item_id?: string | null; menu_item_name: string | null; package_choices?: Record<string, string> | null },
+  paket?: PaketMinumanMap,
+): { name: string; qty: number }[] {
+  const slots = oi.menu_item_id && paket ? paket[oi.menu_item_id] : undefined
+  if (!slots) return extractPackageDrinks(oi).map((name) => ({ name, qty: 1 }))
+
+  const pilihanId = oi.package_choices && typeof oi.package_choices === 'object'
+    ? Object.values(oi.package_choices).filter((v): v is string => typeof v === 'string')
+    : []
+  const catatan = minumanDariCatatan(oi.menu_item_name)
+  const out: { name: string; qty: number }[] = []
+  const tambah = (name: string, qty: number) => {
+    const ada = out.find((x) => x.name === name)
+    if (ada) ada.qty += qty
+    else out.push({ name, qty })
+  }
+
+  for (const slot of slots) {
+    if (slot.opsi.length === 1) {
+      tambah(slot.opsi[0].name, slot.qty)
+      continue
+    }
+    // 1) package_choices: id menu yang dipilih
+    const idx = pilihanId.findIndex((id) => slot.opsi.some((o) => o.id === id))
+    if (idx >= 0) {
+      const opsi = slot.opsi.find((o) => o.id === pilihanId[idx])!
+      pilihanId.splice(idx, 1)
+      tambah(opsi.name, slot.qty)
+      continue
+    }
+    // 2) catatan nama: ambil hingga `qty` nama yang cocok dengan opsi slot ini
+    const dipakai: string[] = []
+    for (let i = 0; i < catatan.length && dipakai.length < slot.qty; ) {
+      const n = catatan[i].toLowerCase()
+      const opsi = slot.opsi.find((o) => o.name.toLowerCase() === n || o.name.toLowerCase().includes(n))
+      if (opsi) {
+        dipakai.push(opsi.name)
+        catatan.splice(i, 1)
+      } else i++
+    }
+    if (dipakai.length === 0) {
+      tambah(MINUMAN_TAK_TERCATAT, slot.qty)
+      continue
+    }
+    // Satu nama untuk slot ber-qty > 1 = semua unit minuman itu; sisa unit ke nama terakhir.
+    dipakai.forEach((name, i) => tambah(name, i === dipakai.length - 1 ? slot.qty - (dipakai.length - 1) : 1))
+  }
+  return out
+}
+
+/**
+ * Ringkas order satu hari. `orders` WAJIB urut created_at, id (seperti query lama).
+ * `paket` = peta slot minuman paket (lihat `susunPaketMinuman`).
+ */
+export function summarizeDay(orders: RawOrder[], paket?: PaketMinumanMap): DaySummary {
   const groups = new Map<string, DayGroup>()
   const items = new Map<string, DayItem>()
   const cancel = new Map<string, DayCancel>()
@@ -104,7 +246,7 @@ export function summarizeDay(orders: RawOrder[]): DaySummary {
 
   for (const o of orders) {
     const oid = o.outlet_id ?? null
-    const ch = o.channel ?? null
+    const ch = kanalOrder(o.channel, o.sales_source)
     if (o.status === 'cancelled') {
       const k = JSON.stringify([oid, ch])
       const e = cancel.get(k) ?? { o: oid, c: ch, n: 0 }
@@ -135,44 +277,31 @@ export function summarizeDay(orders: RawOrder[]): DaySummary {
         items.set(ik, it)
         g.porsi += qty
 
-        // Minuman pilihan dari menu paket (Suka Drink)
-        const drinks = extractPackageDrinks(oi)
-        for (const drink of drinks) {
-          const dk = JSON.stringify([oid, ch, drink, name])
-          const dit = items.get(dk) ?? { o: oid, c: ch, name: drink, qty: 0, rev: 0, cnt: 0, f: order, fromPackage: name }
-          dit.qty += qty
-          dit.rev += 0
+        // Minuman komponen paket (pilihan maupun tetap), qty per unit × qty item.
+        for (const drink of minumanPaket(oi, paket)) {
+          const dq = qty * drink.qty
+          const dk = JSON.stringify([oid, ch, drink.name, name])
+          const dit = items.get(dk) ?? { o: oid, c: ch, name: drink.name, qty: 0, rev: 0, cnt: 0, f: order, fromPackage: name }
+          dit.qty += dq
           dit.cnt += 1
           items.set(dk, dit)
-          g.porsi += qty
+          g.porsi += dq
         }
       }
     }
   }
 
-  return { v: 1, groups: [...groups.values()], items: [...items.values()], cancel: [...cancel.values()] }
+  return { v: 2, groups: [...groups.values()], items: [...items.values()], cancel: [...cancel.values()] }
 }
 
-// ── Filter channel: aturan PERSIS query lama (eq/in PostgREST = cocok tepat) ──
-const FOOD_APPS = ['gofood', 'grabfood', 'shopeefood', 'tiktokgo', 'tiktok', 'tiktok_go']
-const TIKTOK = ['tiktokgo', 'tiktok', 'tiktok_go']
+// ── Filter channel: dicocokkan ke kunci kanal (lihat kanalOrder) ──
+const FOOD_APPS: KanalKey[] = ['gofood', 'grabfood', 'shopeefood', 'tiktok']
 
-export function channelMatches(filter: string, raw: string | null): boolean {
+export function channelMatches(filter: string, kanal: KanalKey): boolean {
   if (filter === 'all') return true
-  if (filter === 'offline') return raw === null
-  if (filter === 'food_apps') return raw !== null && FOOD_APPS.includes(raw)
-  if (filter === 'tiktokgo' || filter === 'tiktok') return raw !== null && TIKTOK.includes(raw)
-  return raw === filter
-}
-
-export function channelKey(raw: string | null): string {
-  const rawCh = (raw || '').toLowerCase()
-  if (!rawCh || rawCh === 'offline' || rawCh === 'pos') return 'offline'
-  if (rawCh.includes('gofood')) return 'gofood'
-  if (rawCh.includes('grab')) return 'grabfood'
-  if (rawCh.includes('shopee')) return 'shopeefood'
-  if (rawCh.includes('tiktok')) return 'tiktok'
-  return 'lainnya'
+  if (filter === 'food_apps') return FOOD_APPS.includes(kanal)
+  if (filter === 'tiktokgo' || filter === 'tiktok') return kanal === 'tiktok'
+  return kanal === filter
 }
 
 export type OutletInfo = { name: string; cleanName: string; category: 'mitra' | 'internal' }
@@ -182,7 +311,7 @@ export function buildAnalytics(
   opts: { channelFilter: string; outletFilter: string; validOutletIdSet: Set<string>; outletInfoMap: Map<string, OutletInfo> }
 ) {
   const { channelFilter, outletFilter, validOutletIdSet, outletInfoMap } = opts
-  const passQuery = (o: string | null, c: string | null) =>
+  const passQuery = (o: string | null, c: KanalKey) =>
     channelMatches(channelFilter, c) && (outletFilter === 'all' || o === outletFilter)
   // Filter outlet = semua: hanya outlet valid (internal/mitra yang dihitung).
   // Order tanpa outlet ikut dibuang. Berlaku SAMA untuk order selesai dan batal.
@@ -195,7 +324,8 @@ export function buildAnalytics(
   days.forEach((day, d) => {
     for (const g of day.groups) if (passQuery(g.o, g.c) && passCompleted(g.o)) groups.push({ ...g, d })
     for (const it of day.items) if (passQuery(it.o, it.c) && passCompleted(it.o)) items.push({ ...it, d })
-    for (const c of day.cancel) if (passQuery(c.o, c.c) && passCompleted(c.o)) canceledCount += c.n
+    // Endorse bukan transaksi → batalnya pun tidak dihitung.
+    for (const c of day.cancel) if (c.c !== 'endorse' && passQuery(c.o, c.c) && passCompleted(c.o)) canceledCount += c.n
   })
   const byFirstSeen = (a: { d: number; f: number }, b: { d: number; f: number }) => a.d - b.d || a.f - b.f
   groups.sort(byFirstSeen)
@@ -207,13 +337,17 @@ export function buildAnalytics(
   const hourlyCounts = Array(24).fill(0)
   const hourlyRevenue = Array(24).fill(0)
   const hourlyPorsi = Array(24).fill(0)
-  const channelStats: Record<string, { label: string; count: number; revenue: number; porsi: number }> = {
+  // `pesananTakDihitung`: order selesai yang tidak dihitung sebagai transaksi (endorse).
+  type StatKanal = { label: string; count: number; revenue: number; porsi: number; pesananTakDihitung?: number }
+  const channelStats: Record<KanalKey, StatKanal> = {
     offline: { label: 'Offline / Kasir', count: 0, revenue: 0, porsi: 0 },
+    website: { label: 'Website', count: 0, revenue: 0, porsi: 0 },
     gofood: { label: 'GoFood', count: 0, revenue: 0, porsi: 0 },
     grabfood: { label: 'GrabFood', count: 0, revenue: 0, porsi: 0 },
     shopeefood: { label: 'ShopeeFood', count: 0, revenue: 0, porsi: 0 },
     // Data kanal ini = tiktokgo/tiktok_go (food app), bukan TikTok Shop (marketplace).
     tiktok: { label: 'TikTok GO', count: 0, revenue: 0, porsi: 0 },
+    endorse: { label: 'Endorse', count: 0, revenue: 0, porsi: 0, pesananTakDihitung: 0 },
     lainnya: { label: 'Lainnya', count: 0, revenue: 0, porsi: 0 },
   }
   const outletStatsMap: Record<string, {
@@ -240,20 +374,24 @@ export function buildAnalytics(
   }
 
   for (const g of groups) {
+    // Endorse: porsi (bahan keluar) dihitung, tapi bukan transaksi → tidak masuk
+    // jumlah order, rata-rata/order, grafik jumlah order per jam, maupun order outlet.
+    const n = g.c === 'endorse' ? 0 : g.n
     netRevenue += g.rev
     totalDeductions += g.ded
-    totalOrders += g.n
+    totalOrders += n
     const outletId = g.o || 'unknown'
     const prev = outletFirstSeen.get(outletId)
     if (!prev || byFirstSeen(g, prev) < 0) outletFirstSeen.set(outletId, { d: g.d, f: g.f })
     const os = ensureOutlet(g.o)
     os.totalRevenue += g.rev
-    os.totalOrders += g.n
-    const ck = channelKey(g.c)
-    channelStats[ck].count += g.n
-    channelStats[ck].revenue += g.rev
-    channelStats[ck].porsi += g.porsi
-    hourlyCounts[g.h] += g.n
+    os.totalOrders += n
+    const st = channelStats[g.c] ?? channelStats.lainnya
+    st.count += n
+    st.revenue += g.rev
+    st.porsi += g.porsi
+    if (g.c === 'endorse') st.pesananTakDihitung = (st.pesananTakDihitung ?? 0) + g.n
+    hourlyCounts[g.h] += n
     hourlyRevenue[g.h] += g.rev
     hourlyPorsi[g.h] += g.porsi
   }

@@ -123,23 +123,25 @@ export async function middleware(request: NextRequest) {
   if (authUser && pathname.startsWith('/dashboard')) {
     const email = authUser.email
 
-    // Melani: Hanya boleh /dashboard/content-planner*, /dashboard/menu*, dan /dashboard/laba-rugi*
+    // Melani: Hanya boleh /dashboard/content-planner*, /dashboard/menu*, /dashboard/laba-rugi*, dan /dashboard/penjualan*
     if (isMelani(email)) {
       const isAllowed =
         pathname.startsWith('/dashboard/content-planner') ||
         pathname.startsWith('/dashboard/menu') ||
-        pathname.startsWith('/dashboard/laba-rugi')
+        pathname.startsWith('/dashboard/laba-rugi') ||
+        pathname.startsWith('/dashboard/penjualan')
       if (!isAllowed) {
         return getRedirect('/dashboard/content-planner')
       }
     }
 
-    // Putri Hambali: Tidak boleh /dashboard/content-planner*, /dashboard/menu*, /dashboard/laba-rugi*, /dashboard/users*
+    // Putri Hambali: Tidak boleh /dashboard/content-planner*, /dashboard/menu*, /dashboard/laba-rugi*, /dashboard/penjualan*, /dashboard/users*
     if (isPutriHambali(email)) {
       const isForbidden =
         pathname.startsWith('/dashboard/content-planner') ||
         pathname.startsWith('/dashboard/menu') ||
         pathname.startsWith('/dashboard/laba-rugi') ||
+        pathname.startsWith('/dashboard/penjualan') ||
         pathname.startsWith('/dashboard/users')
       if (isForbidden) {
         return getRedirect('/dashboard')

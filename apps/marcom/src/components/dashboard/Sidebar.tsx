@@ -26,6 +26,7 @@ import {
   CreditCard,
   BarChart3,
   HeartHandshake,
+  PieChart,
 } from 'lucide-react'
 import { signOut } from '@/app/actions/auth'
 import { isMelani, isPutriHambali, isAdminLike } from '@/lib/access-control'
@@ -330,6 +331,12 @@ export default function Sidebar({
         },
       ],
     },
+    {
+      name: 'Rangkuman Penjualan',
+      href: '/dashboard/penjualan',
+      icon: PieChart,
+      badge: null,
+    },
   ]
 
   let visibleNavItems: NavItem[] = []
@@ -345,12 +352,13 @@ export default function Sidebar({
       },
     ]
   } else if (isMelani(user.email)) {
-    // Melani: Konten Planner, Katalog Menu & Promo, dan Laba Rugi
+    // Melani: Konten Planner, Katalog Menu & Promo, Laba Rugi, dan Rangkuman Penjualan
     visibleNavItems = navItems.filter(
       (item) =>
         item.href === '/dashboard/content-planner' ||
         item.href === '/dashboard/menu' ||
-        item.href === '/dashboard/laba-rugi'
+        item.href === '/dashboard/laba-rugi' ||
+        item.href === '/dashboard/penjualan'
     )
   } else if (isPutriHambali(user.email)) {
     // Putri Hambali: Sisa tab (Overview, Kalender, Outlet, Endorsement, Budget & OPEX)
@@ -359,11 +367,16 @@ export default function Sidebar({
         item.href !== '/dashboard/content-planner' &&
         item.href !== '/dashboard/menu' &&
         item.href !== '/dashboard/laba-rugi' &&
+        item.href !== '/dashboard/penjualan' &&
         item.href !== '/dashboard/users'
     )
   } else {
-    // Default fallback untuk akun umum (tanpa Laba Rugi khusus Melani)
-    visibleNavItems = navItems.filter((item) => item.href !== '/dashboard/laba-rugi')
+    // Default fallback untuk akun umum (tanpa Laba Rugi & Rangkuman Penjualan khusus Melani)
+    visibleNavItems = navItems.filter(
+      (item) =>
+        item.href !== '/dashboard/laba-rugi' &&
+        item.href !== '/dashboard/penjualan'
+    )
   }
 
   const closeMobile = () => onMobileToggle(false)

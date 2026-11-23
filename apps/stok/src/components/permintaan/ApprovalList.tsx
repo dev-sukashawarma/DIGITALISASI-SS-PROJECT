@@ -4,6 +4,7 @@ import { useApprovalList } from '@/hooks/usePermintaan'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
 import { estimateCartValue } from '@/app/actions/budget'
+import { totalRupiahEstimasi } from '@/lib/stok/estimasiKeranjang'
 import { convertToDistribusiUnit } from '@/lib/format/compositeUnit'
 import type { PermintaanWithItems, PermintaanItem } from '@/types/permintaan'
 import type { BahanBaku } from '@/types/stok'
@@ -46,8 +47,11 @@ function ApprovalCardBudget({ outletId, items, bahanBakuMap }: {
       const qtyDist = b ? Math.ceil(convertToDistribusiUnit(it.qty_diminta, b)) : it.qty_diminta
       return { bahan_baku_id: it.bahan_baku_id, qty: qtyDist }
     })
-    estimateCartValue(payload).then(r => setEstimate(r.totalNilai)).catch(() => setEstimate(0))
-  }, [status?.hasConfig, items, bahanBakuMap])
+    // Antrean hanya untuk pembaca harga, jadi mode 'rupiah'; selain itu 0.
+    estimateCartValue(payload, outletId)
+      .then(r => setEstimate(totalRupiahEstimasi(r)))
+      .catch(() => setEstimate(0))
+  }, [status?.hasConfig, items, bahanBakuMap, outletId])
 
   if (!status) return null
   return <BudgetBadge status={status} projectedAdd={estimate} compact />

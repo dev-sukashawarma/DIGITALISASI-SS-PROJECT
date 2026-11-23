@@ -4,6 +4,7 @@ import { usePermintaanActions } from '@/hooks/usePermintaan'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
 import { estimateCartValue } from '@/app/actions/budget'
+import { totalRupiahEstimasi } from '@/lib/stok/estimasiKeranjang'
 import { BudgetBadge } from './BudgetBadge'
 import type { PermintaanWithItems, PermintaanItem } from '@/types/permintaan'
 import { fetchCrosscheckStok, fetchSaldoVendorGudang, fetchHargaVendor } from '@/app/actions/permintaan'
@@ -186,7 +187,11 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
     }
 
     const timer = setTimeout(() => {
-      estimateCartValue(items).then(setLiveEstimate).catch(console.error)
+      // Layar ini hanya terbuka untuk role antrean (seluruhnya pembaca harga),
+      // jadi server mengirim mode 'rupiah'. totalRupiahEstimasi = 0 bila tidak.
+      estimateCartValue(items, permintaan.outlet_id)
+        .then(r => setLiveEstimate({ totalNilai: totalRupiahEstimasi(r), itemTanpaHarga: r.itemTanpaHarga }))
+        .catch(console.error)
     }, 400)
     return () => clearTimeout(timer)
   }, [qtys, alokasi, saldoVendor, permintaan.items])

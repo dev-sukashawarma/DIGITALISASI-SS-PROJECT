@@ -10,6 +10,8 @@ import { convertToBaseUnit } from '@/lib/format/compositeUnit'
 import { hitungBarisBelanja, batasHariWib } from '@/lib/stok/riwayatBelanja'
 import { nilaiBaris, type HargaVendorMap } from '@/lib/stok/hargaVendor'
 import { muatHargaVendor } from '@/lib/stok/muatHargaVendor'
+import { susunHasilEstimasi } from '@/lib/stok/estimasiKeranjang'
+import type { HasilEstimasiKeranjang, NilaiKeranjang } from '@/lib/stok/estimasiKeranjang'
 import type {
   OutletBudgetSummaryItem,
   OutletSpendingTransaction,
@@ -48,7 +50,11 @@ async function getCurrentUserId(supabase: Awaited<ReturnType<typeof getAuthedCli
 }
 
 /** Gerbang minimal untuk aksi read-only ringan -- cukup staff aktif. */
-async function requireActiveStaff(): Promise<{ userId: string; role: string }> {
+async function requireActiveStaff(): Promise<{
+  userId: string
+  role: string
+  authedClient: Awaited<ReturnType<typeof getAuthedClient>>
+}> {
   const authedClient = await getAuthedClient()
   const userId = await getCurrentUserId(authedClient)
 
@@ -62,7 +68,7 @@ async function requireActiveStaff(): Promise<{ userId: string; role: string }> {
   if (!staff || staff.status !== 'active') {
     throw new Error('Forbidden: akun tidak aktif')
   }
-  return { userId, role: staff.role }
+  return { userId, role: staff.role, authedClient }
 }
 
 /** Gerbang otorisasi pengawas: Kitchen, Admin, SPV, Area Manager, Leader, Owner, Finance */
@@ -297,8 +303,14 @@ export async function getOutletSpendingHistory(
   fromDate?: string,
   toDate?: string
 ): Promise<OutletSpendingTransaction[]> {
-  const authedClient = await getAuthedClient()
-  await getCurrentUserId(authedClient)
+  // Respons memuat harga per bahan (hargaSnapshot) — hanya untuk pembaca harga
+  // (keputusan owner 22 Sep 2026). Dulu cukup akses outlet, jadi crew bisa
+  // memanggil endpoint ini langsung dan membaca harga beli. Satu-satunya
+  // pemakai UI (Plafon & Belanja, canViewBudgetOutlet) seluruhnya pembaca harga.
+  const { role, authedClient } = await requireActiveStaff()
+  if (!canViewVendorPrices(role)) {
+    throw new Error('Forbidden: riwayat belanja memuat harga beli dan tidak tersedia untuk peran Anda')
+  }
   await assertOutletAccessible(authedClient, outletId)
 
   const supabase = makeServiceClient()
@@ -453,34 +465,66 @@ export async function getOutletBudgetHistory(outletId: string): Promise<BudgetCo
 }
 
 // ---------------------------------------------------------------------------
-// 6. estimateCartValue — estimasi nilai Rupiah keranjang
+// 6. estimateCartValue — estimasi keranjang terhadap budget outlet
 // ---------------------------------------------------------------------------
 
-export interface CartEstimateResult {
-  totalNilai: number
-  itemTanpaHarga: string[]
-  kategoriNilai: Record<string, number>
-}
+// qty & alokasi[].qty dalam satuan DISTRIBUSI. alokasi (opsional) = vendor
+// yang dipilih kitchen di layar approval: porsinya dihargai katalog vendor
+// itu, sama dengan harga_snapshot yang akan ditulis trigger surat jalan.
+type ItemKeranjang = { bahan_baku_id: string; qty: number; alokasi?: { vendor_id: string; qty: number }[] }
 
 export async function estimateCartValue(
-  // qty & alokasi[].qty dalam satuan DISTRIBUSI. alokasi (opsional) = vendor
-  // yang dipilih kitchen di layar approval: porsinya dihargai katalog vendor
-  // itu, sama dengan harga_snapshot yang akan ditulis trigger surat jalan.
-  items: { bahan_baku_id: string; qty: number; alokasi?: { vendor_id: string; qty: number }[] }[]
-): Promise<CartEstimateResult> {
-  // Sengaja cukup staff aktif: crew memakai estimasi ini di form Permintaan
-  // Bahan untuk melihat dampak ke plafon budget outletnya. Yang dikembalikan
-  // hanya agregat (total, total per kategori, daftar bahan tanpa harga) —
-  // BUKAN harga per bahan. Harga per VENDOR (alokasi) hanya dipakai untuk role
-  // pembaca harga vendor (layar approval kitchen); role lain alokasinya
-  // diabaikan dan dihargai harga master, supaya harga katalog vendor tak bisa
-  // diintip lewat endpoint ini. Action ini tidak menerima outlet_id (harga
-  // bersifat global), jadi tidak ada scope outlet yang perlu dibatasi.
-  const { role } = await requireActiveStaff()
-  if (!canViewVendorPrices(role)) {
+  items: ItemKeranjang[],
+  // Outlet yang budgetnya dicek. WAJIB untuk role non-pembaca harga (crew,
+  // leader) karena mereka hanya menerima status budget outlet ini; pembaca
+  // harga boleh mengosongkannya (layar approval hanya butuh rupiah).
+  outletId?: string | null
+): Promise<HasilEstimasiKeranjang> {
+  // Bentuk respons ditentukan DI SINI dari role sesi (keputusan owner 22 Sep
+  // 2026, opsi A), bukan di UI — 'use server' = endpoint POST publik:
+  //   - pembaca harga (canViewVendorPrices): rupiah (total & per kategori)
+  //     seperti dulu, termasuk harga per vendor bila alokasi dikirim;
+  //   - role lain: TANPA rupiah apa pun — hanya status budget + persen
+  //     pemakaian budget setelah keranjang (dibulatkan 5%) + daftar bahan tanpa
+  //     harga. Dulu crew menerima total rupiah, jadi keranjang 1 bahan qty 1
+  //     = harga master bahan itu.
+  // Aturan bentuk & pembulatan: lib/stok/estimasiKeranjang.ts (ber-test).
+  const { role, authedClient } = await requireActiveStaff()
+  if (!Array.isArray(items)) throw new Error('Format keranjang tidak valid')
+
+  const bolehLihatHarga = canViewVendorPrices(role)
+  if (!bolehLihatHarga) {
+    // Harga katalog vendor tak boleh diintip lewat alokasi: role lain selalu
+    // dihargai harga master (yang toh tidak dikembalikan sebagai rupiah).
     items = items.map(({ bahan_baku_id, qty }) => ({ bahan_baku_id, qty }))
   }
 
+  let budget: BudgetStatus | null = null
+  if (!bolehLihatHarga) {
+    if (!outletId) throw new Error('Outlet wajib dipilih untuk mengecek budget')
+    // Scope outlet: crew/leader hanya boleh menanyakan budget outlet yang boleh
+    // ia akses (accessible_outlet_ids(), sumber yang sama dengan RLS).
+    await assertOutletAccessible(authedClient, outletId)
+  }
+
+  const [nilai, rowBudget] = await Promise.all([
+    hitungNilaiKeranjang(items),
+    !bolehLihatHarga && outletId
+      ? makeServiceClient()
+          .rpc('get_outlet_budget_status', { p_outlet_id: outletId })
+          .then(({ data, error }) => {
+            if (error) throw new Error(error.message)
+            return Array.isArray(data) ? data[0] : data
+          })
+      : Promise.resolve(null),
+  ])
+  if (!bolehLihatHarga && outletId) budget = mapBudgetRow(rowBudget, outletId)
+
+  return susunHasilEstimasi({ bolehLihatHarga, nilai, budget })
+}
+
+/** Hitung nilai rupiah keranjang (internal, tidak diekspor — hasilnya disaring susunHasilEstimasi). */
+async function hitungNilaiKeranjang(items: ItemKeranjang[]): Promise<NilaiKeranjang> {
   if (items.length === 0) return { totalNilai: 0, itemTanpaHarga: [], kategoriNilai: {} }
 
   const supabase = makeServiceClient()

@@ -4,8 +4,22 @@ import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { getDistribusiFactor } from '@/lib/format/compositeUnit'
-import { attributeFifo, labelFifo, type FifoWindowRow } from '@/lib/stok/vendorFifo'
-import { nilaiBarisRp, ringkasItemSuratJalan, type ItemSuratJalan } from '@/lib/stok/hargaSuratJalan'
+import {
+  attributeFifo,
+  hargaRataFifo,
+  labelFifo,
+  nilaiFifoRp,
+  type FifoLayerIn,
+  type FifoWindowRow,
+} from '@/lib/stok/vendorFifo'
+import {
+  hargaKecilDariNilai,
+  hargaKecilWajar,
+  nilaiBarisRp,
+  nilaiDokumenSuratJalan,
+  ringkasItemSuratJalan,
+  type ItemSuratJalan,
+} from '@/lib/stok/hargaSuratJalan'
 import { assertStaffCanAccessOutlet } from '@/lib/stok/outletAccess'
 import { canViewJurnalMutasi } from '@/lib/stok/navAccess'
 import { isMutasiOrder, pemakaianPosPerBahan } from '@/lib/stok/mutasiOrder'
@@ -106,6 +120,63 @@ function isRetailSalesOutlet(outlet: { name: string; type?: string | null }): bo
   if (t && NON_RETAIL_TYPES.has(t)) return false
   if (NON_RETAIL_NAME_RE.test(outlet.name || '')) return false
   return true
+}
+
+/** Baris surat_jalan_item per kunci `${surat_jalan_id}_${bahan_baku_id}`. */
+async function fetchItemSuratJalan(
+  supabase: ReturnType<typeof makeServiceClient>,
+  sjIds: string[],
+  bahanIds: string[]
+): Promise<Map<string, (ItemSuratJalan & { vendor_id: string | null })[]>> {
+  const grup = new Map<string, (ItemSuratJalan & { vendor_id: string | null })[]>()
+  for (let i = 0; i < sjIds.length; i += 200) {
+    try {
+      const data = await fetchAllPages<any>(() =>
+        supabase
+          .from('surat_jalan_item')
+          .select('surat_jalan_id, bahan_baku_id, vendor_id, harga_snapshot, qty_dikirim, qty_terima')
+          .in('surat_jalan_id', sjIds.slice(i, i + 200))
+          .in('bahan_baku_id', bahanIds)
+          .order('id', { ascending: true })
+      )
+      for (const x of data) {
+        const k = `${x.surat_jalan_id}_${x.bahan_baku_id}`
+        const list = grup.get(k) || []
+        list.push({
+          vendor: null,
+          vendor_id: x.vendor_id ?? null,
+          harga_snapshot: x.harga_snapshot === null ? null : Number(x.harga_snapshot),
+          qty_dikirim: x.qty_dikirim === null ? null : Number(x.qty_dikirim),
+          qty_terima: x.qty_terima === null ? null : Number(x.qty_terima),
+        })
+        grup.set(k, list)
+      }
+    } catch (e) {
+      console.warn('Gagal memuat item surat jalan:', e)
+    }
+  }
+  return grup
+}
+
+/**
+ * Nilai dokumen surat jalan (Rp) untuk baris ledger ber-`ref_shipment_id`:
+ * qty dokumen x harga_snapshot pada sisi baris itu (keluar/terima/ditolak).
+ * Pemanggil membaginya dengan qty satuan kecil baris untuk harga per satuan
+ * kecil -- tidak memakai faktor satuan sekarang yang bisa sudah berubah.
+ * Tanpa surat jalan / tanpa harga -> null (jatuh ke harga master).
+ */
+async function resolveNilaiSuratJalan(
+  supabase: ReturnType<typeof makeServiceClient>,
+  rows: { ref_shipment_id?: string | null; bahan_baku_id: string; tipe?: string }[]
+): Promise<(row: { ref_shipment_id?: string | null; bahan_baku_id: string; tipe?: string }) => number | null> {
+  const sjIds = [...new Set(rows.map((r) => r.ref_shipment_id).filter((v): v is string => !!v))]
+  const bahanIds = [...new Set(rows.map((r) => r.bahan_baku_id))]
+  const grup = await fetchItemSuratJalan(supabase, sjIds, bahanIds)
+  return (row) => {
+    if (!row.ref_shipment_id) return null
+    const items = grup.get(`${row.ref_shipment_id}_${row.bahan_baku_id}`)
+    return items ? nilaiDokumenSuratJalan(items, row.tipe || 'terima_kiriman') : null
+  }
 }
 
 /**
@@ -212,7 +283,7 @@ async function fetchPriorInflows(
     /** Normalisasi qty ke satuan kecil (pasangan outlet/bahan berskala besar). */
     normalisasi?: (row: any) => any
   }
-): Promise<Map<string, { qty: number; vendor: string | null }[]>> {
+): Promise<Map<string, FifoLayerIn[]>> {
   const sisa = new Map<string, number>()
   for (const [k, v] of opts.kebutuhan) if (v > 0.0001) sisa.set(k, v)
   const terpakai = new Map<string, (BarisLapisan & { asal: any })[]>()
@@ -223,7 +294,7 @@ async function fetchPriorInflows(
   for (let hal = 0; hal < PRIOR_INFLOW_MAX_HALAMAN; hal++) {
     let q = supabase
       .from('ledger_stok')
-      .select('id, outlet_id, bahan_baku_id, qty, ref_shipment_id, ref_terima_vendor_id, ref_po_id')
+      .select('id, outlet_id, bahan_baku_id, tipe, qty, ref_shipment_id, ref_terima_vendor_id, ref_po_id')
       .lt('created_at', startIso)
       .gte('created_at', batasBawah)
       .gt('qty', 0)
@@ -248,10 +319,17 @@ async function fetchPriorInflows(
   }
 
   const dipakai = [...terpakai.values()].flat()
-  const vendorOf = await resolveVendorNames(supabase, dipakai.map((b) => b.asal))
-  const out = new Map<string, { qty: number; vendor: string | null }[]>()
+  const [vendorOf, nilaiOf] = await Promise.all([
+    resolveVendorNames(supabase, dipakai.map((b) => b.asal)),
+    resolveNilaiSuratJalan(supabase, dipakai.map((b) => b.asal)),
+  ])
+  const out = new Map<string, FifoLayerIn[]>()
   for (const [k, list] of terpakai) {
-    out.set(k, list.map((b) => ({ qty: b.qty, vendor: vendorOf(b.asal) })))
+    out.set(
+      k,
+      // b.qty sudah satuan kecil (dinormalisasi) -> harga per satuan kecil dari nilai dokumen.
+      list.map((b) => ({ qty: b.qty, vendor: vendorOf(b.asal), harga: hargaKecilDariNilai(nilaiOf(b.asal), b.qty) }))
+    )
   }
   return out
 }
@@ -526,6 +604,8 @@ export interface LedgerTimelineRow {
   harga_satuan: number
   /** Harga beku surat jalan per satuan besar; null bila baris bukan surat jalan / tanpa harga. */
   harga_sj_besar: number | null
+  /** Harga rata-rata lapisan FIFO (per satuan besar) untuk barang keluar tanpa surat jalan. */
+  harga_fifo_besar: number | null
   debet_rp: number
   kredit_rp: number
   saldo_sesudah_qty: number
@@ -1304,28 +1384,29 @@ export async function fetchReconciliationSnapshot(
     ),
   ]
 
-  const realPricesMap = new Map<string, number>() // key: `${shipmentId}_${bahanBakuId}` -> harga_snapshot
-  for (let i = 0; i < shipmentIds.length; i += 200) {
-    const chunk = shipmentIds.slice(i, i + 200)
-    // 200 surat jalan x ~30 bahan > 1000 baris -> berhalaman (dulu terpotong diam-diam).
-    let sjItems: any[] = []
-    try {
-      sjItems = await fetchAllPages<any>(() =>
-        supabase
-          .from('surat_jalan_item')
-          .select('surat_jalan_id, bahan_baku_id, harga_snapshot')
-          .in('surat_jalan_id', chunk)
-          .order('id', { ascending: true })
-      )
-    } catch (e) {
-      console.warn('Gagal memuat harga surat jalan:', e)
-    }
-
-    for (const item of sjItems) {
-      if (item.harga_snapshot && item.harga_snapshot > 0) {
-        realPricesMap.set(`${item.surat_jalan_id}_${item.bahan_baku_id}`, Number(item.harga_snapshot))
-      }
-    }
+  // Nilai dokumen surat jalan (qty dok x harga dok) -> harga per satuan kecil, dibagi
+  // qty satuan kecil seluruh baris ledger surat jalan itu pada sisi & outlet yang sama.
+  // Tidak memakai faktor satuan SEKARANG: definisi satuan besar beberapa bahan berubah
+  // sesudah dokumen dibuat (FOIL 5M 36.480 -> 24.000 cm, PAPER WRAP 5.000 -> 500, dst).
+  const sjItemsRekon = await fetchItemSuratJalan(
+    supabase,
+    shipmentIds,
+    [...new Set((ledgerRows || []).filter((l) => l.ref_shipment_id).map((l) => l.bahan_baku_id as string))]
+  )
+  const qtyGrupSjRekon = new Map<string, number>()
+  for (const l of ledgerRows || []) {
+    if (!l.ref_shipment_id) continue
+    const k = `${l.ref_shipment_id}|${l.bahan_baku_id}|${l.tipe}|${l.outlet_id}`
+    qtyGrupSjRekon.set(k, (qtyGrupSjRekon.get(k) || 0) + Math.abs(Number(l.qty || 0)))
+  }
+  const hargaKecilSjRekon = (row: any): number | null => {
+    if (!row.ref_shipment_id) return null
+    const items = sjItemsRekon.get(`${row.ref_shipment_id}_${row.bahan_baku_id}`)
+    if (!items) return null
+    return hargaKecilDariNilai(
+      nilaiDokumenSuratJalan(items, row.tipe),
+      qtyGrupSjRekon.get(`${row.ref_shipment_id}|${row.bahan_baku_id}|${row.tipe}|${row.outlet_id}`) || 0
+    )
   }
 
   const vendorOf = await resolveVendorNames(supabase, (ledgerRows || []) as any)
@@ -1741,12 +1822,9 @@ export async function fetchReconciliationSnapshot(
         }
         vm.set(vNama, (vm.get(vNama) || 0) + addQty)
 
-        // Hitung nilai riil dalam satuan kecil (harga_snapshot di surat_jalan_item berskala satuan besar)
-        const realPriceBesar = row.ref_shipment_id
-          ? realPricesMap.get(`${row.ref_shipment_id}_${row.bahan_baku_id}`)
-          : undefined
-        if (realPriceBesar && realPriceBesar > 0) {
-          const uRiil = f > 0 ? realPriceBesar / f : realPriceBesar
+        // Nilai riil per satuan kecil dari nilai dokumen surat jalan (lihat hargaKecilSjRekon).
+        const uRiil = hargaKecilWajar(hargaKecilSjRekon(row), uMaster)
+        if (uRiil !== null) {
           riil.total += addQty * uRiil
           riil.hasRealPrice = true
           catatNilaiVendor(row.bahan_baku_id, vNama, addQty, addQty * uRiil, true)
@@ -2183,42 +2261,43 @@ export async function fetchItemTransactionLedger(
 
   // Vendor & harga beku surat jalan untuk bahan ini: itulah harga sebenarnya barang yang
   // dikirim/diterima (harga master = harga pembelian terakhir, bisa dari vendor lain).
-  const sjItemRows: any[] = []
-  for (let i = 0; i < shipmentIds.length; i += 200) {
-    const chunk = shipmentIds.slice(i, i + 200)
-    try {
-      const data = await fetchAllPages<any>(() =>
-        supabase
-          .from('surat_jalan_item')
-          .select('surat_jalan_id, vendor_id, harga_snapshot, qty_dikirim')
-          .eq('bahan_baku_id', bahanBakuId)
-          .in('surat_jalan_id', chunk)
-          .order('id', { ascending: true })
-      )
-      sjItemRows.push(...data)
-    } catch (e) {
-      console.warn('Gagal memuat harga surat jalan timeline:', e)
-    }
-  }
-  const sjVendorIds = [...new Set(sjItemRows.map((x) => x.vendor_id).filter(Boolean))]
+  const sjItemsByKey = await fetchItemSuratJalan(supabase, shipmentIds, [bahanBakuId])
+  const sjVendorIds = [
+    ...new Set([...sjItemsByKey.values()].flat().map((x) => x.vendor_id).filter((v): v is string => !!v)),
+  ]
   const sjVendorName = new Map<string, string>()
   if (sjVendorIds.length > 0) {
     const { data: sup } = await supabase.from('supplier').select('id, nama').in('id', sjVendorIds)
     for (const s of sup || []) sjVendorName.set(s.id, vendorLabel(s.nama) || s.nama)
   }
-  const sjItemsById = new Map<string, ItemSuratJalan[]>()
-  for (const x of sjItemRows) {
-    const list = sjItemsById.get(x.surat_jalan_id) || []
-    list.push({
-      vendor: x.vendor_id ? sjVendorName.get(x.vendor_id) || null : null,
-      harga_snapshot: x.harga_snapshot === null ? null : Number(x.harga_snapshot),
-      qty_dikirim: x.qty_dikirim === null ? null : Number(x.qty_dikirim),
-    })
-    sjItemsById.set(x.surat_jalan_id, list)
+  const sjItemsOf = (sjId: string | null | undefined): ItemSuratJalan[] | undefined => {
+    if (!sjId) return undefined
+    const items = sjItemsByKey.get(`${sjId}_${bahanBakuId}`)
+    return items?.map((x) => ({ ...x, vendor: x.vendor_id ? sjVendorName.get(x.vendor_id) || null : null }))
   }
   const sjRingkas = new Map(
-    [...sjItemsById.entries()].map(([id, items]) => [id, ringkasItemSuratJalan(items)])
+    shipmentIds.flatMap((id) => {
+      const items = sjItemsOf(id)
+      return items ? [[id, ringkasItemSuratJalan(items)] as const] : []
+    })
   )
+
+  // Harga per satuan kecil tiap baris surat jalan = nilai dokumen (qty dok x harga dok)
+  // dibagi qty satuan kecil baris. Bila satu surat jalan menulis beberapa baris
+  // (tipe & outlet sama, mis. dipecah per vendor), nilai dibagi sebanding qty.
+  const grupSj = new Map<string, number>()
+  for (const r of rows || []) {
+    if (!r.ref_shipment_id) continue
+    const k = `${r.ref_shipment_id}|${r.tipe}|${r.outlet_id}`
+    grupSj.set(k, (grupSj.get(k) || 0) + Math.abs(Number(r.qty || 0)))
+  }
+  const hargaKecilSjOf = (r: any): number | null => {
+    const items = sjItemsOf(r.ref_shipment_id)
+    if (!items) return null
+    const nilai = nilaiDokumenSuratJalan(items, r.tipe)
+    const totalQty = grupSj.get(`${r.ref_shipment_id}|${r.tipe}|${r.outlet_id}`) || 0
+    return hargaKecilWajar(hargaKecilDariNilai(nilai, totalQty), unitPrice)
+  }
 
   const vendorOf = await resolveVendorNames(
     supabase,
@@ -2250,11 +2329,18 @@ export async function fetchItemTransactionLedger(
   })
   const fifo = attributeFifo({
     openingBalance,
-    priorInflowsNewestFirst: priorByBahan.get(bahanBakuId) || [],
+    // Lapisan sebelum periode: harga dokumen yang tak wajar (salah satuan) jatuh ke master.
+    priorInflowsNewestFirst: (priorByBahan.get(bahanBakuId) || []).map((l) => ({
+      ...l,
+      harga: hargaKecilWajar(l.harga ?? null, unitPrice),
+    })),
     windowRows: (rows || []).map((r: any) => ({
       id: r.id,
       qty: Number(r.qty || 0),
       vendor: Number(r.qty) > 0 ? vendorOf({ ...r, bahan_baku_id: bahanBakuId }) : null,
+      // Lapisan masuk membawa harga kirimannya, supaya pemakaian sesudahnya dinilai
+      // dengan harga barang yang benar-benar terpakai (mis. TIS FOOD Rp105rb), bukan master.
+      harga: Number(r.qty) > 0 ? hargaKecilSjOf(r) : null,
     })),
   })
 
@@ -2262,12 +2348,18 @@ export async function fetchItemTransactionLedger(
     const qty = Number(r.qty || 0)
     const isMasuk = qty > 0
     const sj = r.ref_shipment_id ? sjRingkas.get(r.ref_shipment_id) : undefined
-    const hargaSjBesar = sj?.hargaBesar ?? null
-    const nilaiRp = nilaiBarisRp(qty, hargaSjBesar, kemasanQty, unitPrice)
-    const debetRp = isMasuk ? nilaiRp : 0
-    const kreditRp = !isMasuk ? nilaiRp : 0
+    const hargaSjKecil = hargaKecilSjOf(r)
     // Vendor tercatat di surat jalan menang atas tebakan FIFO.
     const vendorSj = sj?.vendor ?? null
+    // Barang keluar tanpa surat jalan (pemakaian, waste, dst): dinilai dengan harga
+    // lapisan FIFO yang dikonsumsinya; bagian tanpa harga kiriman jatuh ke master.
+    const partsFifo = !isMasuk && !vendorSj && hargaSjKecil === null ? fifo.get(r.id) : undefined
+    const hargaFifoKecil = partsFifo ? hargaRataFifo(partsFifo) : null
+    const nilaiRp = partsFifo && partsFifo.length > 0
+      ? nilaiFifoRp(partsFifo, unitPrice)
+      : nilaiBarisRp(qty, hargaSjKecil, unitPrice)
+    const debetRp = isMasuk ? nilaiRp : 0
+    const kreditRp = !isMasuk ? nilaiRp : 0
     const saldoSesudah = Number(r.saldo_sesudah || 0)
     const saldoSesudahRp = Math.round(saldoSesudah * unitPrice)
 
@@ -2287,8 +2379,10 @@ export async function fetchItemTransactionLedger(
       tipe: r.tipe,
       catatan: formattedCatatan,
       qty,
-      harga_satuan: hargaSjBesar !== null && kemasanQty > 0 ? hargaSjBesar / kemasanQty : unitPrice,
-      harga_sj_besar: hargaSjBesar,
+      harga_satuan: qty !== 0 ? nilaiRp / Math.abs(qty) : unitPrice,
+      // Dinyatakan per satuan besar SEKARANG (harga kecil x kemasan saat ini) untuk label.
+      harga_sj_besar: hargaSjKecil !== null ? hargaSjKecil * kemasanQty : null,
+      harga_fifo_besar: hargaFifoKecil !== null ? hargaFifoKecil * kemasanQty : null,
       debet_rp: debetRp,
       kredit_rp: kreditRp,
       saldo_sesudah_qty: saldoSesudah,

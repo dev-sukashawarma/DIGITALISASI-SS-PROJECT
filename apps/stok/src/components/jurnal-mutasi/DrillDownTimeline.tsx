@@ -303,8 +303,14 @@ export function DrillDownTimeline({
                         )}
                         <span>{row.menu_terjual || row.catatan || '-'}</span>
                         {row.vendor_estimasi && (
-                          <div className="text-[10px] font-bold text-emerald-700 truncate" title="Estimasi FIFO: surat jalan tidak mencatat vendor">
-                            ≈ Vendor: {row.vendor_estimasi} · Master {formatRp(item.harga_master_kirim)}/{item.satuan_kirim}
+                          <div
+                            className="text-[10px] font-bold text-emerald-700 truncate"
+                            title="Estimasi FIFO: vendor & harga diambil dari kiriman yang stoknya terpakai"
+                          >
+                            ≈ Vendor: {row.vendor_estimasi} ·{' '}
+                            {(row.harga_fifo_besar ?? row.harga_sj_besar) !== null
+                              ? `Harga SJ ${formatRp((row.harga_fifo_besar ?? row.harga_sj_besar) as number)}/${item.satuan}`
+                              : `Master ${formatRp(item.harga_master_kirim)}/${item.satuan_kirim}`}
                           </div>
                         )}
                         {row.vendor_nama && (

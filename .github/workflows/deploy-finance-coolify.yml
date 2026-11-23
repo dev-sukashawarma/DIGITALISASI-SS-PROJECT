@@ -67,19 +67,34 @@ jobs:
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocGtvcmVhYXVjdnlxZmh5bmZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NjMyOTIsImV4cCI6MjA5NjUzOTI5Mn0.RdsvP6OKs6aiRnqqd02BYiv5gzbh4uGqO88dapo0Gso' }}
 
       - name: Trigger Coolify Deploy (Pull & Restart on VPS)
-        continue-on-error: true
         env:
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
         run: |
-          if [ -n "$COOLIFY_TOKEN" ]; then
-            echo "Triggering Coolify deployment via API..."
-            curl --fail --show-error --silent --location \
-              --request POST "https://coolify.sukashawarma.tech/api/v1/deploy?uuid=askiledyq11urgi3tbxwxztp" \
-              --header "Authorization: Bearer $COOLIFY_TOKEN"
-            echo -e "\nCoolify deployment successfully triggered!"
-          else
-            echo "COOLIFY_API_TOKEN is not set, skipping Coolify trigger."
+          if [ -z "$COOLIFY_TOKEN" ]; then
+            echo "::error::COOLIFY_API_TOKEN tidak terpasang di GitHub Secrets!"
+            exit 1
           fi
+          echo "Querying Coolify API to find Finance application UUID..."
+          APPS_JSON=$(curl --fail --show-error --silent --location \
+            --request GET "https://coolify.sukashawarma.tech/api/v1/applications" \
+            --header "Authorization: Bearer $COOLIFY_TOKEN" || true)
+
+          FINANCE_UUID=$(echo "$APPS_JSON" | jq -r 'if type=="array" then (.[] | select((.fqdn // "") | contains("finance.sukashawarma.com")) | .uuid) else empty end' 2>/dev/null | head -n 1)
+          if [ -z "$FINANCE_UUID" ] || [ "$FINANCE_UUID" = "null" ]; then
+            FINANCE_UUID=$(echo "$APPS_JSON" | jq -r 'if type=="array" then (.[] | select((.name // "") | test("^finance$|suka-finance|finance-dashboard"; "i")) | .uuid) else empty end' 2>/dev/null | head -n 1)
+          fi
+          if [ -z "$FINANCE_UUID" ] || [ "$FINANCE_UUID" = "null" ]; then
+            FINANCE_UUID="askiledyq11urgi3tbxwxztp"
+          fi
+
+          echo "Target Finance UUID: $FINANCE_UUID"
+          curl --fail --show-error --silent --location \
+            --request POST "https://coolify.sukashawarma.tech/api/v1/deploy?uuid=$FINANCE_UUID&force=true" \
+            --header "Authorization: Bearer $COOLIFY_TOKEN" || \
+          curl --fail --show-error --silent --location \
+            --request POST "https://coolify.sukashawarma.tech/api/v1/deploy?uuid=$FINANCE_UUID" \
+            --header "Authorization: Bearer $COOLIFY_TOKEN"
+          echo -e "\nCoolify deployment successfully triggered for Finance ($FINANCE_UUID)!"
 
       - name: Verify Live Service Health (Smoke Test)
         run: |

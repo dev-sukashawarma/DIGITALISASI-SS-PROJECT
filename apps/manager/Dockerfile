@@ -5,15 +5,15 @@
 FROM node:24-bookworm-slim AS builder
 WORKDIR /repo
 
-# Install python/make if needed for some node-gyp packages, though usually not needed for these apps
-# RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
-
 # Copy manifests for yarn workspaces resolution
-COPY package.json yarn.lock .npmrc tsconfig.json ./
+COPY package.json yarn.lock .npmrc* tsconfig.json ./
 COPY packages/auth/package.json packages/auth/package.json
+COPY packages/cache/package.json packages/cache/package.json
 COPY packages/design-system/package.json packages/design-system/package.json
 COPY packages/realtime/package.json packages/realtime/package.json
+COPY packages/master-data/package.json packages/master-data/package.json
 COPY packages/offline-queue/package.json packages/offline-queue/package.json
+COPY packages/hr-rumus/package.json packages/hr-rumus/package.json
 COPY apps/manager/package.json apps/manager/package.json
 
 RUN --mount=type=cache,id=yarn-cache-v3,sharing=locked,target=/usr/local/share/.cache/yarn/v6 corepack enable && (yarn install --frozen-lockfile --network-timeout 600000 || (yarn cache clean --all && yarn install --frozen-lockfile --network-timeout 600000))
@@ -41,7 +41,7 @@ ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
 
 WORKDIR /repo
-RUN NEXT_TURBOPACK=0 corepack enable && NEXT_TURBOPACK=0 yarn workspace manager build && mkdir -p apps/manager/public
+RUN NEXT_TURBOPACK=0 corepack enable && NEXT_TURBOPACK=0 yarn workspace manager build && mkdir -p apps/manager/public && rm -rf /repo/apps/manager/.next/cache
 
 # --- Stage 2: Ultra-lightweight Production Runner ---
 FROM node:24-bookworm-slim AS runner
@@ -50,9 +50,6 @@ WORKDIR /repo/apps/manager
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Server-only secrets: ARG/ENV di stage builder TIDAK ikut ke stage baru
-# (fresh FROM). Server Actions/Route Handlers baca process.env di RUNTIME,
-# jadi harus di-re-declare di sini juga, bukan cuma di builder.
 ARG SUPABASE_SERVICE_ROLE_KEY
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY

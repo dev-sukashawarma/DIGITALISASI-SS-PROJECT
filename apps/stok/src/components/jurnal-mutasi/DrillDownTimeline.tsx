@@ -379,11 +379,11 @@ export function DrillDownTimeline({
                   <td className="p-3 whitespace-nowrap">
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-200 text-slate-800 border border-slate-300">
                       <Calculator className="w-3 h-3 text-slate-600" />
-                      Stok Sistem
+                      Seharusnya Ada
                     </span>
                   </td>
                   <td className="p-3 text-slate-700">
-                    <span className="font-black text-slate-900">Total Stok Akhir Sistem (Buku)</span>
+                    <span className="font-black text-slate-900">Seharusnya Ada (menurut catatan)</span>
                     <span className="text-[10px] text-slate-500 block">
                       Saldo Awal + Masuk ({formatQty(totalDebetQty)}) - Keluar ({formatQty(totalKreditQty)})
                     </span>
@@ -640,7 +640,7 @@ export function DrillDownTimeline({
 
               <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-300">
                 <span className="text-[9px] font-black text-slate-700 uppercase block mb-1">
-                  3. Stok Sistem (Buku)
+                  3. Seharusnya Ada
                 </span>
                 <span className="text-xs font-black text-slate-900 block">
                   {formatQty(item.stok_sistem_qty)}
@@ -652,7 +652,7 @@ export function DrillDownTimeline({
 
               <div className="p-2.5 rounded-xl bg-blue-50/80 border border-blue-200">
                 <span className="text-[9px] font-black text-blue-800 uppercase block mb-1">
-                  4. Stok Fisik (Hari Ini)
+                  4. Hasil Hitung Opname
                 </span>
                 <span className="text-xs font-black text-blue-950 block">
                   {hasOpname && item.stok_fisik_qty !== null

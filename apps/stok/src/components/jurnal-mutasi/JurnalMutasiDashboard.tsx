@@ -267,7 +267,7 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
             <p className="text-xs text-suka-brown/60 font-medium mt-0.5">
               {currentOutletId === 'ALL'
                 ? 'Rekapitulasi konsolidasi seluruh outlet: Masuk (Inbound), Pemakaian POS, dan Waste Bahan Baku.'
-                : 'Melacak alur stok: Saldo Awal + Kiriman Masuk - Pemakaian Menu POS - Waste = Stok Sistem vs Fisik Opname.'}
+                : 'Melacak alur stok: Saldo Awal + Masuk − Pemakaian − Waste = Seharusnya Ada, dibandingkan dengan Hasil Hitung Opname.'}
             </p>
           </div>
 
@@ -544,7 +544,7 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
             className={`grid gap-3 ${
               currentOutletId === 'ALL'
                 ? 'grid-cols-2 lg:grid-cols-4'
-                : 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-7'
+                : 'grid-cols-2 sm:grid-cols-4 xl:grid-cols-8'
             }`}
           >
             {/* Omzet Penjualan (kotor, sama dengan baris "Omzet kotor periode" di PDF) */}
@@ -593,7 +593,16 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
               <div className="text-sm sm:text-base font-black text-blue-700">
                 -{formatRp(data.totals.total_pakai_rp)}
               </div>
-              <p className="text-[9px] text-blue-700/60 font-bold">Serapan Resep BOM</p>
+              <p className="text-[9px] text-blue-700/60 font-bold">Serapan Resep BOM · harga master</p>
+              {data.totals.total_pakai_rp_riil !== undefined &&
+                data.totals.total_pakai_rp_riil !== data.totals.total_pakai_rp && (
+                  <p
+                    className="text-[9px] font-bold text-amber-600"
+                    title="Pemakaian dinilai harga kiriman (surat jalan) dari stok yang terpakai, metode FIFO"
+                  >
+                    Riil (harga SJ): -{formatRp(data.totals.total_pakai_rp_riil)}
+                  </p>
+                )}
             </div>
 
             {/* Waste */}
@@ -607,46 +616,81 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
               <p className="text-[9px] text-red-600/60 font-bold">Laporan kerusakan</p>
             </div>
 
-            {/* Stok Sistem & Net Selisih (hanya untuk cabang spesifik) */}
-            {currentOutletId !== 'ALL' && (
-              <>
-                <div className="bg-white p-3.5 rounded-2xl border border-suka-brown/10 shadow-2xs space-y-0.5 bg-suka-cream/10">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-suka-brown">
-                    5. Stok Sistem
-                  </span>
-                  <div className="text-sm sm:text-base font-black text-suka-brown">
-                    {formatRp(data.totals.total_sistem_rp)}
-                  </div>
-                  <p className="text-[9px] text-suka-brown/50 font-bold">Saldo Teoretis</p>
-                </div>
-
-                <div
-                  className={`p-3.5 rounded-2xl border shadow-2xs space-y-0.5 ${
-                    data.totals.total_selisih_rp < 0
-                      ? 'bg-red-50 border-red-200 text-red-900'
-                      : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                  }`}
-                >
-                  <span className="text-[10px] font-black uppercase tracking-wider">
-                    6. Net Selisih (Rp)
-                  </span>
-                  <div className="text-sm sm:text-base font-black flex items-center gap-1">
-                    {data.totals.total_selisih_rp < 0 ? (
-                      <TrendingDown className="w-4 h-4 text-red-600" />
-                    ) : (
-                      <TrendingUp className="w-4 h-4 text-emerald-600" />
-                    )}
-                    <span>
-                      {data.totals.total_selisih_rp > 0 ? '+' : ''}
-                      {formatRp(data.totals.total_selisih_rp)}
+            {/* 5-7: Seharusnya Ada -> Hasil Hitung -> Selisih (hanya untuk cabang spesifik).
+                Urutan mengikuti alur stok; "Hasil Hitung" diberi kartu sendiri karena angka
+                itulah yang menjadi Saldo Awal sesi opname berikutnya. */}
+            {currentOutletId !== 'ALL' && (() => {
+              // Bahan yang tidak dihitung saat opname tidak punya angka fisik; untuk sesi
+              // berikutnya dipakai angka catatannya. Selisih hanya untuk bahan yang dihitung.
+              const takDihitung = data.items.filter((i) => !i.has_opname)
+              const takDihitungRp = takDihitung.reduce((acc, i) => acc + (i.stok_sistem_rp || 0), 0)
+              const surplus = data.totals.total_selisih_rp >= 0
+              return (
+                <>
+                  <div className="p-3.5 rounded-2xl border border-suka-brown/10 shadow-2xs space-y-0.5 bg-suka-cream/10">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-suka-brown">
+                      5. Seharusnya Ada
                     </span>
+                    <div className="text-sm sm:text-base font-black text-suka-brown">
+                      {formatRp(data.totals.total_sistem_rp)}
+                    </div>
+                    <p className="text-[9px] text-suka-brown/50 font-bold">Menurut catatan: 1 + 2 − 3 − 4</p>
+                    {!!data.totals.total_mutasi_lain_rp && Math.abs(data.totals.total_mutasi_lain_rp) >= 1 && (
+                      <p
+                        className="text-[9px] text-suka-brown/60 font-bold"
+                        title="Transfer antar outlet, retur, dan penyesuaian manual"
+                      >
+                        termasuk mutasi lain {data.totals.total_mutasi_lain_rp > 0 ? '+' : '-'}
+                        {formatRp(Math.abs(data.totals.total_mutasi_lain_rp))}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-[9px] font-bold">
-                    {data.totals.total_selisih_rp < 0 ? 'Defisit / Rugi Fisik' : 'Surplus Fisik'}
-                  </p>
-                </div>
-              </>
-            )}
+
+                  <div className="p-3.5 rounded-2xl border-2 border-suka-brown/30 shadow-2xs space-y-0.5 bg-white">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-suka-brown">
+                      6. Hasil Hitung Opname
+                    </span>
+                    <div className="text-sm sm:text-base font-black text-suka-brown">
+                      {formatRp(data.totals.total_fisik_rp)}
+                    </div>
+                    <p className="text-[9px] text-suka-brown/50 font-bold">Jadi saldo awal sesi berikutnya</p>
+                    {takDihitung.length > 0 && (
+                      <p
+                        className="text-[9px] text-amber-700 font-bold"
+                        title="Bahan ini tidak dihitung saat opname; saldo awal sesi berikutnya memakai angka catatannya"
+                      >
+                        + {takDihitung.length} bahan tak dihitung ({formatRp(takDihitungRp)} menurut catatan)
+                      </p>
+                    )}
+                  </div>
+
+                  <div
+                    className={`p-3.5 rounded-2xl border shadow-2xs space-y-0.5 ${
+                      surplus ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-red-50 border-red-200 text-red-900'
+                    }`}
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-wider">7. Selisih</span>
+                    <div className="text-sm sm:text-base font-black flex items-center gap-1">
+                      {surplus ? (
+                        <TrendingUp className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <TrendingDown className="w-4 h-4 text-red-600" />
+                      )}
+                      <span>
+                        {data.totals.total_selisih_rp > 0 ? '+' : ''}
+                        {formatRp(data.totals.total_selisih_rp)}
+                      </span>
+                    </div>
+                    <p className="text-[9px] font-bold">
+                      Hasil hitung − seharusnya · {surplus ? 'lebih dari catatan' : 'kurang dari catatan'}
+                    </p>
+                    {takDihitung.length > 0 && (
+                      <p className="text-[9px] font-bold opacity-70">hanya bahan yang dihitung</p>
+                    )}
+                  </div>
+                </>
+              )
+            })()}
           </div>
 
           {/* Diagnostic quick badges */}

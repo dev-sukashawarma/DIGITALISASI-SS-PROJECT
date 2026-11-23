@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useOutletSpendingHistory } from '@/hooks/useOutletBudget'
 import type { OutletSpendingTransaction, OutletBudgetSummaryItem } from '@/types/budgetMonitoring'
+import { tanggalWib, awalBulanWib } from '@/lib/stok/riwayatBelanja'
 
 interface Props {
   selectedOutlet: OutletBudgetSummaryItem | null
@@ -30,7 +31,9 @@ export function OutletSpendingHistory({ selectedOutlet, onViewDetail }: Props) {
   const [customTo, setCustomTo] = useState('')
 
   const { fromDate, toDate } = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0]
+    // Tanggal menurut kalender WIB — toISOString() memberi tanggal UTC, sehingga
+    // "Hari Ini" & "Bulan Ini" bergeser sebelum 07.00 WIB.
+    const todayStr = tanggalWib()
     if (dateFilter === 'today') {
       return { fromDate: todayStr, toDate: todayStr }
     }
@@ -38,9 +41,7 @@ export function OutletSpendingHistory({ selectedOutlet, onViewDetail }: Props) {
       return { fromDate: selectedOutlet.periodStart, toDate: selectedOutlet.periodEnd }
     }
     if (dateFilter === 'month') {
-      const now = new Date()
-      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
-      return { fromDate: firstDay, toDate: todayStr }
+      return { fromDate: awalBulanWib(), toDate: todayStr }
     }
     if (dateFilter === 'custom' && customFrom && customTo) {
       return { fromDate: customFrom, toDate: customTo }

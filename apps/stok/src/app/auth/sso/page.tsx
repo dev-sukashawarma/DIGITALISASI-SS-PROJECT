@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { safeInternalPath, searchTanpaToken } from './urlAman'
 
 const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://app.sukashawarma.com'
 
@@ -9,9 +10,6 @@ type HandoffResponse = {
   error?: string
 }
 
-function safeInternalPath(value: string | null): string {
-  return value?.startsWith('/') && !value.startsWith('//') ? value : '/dashboard'
-}
 
 /**
  * Serah-terima sesi dari POS Android.
@@ -59,11 +57,16 @@ export default function SsoHandoffPage() {
         handoffRef.current = {
           accessToken: accessToken.trim(),
           refreshToken: refreshToken.trim(),
-          next: safeInternalPath(nextParam),
+          next: safeInternalPath(nextParam, window.location.origin),
         }
 
         // Token tidak boleh tertinggal di address bar/history walaupun request gagal.
-        window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}`)
+        // Token bisa datang lewat fragment ATAU query → keduanya dibersihkan; `next` dipertahankan.
+        window.history.replaceState(
+          window.history.state,
+          '',
+          `${window.location.pathname}${searchTanpaToken(window.location.search)}`,
+        )
       }
 
       const { accessToken, refreshToken, next } = handoffRef.current

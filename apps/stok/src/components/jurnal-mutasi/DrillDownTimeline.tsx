@@ -119,17 +119,19 @@ export function DrillDownTimeline({
   // Filter baris operasional: opname_selisih dikeluarkan karena ditampilkan di kesimpulan opname
   const operationalRows = rows.filter((r) => r.tipe !== 'opname_selisih')
 
-  // Hitung running balance urut dari saldo awal
+  // Hitung running balance urut dari saldo awal.
+  // Debet/Kredit (Rp) memakai harga beku surat jalan bila ada, sedangkan nilai saldo
+  // tetap dinilai dengan harga master (kebijakan harga terakhir) -- jadi nilai saldo
+  // dihitung ulang dari qty, bukan dijumlah dari debet/kredit, agar sama dengan
+  // baris "Stok Sistem" di bawah.
   let runningQty = item.saldo_awal_qty
-  let runningRp = item.saldo_awal_rp
 
   const rowsWithBalance = operationalRows.map((r) => {
     runningQty += r.qty
-    runningRp += r.debet_rp - r.kredit_rp
     return {
       ...r,
       running_qty: runningQty,
-      running_rp: runningRp,
+      running_rp: Math.round(runningQty * item.unit_price_kecil),
     }
   })
 
@@ -147,9 +149,11 @@ export function DrillDownTimeline({
   const itemStatus: 'MATCH' | 'MINUS' | 'SURPLUS' | 'TIDAK_OPNAME' =
     item.status || (!hasOpname ? 'TIDAK_OPNAME' : isMatch ? 'MATCH' : isNegativeDiff ? 'MINUS' : 'SURPLUS')
   // Batas toleransi aman -- aturan yang sama dengan form opname, approval & PDF.
+  // Pembanding selisih = stok sistem outlet yang menghitung fisik (mode Semua Outlet
+  // bisa lebih kecil dari stok sistem total).
   const toleransi = nilaiToleransiSelisih(
     item.selisih_qty ?? 0,
-    item.stok_sistem_qty,
+    item.stok_sistem_terhitung_qty ?? item.stok_sistem_qty,
     item.satuan,
     item.satuan_kecil,
     item.nama,
@@ -174,6 +178,10 @@ export function DrillDownTimeline({
           <span>Master: {formatRp(item.harga_beli_master)} / {item.satuan}</span>
           <span>•</span>
           <span>Per Satuan Kecil: {formatRp(item.unit_price_kecil)} / {item.satuan_kecil || item.satuan}</span>
+          <span>•</span>
+          <span title="Debet/Kredit memakai harga beku surat jalan bila ada; nilai saldo memakai harga master">
+            Debet/Kredit: harga SJ · Saldo: harga master
+          </span>
         </div>
       </div>
 
@@ -295,12 +303,18 @@ export function DrillDownTimeline({
                         )}
                         <span>{row.menu_terjual || row.catatan || '-'}</span>
                         {row.vendor_estimasi && (
-                          <div className="text-[10px] font-bold text-emerald-700 truncate" title="Estimasi FIFO berdasarkan surat jalan">
+                          <div className="text-[10px] font-bold text-emerald-700 truncate" title="Estimasi FIFO: surat jalan tidak mencatat vendor">
                             ≈ Vendor: {row.vendor_estimasi} · Master {formatRp(item.harga_master_kirim)}/{item.satuan_kirim}
                           </div>
                         )}
                         {row.vendor_nama && (
-                          <div className="text-[10px] font-bold text-emerald-700 truncate">Vendor: {row.vendor_nama} · Master {formatRp(item.harga_master_kirim)}/{item.satuan_kirim}</div>
+                          row.harga_sj_besar !== null ? (
+                            <div className="text-[10px] font-bold text-emerald-700 truncate" title="Vendor & harga tercatat di surat jalan">
+                              Vendor: {row.vendor_nama} · Harga SJ {formatRp(row.harga_sj_besar)}/{item.satuan}
+                            </div>
+                          ) : (
+                            <div className="text-[10px] font-bold text-emerald-700 truncate">Vendor: {row.vendor_nama} · Master {formatRp(item.harga_master_kirim)}/{item.satuan_kirim}</div>
+                          )
                         )}
                       </td>
                       <td className="p-3 text-right whitespace-nowrap text-emerald-700 font-bold">
@@ -409,6 +423,18 @@ export function DrillDownTimeline({
                     {period?.opname_terpilih?.created_by_name && (
                       <span className="text-[10px] text-blue-700 block">
                         Dihitung oleh kru: {period.opname_terpilih.created_by_name}
+                      </span>
+                    )}
+                    {outletId === 'ALL' && item.outlet_total_count !== undefined && (
+                      <span
+                        className="text-[10px] text-blue-700 block"
+                        title="Selisih hanya membandingkan fisik vs sistem outlet yang menghitung bahan ini; stok outlet lain tetap ada di Stok Sistem tapi tidak ikut selisih."
+                      >
+                        {item.outlet_opname_count ?? 0} dari {item.outlet_total_count} outlet opname bahan ini
+                        {hasOpname &&
+                          item.stok_sistem_terhitung_qty !== null &&
+                          item.stok_sistem_terhitung_qty !== undefined &&
+                          ` · pembanding: sistem outlet tsb ${formatQty(item.stok_sistem_terhitung_qty)}`}
                       </span>
                     )}
                   </td>

@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import LaporanPenjualanClient from './LaporanPenjualanClient';
 import { buildAnalytics } from '@/lib/laporanPenjualan/aggregate';
 import { addDays, getEarliestOrderDate, jakartaDate, loadDaySummaries } from '@/lib/laporanPenjualan/load';
+import { susunOutletLaporan } from '@/lib/laporanPenjualan/outletLaporan';
 
 type DateRange = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom';
 
@@ -55,50 +56,18 @@ export default async function LaporanPenjualanPage({
     to = customEnd;
   }
 
-  // Helper untuk memfilter outlet internal non-sales / test
-  const isIgnoredOutletName = (name: string) => {
-    if (!name) return true;
-    const n = name.toUpperCase();
-    return (
-      n.includes('GUDANG PUSAT') ||
-      n.includes('GEDUNG PUSAT') ||
-      n.includes('KANTOR PUSAT') ||
-      n.includes('OUTLET TES') ||
-      n.includes('OUTLET TEST') ||
-      n.includes('SHOOPE') ||
-      n.includes('SHOPEE') ||
-      n.includes('TIKTOK') ||
-      n.includes('GLOBAL OUTLET') ||
-      n.includes('GLOBAL SYSTEM')
-    );
-  };
-
   // Ringkasan per hari (lib/laporanPenjualan) — hari lampau dari cache, hari
   // ini segar; bukan lagi seluruh order mentah di setiap buka halaman.
   const [{ days }, { data: outletsData }] = await Promise.all([
     from <= to ? loadDaySummaries(supabaseAdmin, from, to) : Promise.resolve({ days: [] }),
-    supabaseAdmin.from('outlets').select('id, name, type').order('name', { ascending: true })
+    supabaseAdmin.from('outlets').select('id, name, type, status, is_active, slug, nonaktif_at').order('name', { ascending: true })
   ]);
 
-  // Filter outlet valid (hanya outlet operasional fisik)
-  const validOutlets = (outletsData || [])
-    .filter(o => !isIgnoredOutletName(o.name))
-    .map(o => {
-      const isMitra = o.type === 'mitra';
-      const cleanName = o.name.replace('SUKA SHAWARMA ', '').trim();
-      return {
-        id: o.id,
-        name: o.name,
-        cleanName,
-        category: isMitra ? ('mitra' as const) : ('internal' as const)
-      };
-    });
-
-  const validOutletIdSet = new Set(validOutlets.map(o => o.id));
-  const outletInfoMap = new Map<string, { name: string; cleanName: string; category: 'mitra' | 'internal' }>();
-  validOutlets.forEach(o => {
-    outletInfoMap.set(o.id, { name: o.name, cleanName: o.cleanName, category: o.category });
-  });
+  // Outlet operasional (internal/mitra, bukan Persiapan/SS Backup) lewat type/status,
+  // bukan nama. Outlet tutup tetap dihitung, tapi di pemilih hanya tampil s/d
+  // akhir bulan tutupnya (patokan: awal periode).
+  const { idDihitung: validOutletIdSet, infoOutlet: outletInfoMap, pilihan: validOutlets, jumlahAktif } =
+    susunOutletLaporan(outletsData || [], from);
 
   const analytics = buildAnalytics(days, { channelFilter, outletFilter, validOutletIdSet, outletInfoMap });
 
@@ -106,6 +75,7 @@ export default async function LaporanPenjualanPage({
     <LaporanPenjualanClient
       analytics={analytics}
       outlets={validOutlets}
+      jumlahOutletAktif={jumlahAktif}
       initialFilters={{
         range,
         customStart,

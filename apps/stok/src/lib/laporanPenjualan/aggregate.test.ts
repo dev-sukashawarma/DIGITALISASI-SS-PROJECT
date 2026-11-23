@@ -49,6 +49,25 @@ describe('Laporan Penjualan — ringkasan per hari', () => {
     expect(a.bestSellers.map(i => i.name)).toEqual(['Sapi', 'Ayam']) // seri qty 3 vs 2
   })
 
+  it('order batal memakai saringan outlet yang sama dengan order selesai', () => {
+    const hari = summarizeDay([
+      order('b1', A, null, '2026-09-22T03:00:00Z', 0, [], 'cancelled'),
+      order('b2', TES, null, '2026-09-22T03:10:00Z', 0, [], 'cancelled'),   // outlet tes
+      order('b3', null, null, '2026-09-22T03:20:00Z', 0, [], 'cancelled'),  // tanpa outlet
+      order('c1', null, null, '2026-09-22T03:30:00Z', 10000, [['Sapi', 1, 10000]]),
+    ])
+    const semua = buildAnalytics([hari], { channelFilter: 'all', outletFilter: 'all', validOutletIdSet: valid, outletInfoMap: info })
+    expect(semua.canceledCount).toBe(1)
+    // order selesai tanpa outlet juga tidak ikut "semua outlet"
+    expect(semua.totalOrders).toBe(0)
+    const tes = buildAnalytics([hari], { channelFilter: 'all', outletFilter: TES, validOutletIdSet: valid, outletInfoMap: info })
+    expect(tes.canceledCount).toBe(1)
+  })
+
+  it('label kanal tiktok = TikTok GO (food app), bukan TikTok Shop', () => {
+    expect(build().channelStats.tiktok.label).toBe('TikTok GO')
+  })
+
   it('filter outlet spesifik tetap menghitung order outlet itu apa adanya', () => {
     const a = build('all', TES)
     expect(a.totalOrders).toBe(1)

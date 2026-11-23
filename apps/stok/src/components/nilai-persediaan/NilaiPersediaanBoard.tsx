@@ -16,6 +16,7 @@ import {
   type NilaiPersediaanOutlet,
   type NilaiPersediaanRow,
 } from '@/hooks/useNilaiPersediaan'
+import { bagiKelompokPersediaan, kelompokLokasiPersediaan } from '@/lib/stok/kelompokPersediaan'
 
 const rupiah = (n: number) =>
   'Rp' + Math.round(n).toLocaleString('id-ID')
@@ -41,8 +42,10 @@ export function NilaiPersediaanBoard() {
       return next
     })
 
-  const gudang = outlets.filter((o) => o.outlet_type === 'office')
-  const cabang = outlets.filter((o) => o.outlet_type !== 'office')
+  // Gudang = Gudang Pusat + lokasi ber-type 'gudang' (mis. GUDANG SS ONLINE).
+  // Lokasi non-operasional (KANTOR PUSAT dummy dst.) dipisah — tetap ikut total
+  // halaman (view memasukkannya), tapi tidak dicampur ke kartu Gudang/Outlet.
+  const { gudang, outlet: cabang, lainnya } = bagiKelompokPersediaan(outlets)
   const jumlah = (list: NilaiPersediaanOutlet[]) =>
     list.reduce((s, o) => s + o.nilai_pasti + o.nilai_belum_pasti, 0)
 
@@ -123,7 +126,7 @@ export function NilaiPersediaanBoard() {
         />
         <Kartu
           icon={Warehouse}
-          label="Gudang Pusat"
+          label="Gudang"
           nilai={rupiahRingkas(jumlah(gudang))}
           desc={`${gudang.length} lokasi · pasti + tafsir terbaik`}
           aksen="text-emerald-700"
@@ -138,6 +141,13 @@ export function NilaiPersediaanBoard() {
           latar="bg-sky-50/80"
         />
       </div>
+
+      {lainnya.length > 0 && (
+        <p className="-mt-3 text-xs text-[#8b6f5c]">
+          Di luar kartu Gudang &amp; Outlet: {lainnya.map((o) => o.outlet).join(', ')} (lokasi
+          non-operasional) senilai {rupiahRingkas(jumlah(lainnya))} — tetap terhitung di total.
+        </p>
+      )}
 
       {/* Master data belum lengkap — muncul hanya kalau ada */}
       {total.jml_data_kurang > 0 && (
@@ -213,9 +223,14 @@ export function NilaiPersediaanBoard() {
                           <ChevronRight className="h-4 w-4 text-[#8b6f5c]" />
                         )}
                         <span className="font-medium text-[#701604]">{o.outlet}</span>
-                        {o.outlet_type === 'office' && (
+                        {kelompokLokasiPersediaan(o) === 'gudang' && (
                           <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
                             GUDANG
+                          </span>
+                        )}
+                        {kelompokLokasiPersediaan(o) === 'lainnya' && (
+                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600">
+                            NON-OPERASIONAL
                           </span>
                         )}
                       </div>

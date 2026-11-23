@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { approveWasteReport, rejectWasteReport } from '@/app/actions/waste'
+import { PESAN_SUDAH_DIPUTUSKAN } from '@/lib/stok/keputusanWaste'
 import { canApproveWaste as checkCanApproveWaste } from '@/lib/stok/navAccess'
 import { toast } from 'sonner'
 import { useStokBalance } from '@/hooks/useStokBalance'
@@ -51,11 +52,17 @@ export default function WasteApprovalPage() {
     }
 
     try {
-      await approveWasteReport(id)
-      toast.success('Laporan waste berhasil disetujui dan stok telah dipotong')
-      loadReports()
+      const hasil = await approveWasteReport(id)
+      if (hasil.ok) {
+        toast.success('Laporan waste berhasil disetujui dan stok telah dipotong')
+      } else {
+        toast.error(hasil.error || 'Gagal menyetujui laporan')
+      }
     } catch (err: any) {
       toast.error(err.message || 'Gagal menyetujui laporan')
+    } finally {
+      // Selalu muat ulang: laporan yang sudah diputuskan orang lain ikut hilang dari daftar.
+      loadReports()
     }
   }
 
@@ -63,13 +70,23 @@ export default function WasteApprovalPage() {
     e.preventDefault()
     if (!rejectingId || !rejectReason.trim()) return
     try {
-      await rejectWasteReport(rejectingId, rejectReason.trim())
-      toast.success('Laporan waste ditolak')
-      setRejectingId(null)
-      setRejectReason('')
-      loadReports()
+      const hasil = await rejectWasteReport(rejectingId, rejectReason.trim())
+      if (hasil.ok) {
+        toast.success('Laporan waste ditolak')
+        setRejectingId(null)
+        setRejectReason('')
+      } else {
+        toast.error(hasil.error || 'Gagal menolak laporan')
+        // Sudah diputuskan orang lain: tutup modal agar tidak dicoba ulang.
+        if (hasil.error === PESAN_SUDAH_DIPUTUSKAN) {
+          setRejectingId(null)
+          setRejectReason('')
+        }
+      }
     } catch (err: any) {
       toast.error(err.message || 'Gagal menolak laporan')
+    } finally {
+      loadReports()
     }
   }
 

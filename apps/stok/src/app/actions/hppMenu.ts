@@ -3,6 +3,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
+import { canViewVendorPrices } from '@/lib/stok/navAccess'
 
 function makeServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
@@ -59,6 +60,22 @@ export async function fetchHPPMenuList(): Promise<HPPMenuItem[]> {
   }
 
   const supabase = makeServiceClient()
+
+  // Gerbang BACA harga beli master. Action ini memakai service-role client
+  // (bypass RLS) dan export 'use server' adalah endpoint POST publik — guard
+  // halaman/menu tidak melindunginya. Dulu cukup "ada sesi", sehingga crew &
+  // leader bisa membaca harga beli lewat panggilan langsung. Aturan role sama
+  // dengan requirePriceReader (actions/hargaBahan.ts) = canViewVendorPrices.
+  const { data: staff, error: staffError } = await supabase
+    .from('outlet_staff')
+    .select('role, status')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (staffError) throw new Error(staffError.message)
+  if (!staff || staff.status !== 'active' || !canViewVendorPrices(staff.role)) {
+    throw new Error('Forbidden: role Anda tidak berhak melihat HPP & harga beli bahan')
+  }
 
   // 1. Ambil data resep aktif beserta bahan baku
   const { data: resepData, error: resepError } = await supabase

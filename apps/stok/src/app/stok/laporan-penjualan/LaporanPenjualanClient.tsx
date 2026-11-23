@@ -92,7 +92,10 @@ interface LaporanPenjualanClientProps {
     name: string;
     cleanName: string;
     category: 'mitra' | 'internal';
+    tutup?: boolean;
   }>;
+  /** Jumlah outlet di pemilih yang belum tutup. */
+  jumlahOutletAktif?: number;
   initialFilters: {
     range: string;
     customStart: string;
@@ -110,6 +113,7 @@ export default function LaporanPenjualanClient({
   outlets,
   initialFilters,
   staffName = 'Admin Kitchen',
+  jumlahOutletAktif,
   dateRange,
 }: LaporanPenjualanClientProps) {
   const router = useRouter();
@@ -213,7 +217,7 @@ export default function LaporanPenjualanClient({
     gofood: { label: 'GoFood', bg: 'bg-red-50', text: 'text-red-700', bar: 'bg-red-500', icon: '🛵' },
     grabfood: { label: 'GrabFood', bg: 'bg-emerald-50', text: 'text-green-700', bar: 'bg-green-600', icon: '🟢' },
     shopeefood: { label: 'ShopeeFood', bg: 'bg-orange-50', text: 'text-orange-700', bar: 'bg-orange-500', icon: '🛒' },
-    tiktok: { label: 'TikTok Shop', bg: 'bg-gray-100', text: 'text-gray-900', bar: 'bg-gray-800', icon: '🎵' },
+    tiktok: { label: 'TikTok GO', bg: 'bg-gray-100', text: 'text-gray-900', bar: 'bg-gray-800', icon: '🎵' },
     lainnya: { label: 'Lainnya', bg: 'bg-amber-50', text: 'text-amber-700', bar: 'bg-amber-500', icon: '📦' },
   };
 
@@ -324,7 +328,7 @@ export default function LaporanPenjualanClient({
                 searchPlaceholder="Cari outlet..."
                 className="w-full sm:w-64"
                 triggerClassName="bg-[#faf2e9] border-[#d9c2b2] text-[#1e1b15]"
-                options={[{ value: 'all', label: `Semua Outlet Aktif (${outlets.length})` }]}
+                options={[{ value: 'all', label: `Semua Outlet Aktif (${jumlahOutletAktif ?? outlets.filter((o) => !o.tutup).length})` }]}
                 groups={[
                   ...(internalOutlets.length > 0
                     ? [
@@ -465,7 +469,7 @@ export default function LaporanPenjualanClient({
               { id: 'gofood', label: 'GoFood' },
               { id: 'grabfood', label: 'GrabFood' },
               { id: 'shopeefood', label: 'ShopeeFood' },
-              { id: 'tiktok', label: 'TikTok Shop' },
+              { id: 'tiktok', label: 'TikTok GO' },
             ].map((ch) => (
               <button
                 key={ch.id}

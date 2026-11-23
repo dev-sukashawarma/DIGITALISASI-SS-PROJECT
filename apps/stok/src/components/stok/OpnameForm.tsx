@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useBahanBaku } from '@/hooks/useBahanBaku';
 import { useStokBalance } from '@/hooks/useStokBalance';
@@ -16,7 +16,9 @@ import { convertBesarToGram, formatTriUnitSaldoFromGram } from '@/lib/format/com
 import { createClient } from '@/lib/supabase';
 import type { BahanBaku } from '@/types/stok';
 import { sembunyikanKolomBesar, adaSatuanKecil } from '@/lib/stok/satuanOpname';
-import { saringDraftBasi } from '@/lib/stok/draftOpnameLokal';
+import { saringDraftBasi, bacaDraftOpnameLokal, type DraftOpnameLokal } from '@/lib/stok/draftOpnameLokal';
+import { getTodayWIB } from '@/lib/stok/opnameDate';
+import { isIsianTerisi, aturNilaiIsian, bersihkanIsian, bahanDikosongkan, type IsianSatuan } from '@/lib/stok/isianOpname';
 import { checkPendingSuratJalanAction, fetchPemakaianPosOpnameAction } from '@/app/actions/opname';
 
 /** Baris vendor untuk satu bahan multi-vendor, dari RPC `saldo_vendor_gudang`. */
@@ -124,35 +126,30 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   // Finalisasi ikut gagal total.
   const isGudangPusat = outletId === GUDANG_PUSAT_ID;
 
-  const [inputs, setInputs] = useState<Record<string, { besar?: string; tengah?: string; kecil?: string }>>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem(`opname_draft_${outletId}`);
-        if (saved) return JSON.parse(saved).inputs || {};
-      } catch {}
+  /**
+   * Draft localStorage dibaca SEKALI saat form dibuka. `bacaDraftOpnameLokal`
+   * membuang draft yang bukan milik hari ini (WIB) -- hitungan kemarin tak boleh
+   * ikut dipulihkan lalu difinalisasi sebagai opname hari ini -- dan membersihkan
+   * isian "" dari versi form lama (kosong = belum dihitung, bukan 0).
+   */
+  const [draftAwal] = useState<DraftOpnameLokal | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      return bacaDraftOpnameLokal(localStorage.getItem(`opname_draft_${outletId}`), getTodayWIB());
+    } catch {
+      return null;
     }
-    return {};
   });
-  // State target khusus kitchen: menggantikan qty_fisik saat finalisasi
-  const [targets, setTargets] = useState<Record<string, { besar?: string; tengah?: string; kecil?: string }>>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem(`opname_draft_${outletId}`);
-        if (saved) return JSON.parse(saved).targets || {};
-      } catch {}
-    }
-    return {};
-  }); 
 
-  const [notes, setNotes] = useState(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem(`opname_draft_${outletId}`);
-        if (saved) return JSON.parse(saved).notes || '';
-      } catch {}
-    }
-    return '';
-  });
+  const [inputs, setInputs] = useState<Record<string, IsianSatuan>>(
+    () => (draftAwal?.inputs as Record<string, IsianSatuan> | undefined) || {}
+  );
+  // State target khusus kitchen: menggantikan qty_fisik saat finalisasi
+  const [targets, setTargets] = useState<Record<string, IsianSatuan>>(
+    () => (draftAwal?.targets as Record<string, IsianSatuan> | undefined) || {}
+  );
+
+  const [notes, setNotes] = useState<string>(() => (typeof draftAwal?.notes === 'string' ? draftAwal.notes : ''));
 
   /**
    * Hitung fisik per vendor untuk bahan multi-vendor di Gudang Pusat (spec
@@ -160,34 +157,23 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
    * induk, sama seperti yang dikembalikan `saldo_vendor_gudang`).
    *
    * Draft lama (sebelum fitur ini ada) tidak punya field `vendor` sama
-   * sekali -- `JSON.parse(saved).vendor` jatuh ke `undefined` lalu `|| {}`,
-   * jadi tetap terbaca tanpa error.
+   * sekali -- `bacaDraftOpnameLokal` mengembalikan peta kosong untuknya.
    */
-  const [subInputs, setSubInputs] = useState<Record<string, Record<string, SubVendorInput>>>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem(`opname_draft_${outletId}`);
-        if (saved) return JSON.parse(saved).vendor || {};
-      } catch {}
-    }
-    return {};
-  });
+  const [subInputs, setSubInputs] = useState<Record<string, Record<string, SubVendorInput>>>(
+    () => (draftAwal?.vendor as Record<string, Record<string, SubVendorInput>> | undefined) || {}
+  );
 
-  // Waktu draft lokal mulai diisi (dibuatAt) dan batas ganti satuan yang sudah disaring
-  // (batasAt), dibaca SEKALI saat form dibuka lalu ikut disimpan di setiap auto-save.
-  // Draft lama tanpa dibuatAt memakai savedAt-nya, atau 0. Tanpa draft: sekarang.
-  const [draftLokalMeta, setDraftLokalMeta] = useState<{ dibuatAt: number; batasAt?: number }>(() => {
+  // Waktu draft lokal mulai diisi (dibuatAt), tanggal WIB-nya (tanggal), dan batas ganti
+  // satuan yang sudah disaring (batasAt), dibaca SEKALI saat form dibuka lalu ikut disimpan
+  // di setiap auto-save. Draft lama tanpa dibuatAt memakai savedAt-nya, atau 0. Tanpa draft
+  // (atau draft hari lain yang dibuang): sekarang.
+  const [draftLokalMeta, setDraftLokalMeta] = useState<{ dibuatAt: number; tanggal: string; batasAt?: number }>(() => {
     const sekarang = Date.now();
-    if (typeof window === 'undefined') return { dibuatAt: sekarang };
-    try {
-      const saved = localStorage.getItem(`opname_draft_${outletId}`);
-      if (!saved) return { dibuatAt: sekarang };
-      const d = JSON.parse(saved);
-      const dibuatAt = typeof d.dibuatAt === 'number' ? d.dibuatAt : typeof d.savedAt === 'number' ? d.savedAt : 0;
-      return typeof d.batasAt === 'number' ? { dibuatAt, batasAt: d.batasAt } : { dibuatAt };
-    } catch {
-      return { dibuatAt: sekarang };
-    }
+    const hariIni = getTodayWIB();
+    if (!draftAwal) return { dibuatAt: sekarang, tanggal: hariIni };
+    const d = draftAwal;
+    const dibuatAt = typeof d.dibuatAt === 'number' ? d.dibuatAt : typeof d.savedAt === 'number' ? d.savedAt : 0;
+    return typeof d.batasAt === 'number' ? { dibuatAt, tanggal: hariIni, batasAt: d.batasAt } : { dibuatAt, tanggal: hariIni };
   });
 
   // Auto-save ke localStorage tiap kali input berubah
@@ -237,7 +223,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
       bahanBaku,
     );
     if (draft.batasAt !== draftLokalMeta.batasAt) {
-      setDraftLokalMeta({ dibuatAt: draftLokalMeta.dibuatAt, batasAt: draft.batasAt });
+      setDraftLokalMeta({ dibuatAt: draftLokalMeta.dibuatAt, tanggal: draftLokalMeta.tanggal, batasAt: draft.batasAt });
     }
     if (dibuang.length === 0) return;
     setInputs(draft.inputs as typeof inputs);
@@ -266,25 +252,17 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
       try {
         const draft = await fetchTodayDraft(outletId);
         if (!cancelled && draft) {
-          const resumedInputs: Record<string, { besar?: string; tengah?: string; kecil?: string }> = {};
-          const resumedTargets: Record<string, { besar?: string; tengah?: string; kecil?: string }> = {};
+          const resumedInputs: Record<string, IsianSatuan> = {};
+          const resumedTargets: Record<string, IsianSatuan> = {};
           for (const item of draft.opname_item || []) {
             try {
               const parsed = JSON.parse(String(item.catatan || '').replace(/^\[RAW\]\s*/, ''));
-              if (parsed?.raw) {
-                resumedInputs[item.bahan_baku_id] = {
-                  besar: parsed.raw.besar,
-                  tengah: parsed.raw.tengah,
-                  kecil: parsed.raw.kecil,
-                };
-              }
-              if (parsed?.traw) {
-                resumedTargets[item.bahan_baku_id] = {
-                  besar: parsed.traw.besar,
-                  tengah: parsed.traw.tengah,
-                  kecil: parsed.traw.kecil,
-                };
-              }
+              // Draft dari versi form lama bisa memuat "" (kolom diketik lalu dihapus).
+              // Dibersihkan: kosong = belum dihitung, jangan dipulihkan sebagai "terisi".
+              const raw = bersihkanIsian(parsed?.raw);
+              if (raw) resumedInputs[item.bahan_baku_id] = raw;
+              const traw = bersihkanIsian(parsed?.traw);
+              if (traw) resumedTargets[item.bahan_baku_id] = traw;
             } catch {
               // item lama dari sebelum fitur draft ada — tak bisa di-resume otomatis, lewati
             }
@@ -301,7 +279,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
             setLastDraftSavedAt(draft.updated_at || draft.created_at);
             showToast('📝 Draft opname sebelumnya dilanjutkan.', 'success');
           }
-          if (draft.notes) setNotes((prev: string) => prev || draft.notes);
+          if (draft.notes) setNotes((prev: string) => prev || draft.notes || '');
         }
       } catch {
         // gagal ambil draft (mis. offline) — biarkan form kosong seperti biasa
@@ -321,35 +299,47 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     return m;
   }, [balances]);
 
+  // Kolom yang dikosongkan (diketik lalu dihapus = "") MENGHAPUS level itu, bukan menyimpan
+  // "": kosong = belum dihitung, 0 = habis. Bahan yang seluruh levelnya kosong dibuang dari
+  // peta sehingga kembali berstatus "belum dihitung" (lihat lib/stok/isianOpname.ts).
+  const ubahPetaIsian = (
+    prev: Record<string, IsianSatuan>,
+    bahanId: string,
+    level: 'besar' | 'tengah' | 'kecil',
+    value: string,
+  ): Record<string, IsianSatuan> => {
+    const isian = aturNilaiIsian(prev[bahanId], level, value);
+    const next = { ...prev };
+    if (isIsianTerisi(isian)) next[bahanId] = isian;
+    else delete next[bahanId];
+    return next;
+  };
+
+  // Bahan yang pernah terisi di perangkat ini (diketik atau dipulihkan dari draft).
+  // Bila kemudian dikosongkan lagi, baris draft server-nya dihapus saat simpan --
+  // tanpa ini angka lama tetap ikut difinalisasi.
+  const pernahTerisiRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const [id, inp] of Object.entries(inputs)) if (isIsianTerisi(inp)) pernahTerisiRef.current.add(id);
+    for (const [id, tgt] of Object.entries(targets)) if (isIsianTerisi(tgt)) pernahTerisiRef.current.add(id);
+  }, [inputs, targets]);
+
   const handleInputChange = (bahanId: string, level: 'besar' | 'tengah' | 'kecil', value: string) => {
-    setInputs(prev => ({
-      ...prev,
-      [bahanId]: {
-        ...(prev[bahanId] || {}),
-        [level]: value
-      }
-    }));
+    setInputs(prev => ubahPetaIsian(prev, bahanId, level, value));
   };
 
   const handleTargetChange = (bahanId: string, level: 'besar' | 'tengah' | 'kecil', value: string) => {
-    setTargets(prev => ({
-      ...prev,
-      [bahanId]: {
-        ...(prev[bahanId] || {}),
-        [level]: value
-      }
-    }));
+    setTargets(prev => ubahPetaIsian(prev, bahanId, level, value));
   };
 
   const handleSubVendorChange = (bahanId: string, vendorId: string, level: 'besar' | 'tengah' | 'kecil', value: string) => {
+    // Kunci vendor tetap ada walau isiannya jadi {} -- `totalSubVendor` memakai jumlah kunci
+    // vendor untuk membedakan "kosong semua" dari "sebagian terisi".
     setSubInputs(prev => ({
       ...prev,
       [bahanId]: {
         ...(prev[bahanId] || {}),
-        [vendorId]: {
-          ...(prev[bahanId]?.[vendorId] || {}),
-          [level]: value,
-        },
+        [vendorId]: aturNilaiIsian(prev[bahanId]?.[vendorId], level, value),
       },
     }));
   };
@@ -518,8 +508,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
 
   const filledCount = useMemo(() => {
     return relevantBahan.filter((b) => {
-      const inp = inputs[b.id];
-      return inp && (inp.besar !== undefined || inp.tengah !== undefined || inp.kecil !== undefined);
+      return isIsianTerisi(inputs[b.id]);
     }).length;
   }, [relevantBahan, inputs]);
 
@@ -531,9 +520,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
       
       let matchesCategory = true;
       if (activeCategory === 'unfilled') {
-        const inp = inputs[b.id];
-        const isFilled = inp && (inp.besar !== undefined || inp.tengah !== undefined || inp.kecil !== undefined);
-        matchesCategory = !isFilled;
+        matchesCategory = !isIsianTerisi(inputs[b.id]);
       } else if (activeCategory !== 'all') {
         matchesCategory = b.kategori === activeCategory;
       }
@@ -548,13 +535,14 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
          // Isian lama (draft localStorage/server) untuk item di luar opname
          // tidak boleh ikut tersimpan walau kolomnya tak lagi tampil.
          if (!isBahanOpname(b)) return false;
-         const inp = inputs[b.id];
-         return inp && (inp.besar !== undefined || inp.tengah !== undefined || inp.kecil !== undefined);
+         return isIsianTerisi(inputs[b.id]);
       })
       .map((b) => {
-        const inp = inputs[b.id] || {};
-        const tgt = targets[b.id];
-        const hasTarget = isKitchen && tgt && (tgt.besar !== undefined || tgt.tengah !== undefined || tgt.kecil !== undefined);
+        // Hanya level yang benar-benar berisi angka yang ikut dihitung: "" tidak boleh
+        // terbaca Number("") = 0, dan target kosong tidak boleh menimpa hitungan fisik.
+        const inp = bersihkanIsian(inputs[b.id]) || {};
+        const tgt = bersihkanIsian(targets[b.id]);
+        const hasTarget = isKitchen && isIsianTerisi(tgt);
 
         // Jika kitchen mengisi target → target menggantikan qty_fisik (Opsi A)
         const effectiveInp = hasTarget ? tgt! : inp;
@@ -655,7 +643,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
         return;
       }
 
-      await withTimeout(upsertItems(itemsToSave), TIMEOUT_MS, 'menyimpan data');
+      await withTimeout(upsertItems(itemsToSave, bahanDikosongkan(pernahTerisiRef.current, itemsToSave.map((i) => i.bahan_baku_id as string))), TIMEOUT_MS, 'menyimpan data');
       setLastDraftSavedAt(new Date().toISOString());
       showToast('💾 Draft opname tersimpan. Bisa dilanjutkan nanti sebelum finalisasi.', 'success');
     } catch (err: any) {
@@ -772,7 +760,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
         return;
       }
 
-      await withTimeout(upsertItems(itemsToSave), TIMEOUT_MS, 'menyimpan data item');
+      await withTimeout(upsertItems(itemsToSave, bahanDikosongkan(pernahTerisiRef.current, itemsToSave.map((i) => i.bahan_baku_id as string))), TIMEOUT_MS, 'menyimpan data item');
       const hasFlagged = itemsToSave.some(i => i.flagged);
       // finalize uses offline queue internally, so a timeout here is mostly to catch local hang,
       // but if the queue adds synchronously, the rpc hangs inside finalize.
@@ -957,8 +945,8 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
           const inp = inputs[b.id] || {};
           const tgt = targets[b.id] || {};
           const tanpaBesar = sembunyikanKolomBesar(b, { isGudangPusat, nilaiBesar: inp.besar });
-          const isSaved = inp.besar !== undefined || inp.tengah !== undefined || inp.kecil !== undefined;
-          const hasTarget = isKitchen && (tgt.besar !== undefined || tgt.tengah !== undefined || tgt.kecil !== undefined);
+          const isSaved = isIsianTerisi(inp);
+          const hasTarget = isKitchen && isIsianTerisi(tgt);
 
           // Bahan multi-vendor (>=2 vendor induk) di Gudang Pusat -- hitung
           // PER VENDOR, bukan satu angka gabungan (spec §4.5). `sisa`/stok

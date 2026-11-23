@@ -14,6 +14,7 @@ import {
   convertGramToBesar 
 } from '@/lib/format/compositeUnit';
 import { BottomNav } from '@/components/common/BottomNav';
+import { hitungQtyDiterima } from '@/lib/stok/terimaMutasi';
 import type { MutasiStatus } from '@/lib/types/mutasi';
 import { 
   ArrowLeft, 
@@ -95,6 +96,8 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
   
   // Terima form (diisi oleh Kru / Leader di Outlet Tujuan)
   const [kondisi, setKondisi] = useState<Record<string, 'baik' | 'rusak' | 'hilang_qty'>>({});
+  // Jumlah diterima (satuan distribusi) untuk item berkondisi rusak/hilang; kosong = sama dengan dikirim.
+  const [qtyTerimaDist, setQtyTerimaDist] = useState<Record<string, string>>({});
 
   // Helper stok tersedia di outlet asal dalam satuan distribusi
   const getStokTersediaDist = (b: any, bal: any) => {
@@ -268,12 +271,25 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
     setBusy(true); 
     setErrorMsg(null);
     try {
-      const itemsDiterima = data.items?.map((it: any) => ({
-        item_id: it.id,
-        qty_diterima: it.qty_dikirim ?? it.qty_diajukan,
-        kondisi_diterima: kondisi[it.id] || 'baik'
-      })) || [];
-      
+      const itemsDiterima: { item_id: string; qty_diterima: number; kondisi_diterima: string }[] = [];
+      for (const it of (data.items || [])) {
+        const b = it.bahan_baku;
+        const qtyDikirimBase = Number(it.qty_dikirim ?? it.qty_diajukan) || 0;
+        const k = kondisi[it.id] || 'baik';
+        const hasil = hitungQtyDiterima({
+          kondisi: k,
+          inputDist: qtyTerimaDist[it.id],
+          qtyDikirimBase,
+          qtyDikirimDist: b ? convertToDistribusiUnit(qtyDikirimBase, b) : qtyDikirimBase,
+          keBase: (d) => (b ? convertToBaseUnit(d, b) : d),
+        });
+        if (!hasil.ok) {
+          setErrorMsg(`${b?.nama || 'Bahan'}: ${hasil.error}`);
+          return;
+        }
+        itemsDiterima.push({ item_id: it.id, qty_diterima: hasil.qty, kondisi_diterima: k });
+      }
+
       await terima(data.id, itemsDiterima);
       setSuccessMsg('Mutasi berhasil diterima');
       refresh();
@@ -746,6 +762,26 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
                         );
                       })}
                     </div>
+
+                    {(kondisi[item.id] || 'baik') !== 'baik' && (
+                      <label className="flex items-center justify-between gap-2 text-[11px] font-semibold text-suka-brown">
+                        <span>
+                          Jumlah diterima (layak masuk stok)
+                          <span className="block text-[10px] font-normal text-suka-brown/60">0 – {qtyDikirimDist} {distUnit}</span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            aria-label={`Jumlah diterima ${b?.nama || ''}`}
+                            value={qtyTerimaDist[item.id] ?? String(qtyDikirimDist)}
+                            onChange={(e) => setQtyTerimaDist(prev => ({ ...prev, [item.id]: e.target.value }))}
+                            className="w-20 px-2 py-1.5 text-right text-xs font-bold bg-white border border-suka-brown/20 rounded-lg focus:outline-none focus:border-suka-orange"
+                          />
+                          <span>{distUnit}</span>
+                        </span>
+                      </label>
+                    )}
                     </div>
                   );
                 })}

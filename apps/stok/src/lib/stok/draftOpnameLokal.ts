@@ -7,7 +7,14 @@
  * Draft tanpa savedAt (dibuat sebelum fitur ini) dianggap disimpan di waktu 0.
  */
 
+import { bersihkanPetaIsian, bersihkanPetaVendor } from './isianOpname'
+
 export type DraftOpnameLokal = {
+  /**
+   * Tanggal WIB (YYYY-MM-DD) saat draft mulai diisi. Opname berlaku per hari: draft
+   * kemarin tidak boleh ikut dipulihkan lalu difinalisasi sebagai hitungan hari ini.
+   */
+  tanggal?: string
   /** Waktu draft PERTAMA dibuat; dipertahankan antar-autosave (isian tertua berasal dari sini). */
   dibuatAt?: number
   /** Waktu autosave terakhir — hanya cadangan untuk draft lama tanpa dibuatAt. */
@@ -61,4 +68,46 @@ export function saringDraftBasi<T extends DraftOpnameLokal>(
 
   const baru = { ...draft, inputs: saring(draft.inputs), targets: saring(draft.targets), vendor: saring(draft.vendor) }
   return { draft: denganBatas(baru), dibuang: [...dibuang] }
+}
+
+/** Tanggal WIB (UTC+7) "YYYY-MM-DD" dari epoch milidetik. */
+export function tanggalWIBDariMs(ms: number): string {
+  return new Date(ms + 7 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}
+
+/**
+ * Baca draft localStorage (`opname_draft_${outletId}`) untuk dipulihkan ke form.
+ *
+ * - Draft yang bukan milik `hariIniWIB` dibuang (null): opname berlaku per hari, dan
+ *   hitungan kemarin yang ikut terfinalisasi hari ini menimpa saldo dengan angka basi.
+ *   Draft lama tanpa `tanggal` dinilai dari tanggal WIB `dibuatAt`, lalu `savedAt`;
+ *   tanpa keduanya tak bisa dipastikan, jadi dibuang.
+ * - Isian "" / spasi (dari versi form lama) dibersihkan: kosong = belum dihitung.
+ */
+export function bacaDraftOpnameLokal(raw: string | null | undefined, hariIniWIB: string): DraftOpnameLokal | null {
+  if (!raw) return null
+  let d: unknown
+  try {
+    d = JSON.parse(raw)
+  } catch {
+    return null
+  }
+  if (!d || typeof d !== 'object' || Array.isArray(d)) return null
+  const draft = d as DraftOpnameLokal
+  // dibuatAt 0 = penanda draft lama tanpa waktu (lihat OpnameForm), bukan waktu sungguhan.
+  const waktuSah = (n: unknown): number | null => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : null)
+  const waktu = waktuSah(draft.dibuatAt) ?? waktuSah(draft.savedAt)
+  const tanggal = typeof draft.tanggal === 'string' && draft.tanggal
+    ? draft.tanggal
+    : waktu !== null
+      ? tanggalWIBDariMs(waktu)
+      : null
+  if (tanggal !== hariIniWIB) return null
+  return {
+    ...draft,
+    tanggal,
+    inputs: bersihkanPetaIsian(draft.inputs),
+    targets: bersihkanPetaIsian(draft.targets),
+    vendor: bersihkanPetaVendor(draft.vendor),
+  }
 }

@@ -120,7 +120,9 @@ export function SPVTable({
         const order = { below: 0, warning: 1, ok: 2 };
         comparison = order[a.status] - order[b.status];
       } else if (sortField === 'current_qty') {
-        comparison = a.current_qty - b.current_qty;
+        // Bandingkan dalam satuan besar: current_qty mentah bisa gram di satu
+        // baris dan satuan besar di baris lain (saldo_is_gram per baris).
+        comparison = (Number(a.current_qty_besar) || 0) - (Number(b.current_qty_besar) || 0);
       } else if (sortField === 'last_opname_date') {
         comparison = new Date(a.last_opname_date || 0).getTime() - new Date(b.last_opname_date || 0).getTime();
       }

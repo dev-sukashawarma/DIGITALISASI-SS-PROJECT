@@ -5,7 +5,9 @@ import { cookies } from 'next/headers'
 import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import type { BudgetStatus, PeriodType } from '@/lib/stok/budget'
 import { assertOutletAccessible, getAccessibleOutletIds } from '@/lib/stok/outletAccess'
-import { convertToDistribusiUnit, convertToBaseUnit } from '@/lib/format/compositeUnit'
+import { canViewVendorPrices } from '@/lib/stok/navAccess'
+import { convertToBaseUnit } from '@/lib/format/compositeUnit'
+import { hitungBarisBelanja, batasHariWib } from '@/lib/stok/riwayatBelanja'
 import { nilaiBaris, type HargaVendorMap } from '@/lib/stok/hargaVendor'
 import { muatHargaVendor } from '@/lib/stok/muatHargaVendor'
 import type {
@@ -46,13 +48,13 @@ async function getCurrentUserId(supabase: Awaited<ReturnType<typeof getAuthedCli
 }
 
 /** Gerbang minimal untuk aksi read-only ringan -- cukup staff aktif. */
-async function requireActiveStaff(): Promise<string> {
+async function requireActiveStaff(): Promise<{ userId: string; role: string }> {
   const authedClient = await getAuthedClient()
   const userId = await getCurrentUserId(authedClient)
 
   const { data: staff, error } = await makeServiceClient()
     .from('outlet_staff')
-    .select('status')
+    .select('role, status')
     .eq('id', userId)
     .maybeSingle()
 
@@ -60,7 +62,7 @@ async function requireActiveStaff(): Promise<string> {
   if (!staff || staff.status !== 'active') {
     throw new Error('Forbidden: akun tidak aktif')
   }
-  return userId
+  return { userId, role: staff.role }
 }
 
 /** Gerbang otorisasi pengawas: Kitchen, Admin, SPV, Area Manager, Leader, Owner, Finance */
@@ -337,11 +339,15 @@ export async function getOutletSpendingHistory(
     .eq('status', 'disetujui')
     .order('updated_at', { ascending: false })
 
-  if (fromDate) {
-    query = query.gte('updated_at', `${fromDate}T00:00:00.000Z`)
+  // Batas hari WIB (+07:00), sama dengan RPC get_outlet_budget_status yang
+  // memakai (updated_at AT TIME ZONE 'Asia/Jakarta')::date. Dulu batasnya UTC
+  // (Z), sehingga permintaan yang disetujui 00:00–06:59 WIB jatuh ke hari lain.
+  const batas = batasHariWib(fromDate, toDate)
+  if (batas.dari) {
+    query = query.gte('updated_at', batas.dari)
   }
-  if (toDate) {
-    query = query.lte('updated_at', `${toDate}T23:59:59.999Z`)
+  if (batas.sampai) {
+    query = query.lte('updated_at', batas.sampai)
   }
 
   const { data, error } = await query
@@ -369,10 +375,17 @@ export async function getOutletSpendingHistory(
 
     const mappedItems: SpendingItemDetail[] = rawItems.map((it: any) => {
       const b = it.bahan
-      const qtyDisetujuiDist = b ? convertToDistribusiUnit(it.qty_disetujui ?? 0, b) : (it.qty_disetujui ?? 0)
-      const qtyDimintaDist = b ? convertToDistribusiUnit(it.qty_diminta ?? 0, b) : (it.qty_diminta ?? 0)
-      const harga = Number(it.harga_snapshot ?? 0)
-      const subtotal = qtyDisetujuiDist * harga
+      // qty_disetujui & harga_snapshot sama-sama satuan BESAR → subtotal tanpa
+      // konversi (identik dengan "terpakai" di RPC). Qty & harga di bawah
+      // dikonversi ke satuan DISTRIBUSI hanya untuk tampilan, supaya kolom
+      // "Harga Satuan" berdampingan dengan qty bersatuan sama.
+      const baris = hitungBarisBelanja({
+        qtyDisetujui: it.qty_disetujui,
+        qtyDiminta: it.qty_diminta,
+        hargaSnapshot: it.harga_snapshot,
+        bahan: b,
+      })
+      const subtotal = baris.subtotal
 
       totalNilai += subtotal
 
@@ -382,9 +395,10 @@ export async function getOutletSpendingHistory(
         namaBahan: b?.nama || 'Bahan Baku',
         kategori: b?.kategori || 'LAIN-LAIN',
         satuanDistribusi: b?.satuan_distribusi || b?.satuan || 'Pcs',
-        qtyDimintaDistribusi: qtyDimintaDist,
-        qtyDisetujuiDistribusi: qtyDisetujuiDist,
-        hargaSnapshot: harga,
+        qtyDimintaDistribusi: baris.qtyDimintaDistribusi,
+        qtyDisetujuiDistribusi: baris.qtyDisetujuiDistribusi,
+        // Harga per SATUAN DISTRIBUSI (bukan harga_snapshot mentah per satuan besar).
+        hargaSnapshot: baris.hargaPerDistribusi,
         subtotal,
       }
     })
@@ -454,7 +468,18 @@ export async function estimateCartValue(
   // itu, sama dengan harga_snapshot yang akan ditulis trigger surat jalan.
   items: { bahan_baku_id: string; qty: number; alokasi?: { vendor_id: string; qty: number }[] }[]
 ): Promise<CartEstimateResult> {
-  await requireActiveStaff()
+  // Sengaja cukup staff aktif: crew memakai estimasi ini di form Permintaan
+  // Bahan untuk melihat dampak ke plafon budget outletnya. Yang dikembalikan
+  // hanya agregat (total, total per kategori, daftar bahan tanpa harga) —
+  // BUKAN harga per bahan. Harga per VENDOR (alokasi) hanya dipakai untuk role
+  // pembaca harga vendor (layar approval kitchen); role lain alokasinya
+  // diabaikan dan dihargai harga master, supaya harga katalog vendor tak bisa
+  // diintip lewat endpoint ini. Action ini tidak menerima outlet_id (harga
+  // bersifat global), jadi tidak ada scope outlet yang perlu dibatasi.
+  const { role } = await requireActiveStaff()
+  if (!canViewVendorPrices(role)) {
+    items = items.map(({ bahan_baku_id, qty }) => ({ bahan_baku_id, qty }))
+  }
 
   if (items.length === 0) return { totalNilai: 0, itemTanpaHarga: [], kategoriNilai: {} }
 
@@ -537,8 +562,11 @@ export async function requestBudgetTopupAction(input: {
   await getCurrentUserId(authedClient)
   await assertOutletAccessible(authedClient, input.outletId)
 
-  const supabase = makeServiceClient()
-  const { data, error } = await supabase.rpc('request_budget_topup_svc', {
+  // Dipanggil dengan client SESI (bukan service role): RPC request_budget_topup_svc
+  // punya jalur non-service yang memeriksa akun aktif + accessible_outlet_ids()
+  // dan mengisi created_by = auth.uid(). Lewat service role, auth.uid() NULL →
+  // pengaju tak pernah tercatat.
+  const { data, error } = await authedClient.rpc('request_budget_topup_svc', {
     p_outlet_id: input.outletId,
     p_requested_amount: input.requestedAmount,
     p_period_category: input.periodCategory
@@ -577,7 +605,21 @@ export async function approveBudgetTopupAction(input: {
     throw new Error('Forbidden: peran Anda tidak berwenang memproses persetujuan budget ini')
   }
 
-  const { data, error } = await supabase.rpc('approve_budget_topup_svc', {
+  // Scope outlet: area_manager/korlap hanya boleh memproses top-up outlet
+  // binaannya. Role pusat mendapat semua outlet dari accessible_outlet_ids().
+  const { data: req, error: errReq } = await supabase
+    .from('outlet_budget_topup_requests')
+    .select('outlet_id')
+    .eq('id', input.requestId)
+    .maybeSingle()
+  if (errReq) throw new Error(errReq.message)
+  if (!req) throw new Error('Request top-up tidak ditemukan')
+  await assertOutletAccessible(authedClient, req.outlet_id)
+
+  // Client SESI, bukan service role: RPC approve_budget_topup_svc memeriksa
+  // ulang role + scope outlet dan mengisi am_approved_by / finance_approved_by
+  // = auth.uid(). Lewat service role kolom pelaku selalu NULL.
+  const { data, error } = await authedClient.rpc('approve_budget_topup_svc', {
     p_request_id: input.requestId,
     p_action: input.action,
     p_notes: input.notes
@@ -589,10 +631,20 @@ export async function approveBudgetTopupAction(input: {
 
 export async function getOutletTopupRequestsAction(outletId?: string) {
   const authedClient = await getAuthedClient()
-  await getCurrentUserId(authedClient)
+  await requireActiveStaff()
+
+  // Scope = outlet yang boleh diakses pemanggil (sama dengan RLS ob_topup_select).
+  // Dulu tanpa outletId semua request semua outlet dikembalikan ke staf aktif
+  // mana pun, termasuk crew.
+  const accessible = await getAccessibleOutletIds(authedClient)
+  if (outletId && !accessible.has(outletId)) {
+    throw new Error('Forbidden: outlet di luar scope akses Anda')
+  }
+  const outletIds = outletId ? [outletId] : [...accessible]
+  if (outletIds.length === 0) return []
 
   const supabase = makeServiceClient()
-  let query = supabase
+  const { data, error } = await supabase
     .from('outlet_budget_topup_requests')
     .select(`
       *,
@@ -600,15 +652,10 @@ export async function getOutletTopupRequestsAction(outletId?: string) {
       am_approved_staff:outlet_staff!am_approved_by(id, name),
       finance_approved_staff:outlet_staff!finance_approved_by(id, name)
     `)
+    .in('outlet_id', outletIds)
     .order('created_at', { ascending: false })
 
-  if (outletId) {
-    await assertOutletAccessible(authedClient, outletId)
-    query = query.eq('outlet_id', outletId)
-  }
-
-  const { data, error } = await query
   if (error) throw new Error(error.message)
-  
+
   return data
 }

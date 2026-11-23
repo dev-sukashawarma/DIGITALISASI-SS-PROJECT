@@ -3,6 +3,8 @@ import { createSupabaseBrowserClient } from '@suka/auth';
 import { TEST_OUTLET_ID } from '@/lib/outletFilters';
 import { pemakaianPosPeriode } from '@/lib/stok/mutasiOrder';
 import { ambilWaktuTutupOpname } from '@/lib/stok/waktuTutupOpname';
+import { isOutletPapan, saringItemPapan, type OutletTypeStatus } from '@/lib/stok/outletPapan';
+import { awalHariWIBIso } from '@/lib/stok/waktuWIB';
 
 type SupabaseBrowserClient = ReturnType<typeof createSupabaseBrowserClient>;
 
@@ -105,13 +107,30 @@ async function fetchAllRows<T>(
   return all;
 }
 
+/**
+ * id/type/status seluruh outlet — dasar penyaring papan (`isOutletPapan`).
+ * Outlet tutup, dummy kantor/sistem, marketplace, tes, dan Persiapan tidak
+ * boleh ikut stat kritis/Top-3/notifikasi (lihat lib/stok/outletPapan.ts).
+ */
+async function fetchOutletTypeStatus(supabase: SupabaseBrowserClient): Promise<OutletTypeStatus[]> {
+  const { data, error } = await supabase.from('outlets').select('id, type, status');
+  if (error) throw error;
+  return (data ?? []) as OutletTypeStatus[];
+}
+
 export async function fetchSPVMonitoringData() {
   const supabase = createSupabaseBrowserClient();
-  const data = await fetchAllRows<any>(
-    supabase,
-    'monitoring_view_spv',
-    'outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, saldo_is_gram, current_qty_besar'
-  );
+  const [semua, outletRows] = await Promise.all([
+    fetchAllRows<any>(
+      supabase,
+      'monitoring_view_spv',
+      'outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, saldo_is_gram, current_qty_besar'
+    ),
+    fetchOutletTypeStatus(supabase),
+  ]);
+  // Hanya outlet operasional — saldo outlet tutup/dummy tak pernah diisi ulang
+  // sehingga hampir semuanya "Kritis" palsu.
+  const data = saringItemPapan(semua, outletRows);
 
   // Deduplicate by composite key (outlet_id, bahan_baku_id)
   const seen = new Set<string>();
@@ -139,11 +158,16 @@ export async function fetchSPVMonitoringData() {
  */
 export async function fetchLeaderMonitoringData() {
   const supabase = createSupabaseBrowserClient();
-  const data = await fetchAllRows<any>(
-    supabase,
-    'monitoring_view_scoped',
-    'outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, saldo_is_gram, current_qty_besar'
-  );
+  const [semua, outletRows] = await Promise.all([
+    fetchAllRows<any>(
+      supabase,
+      'monitoring_view_scoped',
+      'outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, saldo_is_gram, current_qty_besar'
+    ),
+    fetchOutletTypeStatus(supabase),
+  ]);
+  // Sama dengan fetchSPVMonitoringData: hanya outlet operasional.
+  const data = saringItemPapan(semua, outletRows);
 
   // Deduplicate by composite key (outlet_id, bahan_baku_id)
   const seen = new Set<string>();
@@ -358,6 +382,9 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
       .from('opname')
       .select('id, created_at, updated_at, status, opname_item!inner(qty_system, qty_fisik, catatan, flagged)')
       .eq('outlet_id', outletId)
+      // Hanya opname yang sudah difinalisasi: draft/ditolak belum (atau tak
+      // pernah) mengubah stok, jadi selisihnya bukan selisih sungguhan.
+      .eq('status', 'finalized')
       .eq('opname_item.bahan_baku_id', bahan_baku_id)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -507,38 +534,45 @@ export async function fetchRecentLedger(limit = 50): Promise<LedgerFeedEntry[]> 
   return await attachSaldoIsGram(supabase, withSatuan) as LedgerFeedEntry[];
 }
 
-const LOSS_TIPE = ['waste', 'rejected_kiriman', 'opname_selisih'] as const;
-
 export interface WasteTodaySummary {
   count: number;
   entries: LedgerFeedEntry[];
 }
 
 /**
- * Aggregate today's loss events (waste, rejected shipments, negative opname
- * variance) across all outlets — a money-leak lens distinct from stock level.
- * Reuses the ledger_feed_spv definer view; no extra migration needed.
+ * Kejadian waste hari ini (sejak 00:00 WIB) lintas outlet operasional — dipakai
+ * label "N waste hari ini" di dashboard.
+ *
+ * Hanya tipe 'waste'. Dulu ikut menghitung `rejected_kiriman` dan setiap
+ * `opname_selisih` negatif: tiap opname menghasilkan puluhan baris selisih,
+ * sehingga angkanya 10–25× terlalu besar (Cirendeu: 1 waste nyata tampil 24).
+ * Hari dimulai 00:00 WIB, bukan tengah malam zona waktu browser.
  */
 export async function fetchWasteToday(): Promise<WasteTodaySummary> {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-
   const supabase = createSupabaseBrowserClient();
-  const { data, error } = await supabase
-    .from('ledger_feed_spv')
-    .select('id, outlet_id, outlet_name, bahan_baku_id, item_name, satuan, tipe, qty, catatan, saldo_sesudah, created_at')
-    .in('tipe', LOSS_TIPE as unknown as string[])
-    .gte('created_at', startOfDay.toISOString())
-    .order('created_at', { ascending: false });
+  const startIso = awalHariWIBIso();
+  const PAGE = 1000;
+  const semua: LedgerFeedEntry[] = [];
+  const [, outletRows] = await Promise.all([
+    (async () => {
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('ledger_feed_spv')
+          .select('id, outlet_id, outlet_name, bahan_baku_id, item_name, satuan, tipe, qty, catatan, saldo_sesudah, created_at')
+          .eq('tipe', 'waste')
+          .gte('created_at', startIso)
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        semua.push(...((data ?? []) as LedgerFeedEntry[]));
+        if (!data || data.length < PAGE) return;
+      }
+    })(),
+    fetchOutletTypeStatus(supabase),
+  ]);
 
-  if (error) throw error;
-
-  // opname_selisih counts as loss only when negative (shrinkage); positive
-  // variance is a found surplus, not a loss.
-  const entries = (data || []).filter(
-    (e) => e.tipe !== 'opname_selisih' || e.qty < 0
-  ) as LedgerFeedEntry[];
-
+  const entries = saringItemPapan(semua, outletRows);
   return { count: entries.length, entries };
 }
 
@@ -550,6 +584,12 @@ export interface OutletDetailItem {
   current_qty_besar: number;
   threshold: number;
   satuan: string | null;
+  /** True bila `current_qty` tersimpan dalam satuan kecil (gram dsb.) — lihat saldo_is_gram(). */
+  saldo_is_gram: boolean;
+  satuan_kecil: string | null;
+  satuan_tengah: string | null;
+  faktor_tampilan: number | null;
+  faktor_tengah: number | null;
   status: 'below' | 'warning' | 'ok';
   recent_ledger: Array<{
     tipe: string;
@@ -557,6 +597,68 @@ export interface OutletDetailItem {
     catatan: string | null;
     created_at: string;
   }>;
+}
+
+type BarisRiwayat = OutletDetailItem['recent_ledger'][number];
+
+/**
+ * N mutasi terbaru per bahan untuk satu outlet, tanpa terpotong max-rows.
+ * Langkah 1: satu halaman (1.000 baris) terbaru outlet itu. Langkah 2: untuk
+ * bahan yang belum genap N baris, kueri per bahan dengan limit N (paralel,
+ * dibatasi beberapa sekaligus).
+ */
+async function fetchRiwayatPerItem(
+  supabase: SupabaseBrowserClient,
+  outletId: string,
+  bahanIds: string[],
+  n: number
+): Promise<Map<string, BarisRiwayat[]>> {
+  const map = new Map<string, BarisRiwayat[]>();
+  if (bahanIds.length === 0) return map;
+  const dicari = new Set(bahanIds);
+
+  const { data: terbaru, error } = await supabase
+    .from('ledger_feed_spv')
+    .select('bahan_baku_id, tipe, qty, catatan, created_at')
+    .eq('outlet_id', outletId)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .range(0, 999);
+  if (error) throw error;
+  const halamanPenuh = (terbaru?.length ?? 0) >= 1000;
+  for (const r of terbaru ?? []) {
+    if (!dicari.has(r.bahan_baku_id)) continue;
+    const list = map.get(r.bahan_baku_id) ?? [];
+    if (list.length < n) {
+      list.push({ tipe: r.tipe, qty: r.qty, catatan: r.catatan, created_at: r.created_at });
+      map.set(r.bahan_baku_id, list);
+    }
+  }
+  // Halaman belum penuh = seluruh riwayat outlet sudah terbaca; tak perlu kueri lagi.
+  if (!halamanPenuh) return map;
+
+  const kurang = bahanIds.filter((id) => (map.get(id)?.length ?? 0) < n);
+  const SEKALIGUS = 8;
+  for (let i = 0; i < kurang.length; i += SEKALIGUS) {
+    const potong = kurang.slice(i, i + SEKALIGUS);
+    const hasil = await Promise.all(
+      potong.map((id) =>
+        supabase
+          .from('ledger_feed_spv')
+          .select('tipe, qty, catatan, created_at')
+          .eq('outlet_id', outletId)
+          .eq('bahan_baku_id', id)
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(n)
+      )
+    );
+    hasil.forEach(({ data, error: err }, idx) => {
+      if (err) throw err;
+      map.set(potong[idx], (data ?? []) as BarisRiwayat[]);
+    });
+  }
+  return map;
 }
 
 /**
@@ -574,7 +676,7 @@ export async function fetchOutletItemsDetail(outletId: string): Promise<OutletDe
 
   const { data: items, error } = await supabase
     .from('monitoring_view_spv')
-    .select('bahan_baku_id, item_name, current_qty, current_qty_besar, threshold, satuan, status')
+    .select('bahan_baku_id, item_name, current_qty, current_qty_besar, threshold, satuan, status, saldo_is_gram')
     .eq('outlet_id', outletId)
     .order('item_name');
 
@@ -597,36 +699,32 @@ export async function fetchOutletItemsDetail(outletId: string): Promise<OutletDe
     return (a.item_name || '').localeCompare(b.item_name || '');
   });
 
-  // Batch fetch all ledger entries for all items (single query instead of N+1)
+  // Riwayat 5 mutasi terakhir per item. Dulu satu kueri ledger_feed_spv untuk
+  // seluruh outlet tanpa paginasi -> terpotong max-rows 1.000 PostgREST; di
+  // outlet ramai baris `pemakaian` beberapa jam saja sudah 1.000+, sehingga
+  // ±16/53 item tampil "Belum ada transaksi" (Empang). Kini: satu halaman
+  // terbaru (menutup item yang sering bergerak), lalu kueri kecil per item
+  // (limit 5, indeks outlet+bahan+created_at) hanya untuk item yang belum
+  // genap 5 baris.
   const bahanBakuIds = dedupedItems.map(it => it.bahan_baku_id);
+  const ledgerMap = await fetchRiwayatPerItem(supabase, outletId, bahanBakuIds, 5);
 
-  const { data: allLedgers, error: ledgerError } = await supabase
-    .from('ledger_feed_spv')
-    .select('bahan_baku_id, tipe, qty, catatan, created_at')
-    .eq('outlet_id', outletId)
-    .in('bahan_baku_id', bahanBakuIds)
-    .order('created_at', { ascending: false });
+  const withSatuan = await attachSatuanKecil(supabase, dedupedItems);
 
-  if (ledgerError) throw ledgerError;
-
-  // Group ledger entries by bahan_baku_id on client
-  const ledgerMap = new Map<string, typeof allLedgers>();
-  allLedgers?.forEach(entry => {
-    const key = entry.bahan_baku_id;
-    if (!ledgerMap.has(key)) ledgerMap.set(key, []);
-    ledgerMap.get(key)!.push(entry);
-  });
-
-  // Map items with their ledger history (last 5 entries per item)
-  const enriched = dedupedItems.map((it): OutletDetailItem => ({
+  const enriched = withSatuan.map((it): OutletDetailItem => ({
     bahan_baku_id: it.bahan_baku_id,
     item_name: it.item_name,
     current_qty: it.current_qty,
     current_qty_besar: it.current_qty_besar,
     threshold: it.threshold,
     satuan: it.satuan,
+    saldo_is_gram: !!it.saldo_is_gram,
+    satuan_kecil: it.satuan_kecil,
+    satuan_tengah: it.satuan_tengah,
+    faktor_tampilan: it.faktor_tampilan,
+    faktor_tengah: it.faktor_tengah,
     status: it.status,
-    recent_ledger: ledgerMap.get(it.bahan_baku_id)?.slice(0, 5) || [],
+    recent_ledger: ledgerMap.get(it.bahan_baku_id) || [],
   }));
 
   return enriched;
@@ -644,20 +742,29 @@ export async function fetchOutletItemsDetail(outletId: string): Promise<OutletDe
  * atau langsung lewat URL `/stok/monitoring-live/<id>`.
  */
 /**
- * Bawaan menyembunyikan outlet berstatus Persiapan (papan monitoring hanya untuk
- * outlet yang sudah buka). `termasukPersiapan` dipakai pemilih opname/threshold,
- * karena opname pertama outlet baru dikerjakan sebelum Go-Live.
+ * Pilihan:
+ * - bawaan (papan monitoring): HANYA outlet operasional (`isOutletPapan`:
+ *   internal/mitra/gudang aktif + Gudang Pusat). Outlet tutup, Persiapan,
+ *   dummy kantor/sistem, dan marketplace tidak tampil — saldo mereka tak
+ *   pernah diisi ulang sehingga muncul sebagai "Kritis" palsu.
+ * - `termasukPersiapan`: perilaku lama untuk pemilih opname/threshold (semua
+ *   outlet kecuali tes, termasuk Persiapan — opname pertama outlet baru
+ *   dikerjakan sebelum Go-Live).
+ * - `semua`: semua outlet kecuali tes & Persiapan, tanpa saring type/status —
+ *   untuk mencari NAMA outlet yang dibuka lewat URL (halaman detail).
  */
-export async function fetchOutletsList(opsi: { termasukPersiapan?: boolean } = {}) {
+export async function fetchOutletsList(opsi: { termasukPersiapan?: boolean; semua?: boolean } = {}) {
   const supabase = createSupabaseBrowserClient();
   let q = supabase
     .from('outlets')
-    .select('id, nama:name, slug, address, type')
+    .select('id, nama:name, slug, address, type, status')
     .neq('id', TEST_OUTLET_ID);
   if (opsi.termasukPersiapan !== true) q = q.neq('status', 'pending');
   const { data, error } = await q.order('name');
 
   if (error) throw error;
-  return data || [];
+  const rows = data || [];
+  if (opsi.termasukPersiapan === true || opsi.semua === true) return rows;
+  return rows.filter((o) => isOutletPapan(o));
 }
 

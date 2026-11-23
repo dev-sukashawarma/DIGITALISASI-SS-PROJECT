@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { SPVTable } from './SPVTable';
 import { MonitoringDetailModal } from './MonitoringDetailModal';
@@ -26,6 +27,8 @@ import { useOutletScope } from '@/hooks/useOutletScope';
 import { useDaftarRetur } from '@/hooks/useRetur';
 import { canViewPermintaanQueue } from '@/lib/stok/approver';
 import * as navAccess from '@/lib/stok/navAccess';
+import { fetchOutletsList } from '@/lib/queries/monitoring';
+import { terapkanOverrideThreshold, buangOverrideTersimpan } from '@/lib/stok/thresholdOverride';
 
 const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Bogor' | 'Jakarta' | 'Depok' | 'Bekasi' | 'Tangerang' | 'Developer' => {
   const name = outletName.toUpperCase();
@@ -152,6 +155,27 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   // Local state override for edited thresholds to allow immediate UI response
   const [localThresholdOverrides, setLocalThresholdOverrides] = useState<Record<string, number>>({});
 
+  // Override dibuang begitu data server sudah membawa threshold baru, supaya
+  // tidak menutupi perubahan berikutnya (mis. dari layar Threshold / perangkat lain).
+  useEffect(() => {
+    if (!data?.items) return;
+    setLocalThresholdOverrides(prev => buangOverrideTersimpan(prev, data.items));
+  }, [data?.items]);
+
+  // Daftar outlet operasional (sama dengan papan monitoring-live). boundOutlets
+  // memuat juga outlet tutup/dummy/tes, yang tanpa saringan ini tampil sebagai
+  // kartu outlet kosong. Selama daftar belum termuat, kartu hanya dibentuk dari
+  // item (yang sudah disaring di fetchSPVMonitoringData).
+  const { data: outletPapan } = useQuery({
+    queryKey: ['monitoring', 'outletsList'],
+    queryFn: () => fetchOutletsList(),
+    staleTime: 10 * 60_000,
+  });
+  const idOutletPapan = useMemo(
+    () => (outletPapan ? new Set(outletPapan.map((o) => o.id)) : null),
+    [outletPapan]
+  );
+
   // Compute final items with local threshold overrides
   const items = useMemo(() => {
     const originalItems = (data?.items || []).filter(
@@ -160,26 +184,9 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
         return !allowedOutletIds || allowedOutletIds.includes(item.outlet_id);
       }
     );
-    return originalItems.map(item => {
-      const overrideKey = `${item.outlet_id}-${item.bahan_baku_id}`;
-      if (localThresholdOverrides[overrideKey] !== undefined) {
-        const customVal = localThresholdOverrides[overrideKey];
-        let newStatus = item.status;
-        if (item.current_qty < customVal / 2) {
-          newStatus = 'below';
-        } else if (item.current_qty < customVal) {
-          newStatus = 'warning';
-        } else {
-          newStatus = 'ok';
-        }
-        return {
-          ...item,
-          threshold: customVal,
-          status: newStatus,
-        };
-      }
-      return item;
-    });
+    // Threshold berskala satuan besar -> status pratinjau dihitung dari
+    // current_qty_besar (current_qty mentah sering gram).
+    return terapkanOverrideThreshold(originalItems, localThresholdOverrides);
   }, [data?.items, localThresholdOverrides, allowedOutletIds]);
 
   const criticalAlertItems = useMemo(() => {
@@ -225,6 +232,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     }> = {};
 
     for (const outlet of boundOutlets) {
+      if (!idOutletPapan || !idOutletPapan.has(outlet.id)) continue;
       if (outlet.name.toUpperCase().includes('KANTOR PUSAT')) continue;
       if (allowedOutletIds && !allowedOutletIds.includes(outlet.id)) continue;
       
@@ -281,7 +289,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     }
 
     return { byOutlet: outletList, byRegion: regionMap };
-  }, [items, boundOutlets, allowedOutletIds]);
+  }, [items, boundOutlets, allowedOutletIds, idOutletPapan]);
 
   const visibleOutlets = React.useMemo(() => {
     return outlets.byOutlet;

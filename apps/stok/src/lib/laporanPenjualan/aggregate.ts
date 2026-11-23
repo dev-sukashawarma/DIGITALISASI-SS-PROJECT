@@ -184,8 +184,9 @@ export function buildAnalytics(
   const { channelFilter, outletFilter, validOutletIdSet, outletInfoMap } = opts
   const passQuery = (o: string | null, c: string | null) =>
     channelMatches(channelFilter, c) && (outletFilter === 'all' || o === outletFilter)
-  // Order selesai: tambahan syarat outlet valid bila filter outlet = semua.
-  const passCompleted = (o: string | null) => !(outletFilter === 'all' && o && !validOutletIdSet.has(o))
+  // Filter outlet = semua: hanya outlet valid (internal/mitra yang dihitung).
+  // Order tanpa outlet ikut dibuang. Berlaku SAMA untuk order selesai dan batal.
+  const passCompleted = (o: string | null) => outletFilter !== 'all' || (o !== null && validOutletIdSet.has(o))
 
   // Urutan kemunculan global = (hari, urutan di hari itu) — sama dengan urutan order lama.
   const groups: (DayGroup & { d: number })[] = []
@@ -194,7 +195,7 @@ export function buildAnalytics(
   days.forEach((day, d) => {
     for (const g of day.groups) if (passQuery(g.o, g.c) && passCompleted(g.o)) groups.push({ ...g, d })
     for (const it of day.items) if (passQuery(it.o, it.c) && passCompleted(it.o)) items.push({ ...it, d })
-    for (const c of day.cancel) if (passQuery(c.o, c.c)) canceledCount += c.n
+    for (const c of day.cancel) if (passQuery(c.o, c.c) && passCompleted(c.o)) canceledCount += c.n
   })
   const byFirstSeen = (a: { d: number; f: number }, b: { d: number; f: number }) => a.d - b.d || a.f - b.f
   groups.sort(byFirstSeen)
@@ -211,7 +212,8 @@ export function buildAnalytics(
     gofood: { label: 'GoFood', count: 0, revenue: 0, porsi: 0 },
     grabfood: { label: 'GrabFood', count: 0, revenue: 0, porsi: 0 },
     shopeefood: { label: 'ShopeeFood', count: 0, revenue: 0, porsi: 0 },
-    tiktok: { label: 'TikTok Shop', count: 0, revenue: 0, porsi: 0 },
+    // Data kanal ini = tiktokgo/tiktok_go (food app), bukan TikTok Shop (marketplace).
+    tiktok: { label: 'TikTok GO', count: 0, revenue: 0, porsi: 0 },
     lainnya: { label: 'Lainnya', count: 0, revenue: 0, porsi: 0 },
   }
   const outletStatsMap: Record<string, {

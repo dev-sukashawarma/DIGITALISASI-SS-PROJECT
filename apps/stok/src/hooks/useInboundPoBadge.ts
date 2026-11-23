@@ -2,31 +2,31 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { createSupabaseBrowserClient } from '@suka/auth'
+import { ambilPoTerbuka } from '@/lib/stok/poTerbuka'
 
 /**
  * Daftar PO yang sedang menunggu diterima (dikirim ke supplier / sebagian
- * diterima) dalam 30 hari terakhir — sumber badge "Terima PO".
+ * diterima) — sumber badge "Terima PO".
  *
  * Dulu sidebar (AppSidebar) dan bottom nav (BottomNav) masing-masing punya
  * kunci sendiri (`sidebar-inbound-pos` & `bottomnav-inbound-pos`) dengan
  * queryFn identik, sehingga RPC get_purchase_orders dipanggil dua kali.
- * Sekarang satu kunci bersama; perilaku (rentang tanggal, filter status,
- * galat → daftar kosong, staleTime 30 dtk) dipertahankan persis.
+ * Sekarang satu kunci bersama.
+ *
+ * Sumber data sama dengan halaman Penerimaan PO (ambilPoTerbuka): semua PO
+ * berstatus terbuka tanpa batas umur. Dulu hanya tanggal_po 30 hari terakhir
+ * (batas atas tanggal UTC), sehingga PO terbuka yang lebih lama tak terhitung.
+ * Galat → 0 (badge tidak boleh memecah navigasi), staleTime 30 dtk.
  */
 export function useInboundPoBadge(enabled: boolean) {
   const { data: inboundPos = [] } = useQuery({
     queryKey: ['inbound-pos-badge'],
     queryFn: async () => {
-      const supabase = createSupabaseBrowserClient()
-      const { data, error } = await supabase.rpc('get_purchase_orders', {
-        p_from: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
-        p_to: new Date().toISOString().split('T')[0],
-        p_status: null,
-      })
-      if (error) return []
-      return (data ?? []).filter(
-        (p: any) => p.status === 'dikirim_ke_supplier' || p.status === 'sebagian_diterima',
-      )
+      try {
+        return await ambilPoTerbuka(createSupabaseBrowserClient())
+      } catch {
+        return []
+      }
     },
     enabled,
     staleTime: 30000,

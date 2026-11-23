@@ -197,7 +197,13 @@ export async function upsertOpnameItems(
     qty_system: number
     flagged: boolean
     catatan?: string | null
-  }>
+  }>,
+  /**
+   * Bahan yang di form dikosongkan lagi ("belum dihitung") setelah sempat terisi.
+   * Baris draft-nya dihapus supaya angka lama tidak ikut difinalisasi -- upsert
+   * saja tidak pernah membuang baris.
+   */
+  bahanDikosongkan: string[] = []
 ): Promise<{ error: string | null }> {
   try {
     if (!items.length) return { error: null }
@@ -267,6 +273,18 @@ export async function upsertOpnameItems(
             : i.flagged,
         }
       })
+    // Bahan yang dikosongkan (dan memang tidak ikut dikirim) dihapus dari draft.
+    const dikirim = new Set(items.map((i) => i.bahan_baku_id))
+    const hapus = [...new Set(bahanDikosongkan)].filter((id) => !dikirim.has(id))
+    if (hapus.length > 0) {
+      const { error: delErr } = await serviceClient
+        .from('opname_item')
+        .delete()
+        .eq('opname_id', opnameId)
+        .in('bahan_baku_id', hapus)
+      if (delErr) return { error: `Gagal menghapus item yang dikosongkan: ${delErr.message}` }
+    }
+
     if (!itemsOpname.length) return { error: null }
 
     const { error } = await serviceClient

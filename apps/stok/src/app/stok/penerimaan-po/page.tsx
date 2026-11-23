@@ -8,11 +8,13 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useQuery } from '@tanstack/react-query'
 import { KitchenVerifikasiModal } from '@/components/monitoring/KitchenVerifikasiModal'
+import { ambilPoTerbuka } from '@/lib/stok/poTerbuka'
 
 const supabase = createSupabaseBrowserClient()
 
 type InboundPO = {
   id: string
+  created_at?: string | null
   nomor_po: string
   supplier_nama: string
   tanggal_po: string
@@ -28,15 +30,9 @@ export default function PenerimaanPOStokPage() {
 
   const { data: inboundPos = [], isLoading, error } = useQuery<InboundPO[]>({
     queryKey: ['stok-inbound-pos'],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_purchase_orders', {
-        p_from: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
-        p_to: new Date().toISOString().split('T')[0],
-        p_status: null
-      })
-      if (error) throw error
-      return (data ?? []).filter((p: any) => p.status === 'dikirim_ke_supplier' || p.status === 'sebagian_diterima')
-    }
+    // Semua PO berstatus terbuka tanpa batas umur & tanpa batas tanggal UTC
+    // (lihat lib/stok/poTerbuka.ts) — dulu PO >30 hari hilang dari daftar.
+    queryFn: () => ambilPoTerbuka<InboundPO>(supabase)
   })
 
   const filtered = search

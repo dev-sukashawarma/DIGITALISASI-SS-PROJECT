@@ -37,4 +37,21 @@ describe('SsoHandoffPage', () => {
       })
     )
   })
+
+  it('token lewat query ikut dihapus dari URL, next dipertahankan', async () => {
+    const fetchMock = vi.fn(() => new Promise<Response>(() => undefined))
+    vi.stubGlobal('fetch', fetchMock)
+    window.history.replaceState(
+      {},
+      '',
+      '/auth/sso?access_token=akses-q&refresh_token=refresh-q&next=%2Fstok%2Fopname'
+    )
+
+    render(<SsoHandoffPage />)
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
+    expect(window.location.search).toBe('?next=%2Fstok%2Fopname')
+    expect(window.location.href).not.toContain('akses-q')
+    expect(window.location.href).not.toContain('refresh-q')
+  })
 })

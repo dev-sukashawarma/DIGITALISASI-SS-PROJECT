@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { assertOutletAccessible, getAccessibleOutletIds } from '@/lib/stok/outletAccess'
 import { TEST_OUTLET_ID, isTestOutlet } from '@/lib/outletFilters'
+import { cakupanOutletWaste, nilaiKeputusan, type HasilKeputusan } from '@/lib/stok/keputusanWaste'
 
 function makeServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL! || 'https://khpkoreaaucvyqfhynfq.supabase.co'
@@ -136,55 +137,71 @@ export async function submitWasteReport(data: WasteReportData): Promise<{ succes
   }
 }
 
-export async function approveWasteReport(id: string): Promise<void> {
-  const supabase = makeServiceClient()
-  const { data: report, error: reportError } = await supabase
-    .from('stok_waste_reports')
-    .select('outlet_id')
-    .eq('id', id)
-    .maybeSingle()
-  if (reportError) throw new Error(reportError.message)
-  if (!report) throw new Error('Laporan waste tidak ditemukan')
+// Approve/reject mengembalikan hasil (bukan melempar) supaya pesan "sudah
+// diputuskan orang lain" tetap sampai ke layar — pesan error yang dilempar dari
+// Server Action disamarkan Next.js di build produksi.
+export async function approveWasteReport(id: string): Promise<HasilKeputusan> {
+  try {
+    const supabase = makeServiceClient()
+    const { data: report, error: reportError } = await supabase
+      .from('stok_waste_reports')
+      .select('outlet_id')
+      .eq('id', id)
+      .maybeSingle()
+    if (reportError) throw new Error(reportError.message)
+    if (!report) throw new Error('Laporan waste tidak ditemukan')
 
-  const currentUserId = await requireWasteApprover(report.outlet_id)
+    const currentUserId = await requireWasteApprover(report.outlet_id)
 
-  const { error } = await supabase
-    .from('stok_waste_reports')
-    .update({
-      status: 'APPROVED',
-      approved_by: currentUserId,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', id)
-    .eq('status', 'PENDING') // ensure it's still pending
+    const { data: changed, error } = await supabase
+      .from('stok_waste_reports')
+      .update({
+        status: 'APPROVED',
+        approved_by: currentUserId,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .eq('status', 'PENDING') // hanya yang masih pending
+      .select('id')
 
-  if (error) throw new Error(error.message)
+    if (error) throw new Error(error.message)
+    // 0 baris = sudah diputuskan approver lain; stok TIDAK dipotong oleh aksi ini.
+    return nilaiKeputusan(changed)
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
 }
 
-export async function rejectWasteReport(id: string, reason: string): Promise<void> {
-  const supabase = makeServiceClient()
-  const { data: report, error: reportError } = await supabase
-    .from('stok_waste_reports')
-    .select('outlet_id')
-    .eq('id', id)
-    .maybeSingle()
-  if (reportError) throw new Error(reportError.message)
-  if (!report) throw new Error('Laporan waste tidak ditemukan')
+export async function rejectWasteReport(id: string, reason: string): Promise<HasilKeputusan> {
+  try {
+    const supabase = makeServiceClient()
+    const { data: report, error: reportError } = await supabase
+      .from('stok_waste_reports')
+      .select('outlet_id')
+      .eq('id', id)
+      .maybeSingle()
+    if (reportError) throw new Error(reportError.message)
+    if (!report) throw new Error('Laporan waste tidak ditemukan')
 
-  const currentUserId = await requireWasteApprover(report.outlet_id)
+    const currentUserId = await requireWasteApprover(report.outlet_id)
 
-  const { error } = await supabase
-    .from('stok_waste_reports')
-    .update({
-      status: 'REJECTED',
-      rejection_reason: reason,
-      approved_by: currentUserId,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', id)
-    .eq('status', 'PENDING')
+    const { data: changed, error } = await supabase
+      .from('stok_waste_reports')
+      .update({
+        status: 'REJECTED',
+        rejection_reason: reason,
+        approved_by: currentUserId,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .eq('status', 'PENDING')
+      .select('id')
 
-  if (error) throw new Error(error.message)
+    if (error) throw new Error(error.message)
+    return nilaiKeputusan(changed)
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
 }
 
 export async function fetchPendingWasteReports(outletId?: string) {
@@ -199,10 +216,10 @@ export async function fetchPendingWasteReports(outletId?: string) {
   if (outletId) {
     query = query.eq('outlet_id', outletId)
   } else {
-    query = query.neq('outlet_id', TEST_OUTLET_ID)
-    if (scopeToOutletIds && scopeToOutletIds.size > 0) {
-      query = query.in('outlet_id', Array.from(scopeToOutletIds))
-    }
+    // Fail-closed: approver tanpa outlet binaan tidak melihat apa pun.
+    const scopeIds = cakupanOutletWaste(scopeToOutletIds ?? new Set())
+    if (scopeIds.length === 0) return []
+    query = query.neq('outlet_id', TEST_OUTLET_ID).in('outlet_id', scopeIds)
   }
 
   const { data, error } = await query
@@ -246,10 +263,10 @@ export async function countPendingWasteReports(outletId?: string) {
   if (outletId) {
     query = query.eq('outlet_id', outletId)
   } else {
-    query = query.neq('outlet_id', TEST_OUTLET_ID)
-    if (scopeToOutletIds && scopeToOutletIds.size > 0) {
-      query = query.in('outlet_id', Array.from(scopeToOutletIds))
-    }
+    // Fail-closed: approver tanpa outlet binaan tidak melihat apa pun.
+    const scopeIds = cakupanOutletWaste(scopeToOutletIds ?? new Set())
+    if (scopeIds.length === 0) return 0
+    query = query.neq('outlet_id', TEST_OUTLET_ID).in('outlet_id', scopeIds)
   }
 
   const { count, error } = await query
@@ -356,17 +373,22 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
     query = query.eq('outlet_id', staff.outlet_id)
     summaryOutletEq = staff.outlet_id
   } else if (filters.outletId) {
-    if (allowedOutletIds.size > 0 && !allowedOutletIds.has(filters.outletId)) {
+    // Set kosong = tidak punya outlet (bukan "semua"), jadi selalu dicek.
+    if (!allowedOutletIds.has(filters.outletId)) {
       throw new Error('Forbidden: outlet di luar cakupan akses Anda')
     }
     query = query.eq('outlet_id', filters.outletId)
     summaryOutletEq = filters.outletId
   } else {
-    query = query.neq('outlet_id', TEST_OUTLET_ID)
-    if (allowedOutletIds.size > 0) {
-      query = query.in('outlet_id', Array.from(allowedOutletIds))
-      summaryOutletIn = Array.from(allowedOutletIds)
+    const scopeIds = cakupanOutletWaste(allowedOutletIds)
+    if (scopeIds.length === 0) {
+      // Fail-closed: viewer tanpa outlet binaan tidak melihat apa pun.
+      const page = Math.max(1, filters.page || 1)
+      const limit = Math.max(1, Math.min(100, filters.limit || 25))
+      return { data: [], totalCount: 0, activeCount: 0, totalNilai: 0, totalQty: 0, page, limit, totalPages: 1 }
     }
+    query = query.neq('outlet_id', TEST_OUTLET_ID).in('outlet_id', scopeIds)
+    summaryOutletIn = scopeIds
   }
 
   if (filters.status && filters.status !== 'ALL') {
@@ -450,10 +472,8 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
       } else if (filters.outletId) {
         pageQ = pageQ.eq('outlet_id', filters.outletId)
       } else {
-        pageQ = pageQ.neq('outlet_id', TEST_OUTLET_ID)
-        if (allowedOutletIds.size > 0) {
-          pageQ = pageQ.in('outlet_id', Array.from(allowedOutletIds))
-        }
+        // summaryOutletIn pasti terisi di sini (set kosong sudah keluar lebih awal).
+        pageQ = pageQ.neq('outlet_id', TEST_OUTLET_ID).in('outlet_id', summaryOutletIn ?? [])
       }
       if (filters.status && filters.status !== 'ALL') pageQ = pageQ.eq('status', filters.status)
       if (filters.bahanBakuId && filters.bahanBakuId !== 'ALL') pageQ = pageQ.eq('bahan_baku_id', filters.bahanBakuId)
@@ -645,9 +665,10 @@ export async function getAccessibleOutletsForWaste(): Promise<{ id: string; name
     .eq('is_active', true)
     .neq('id', TEST_OUTLET_ID)
     .order('name')
-  if (allowedOutletIds.size > 0) {
-    query = query.in('id', Array.from(allowedOutletIds))
-  }
+  // Fail-closed: tanpa outlet binaan = tidak ada pilihan outlet.
+  const scopeIds = cakupanOutletWaste(allowedOutletIds)
+  if (scopeIds.length === 0) return []
+  query = query.in('id', scopeIds)
   const { data, error } = await query
   if (error) return []
   return (data ?? [])

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import { InboundOutbound } from '@/types/stok';
+import { rentangHalaman } from '@/lib/stok/halamanRentang';
 
 /**
  * Baris mentah dari view `inbound_outbound_feed` (flat, tanpa embed PostgREST).
@@ -101,32 +102,36 @@ export function useInboundOutbound(
     setError(null);
     const supabase = createClient();
     try {
-      let query = supabase
-        .from('inbound_outbound_feed')
-        .select(FEED_COLUMNS, { count: 'exact' });
+      // Semua filter server dipakai bersama oleh daftar (1 halaman) dan kartu ringkasan
+      // (seluruh periode), supaya keduanya selalu menghitung himpunan baris yang sama.
+      const terapkanFilter = (q: any) => {
+        if (outletId !== 'ALL') q = q.eq('outlet_id', outletId);
+        if (filterTipe && filterTipe !== 'ALL') q = q.eq('tipe', filterTipe);
+        if (bahanId && bahanId !== 'ALL') q = q.eq('bahan_baku_id', bahanId);
+        if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
+        if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
+        // Urutan unik (created_at + id) agar batas halaman stabil: tanpa tiebreak,
+        // baris ber-created_at sama bisa dobel/terlewat antar halaman.
+        return q.order('created_at', { ascending: false }).order('id', { ascending: false });
+      };
 
-      if (outletId !== 'ALL') {
-        query = query.eq('outlet_id', outletId);
-      }
+      const cocokCari = (item: InboundOutbound) => {
+        if (!searchQuery || !searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase().trim();
+        return Boolean(
+          item.bahan_baku?.nama.toLowerCase().includes(q) ||
+            item.kategori.toLowerCase().includes(q) ||
+            item.catatan?.toLowerCase().includes(q) ||
+            item.tujuan_outlet_nama?.toLowerCase().includes(q) ||
+            item.nomor_sj?.toLowerCase().includes(q) ||
+            item.nomor_po?.toLowerCase().includes(q) ||
+            item.supplier_nama?.toLowerCase().includes(q)
+        );
+      };
 
-      if (filterTipe && filterTipe !== 'ALL') {
-        query = query.eq('tipe', filterTipe);
-      }
-
-      if (bahanId && bahanId !== 'ALL') {
-        query = query.eq('bahan_baku_id', bahanId);
-      }
-
-      if (startDate) {
-        query = query.gte('created_at', `${startDate}T00:00:00`);
-      }
-      if (endDate) {
-        query = query.lte('created_at', `${endDate}T23:59:59`);
-      }
-
-      query = query
-        .order('created_at', { ascending: false })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
+      const query = terapkanFilter(
+        supabase.from('inbound_outbound_feed').select(FEED_COLUMNS, { count: 'exact' })
+      ).range(page * pageSize, (page + 1) * pageSize - 1);
 
       const { data: result, count, error: fetchErr } = await query;
 
@@ -135,57 +140,28 @@ export function useInboundOutbound(
       const exactCount = count ?? 0;
       setTotalCount(exactCount);
 
-      let rows = ((result as unknown as FeedRow[]) || []).map(toInboundOutbound);
-
-      if (searchQuery && searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        rows = rows.filter(
-          (item) =>
-            item.bahan_baku?.nama.toLowerCase().includes(q) ||
-            item.kategori.toLowerCase().includes(q) ||
-            item.catatan?.toLowerCase().includes(q) ||
-            item.tujuan_outlet_nama?.toLowerCase().includes(q) ||
-            item.nomor_sj?.toLowerCase().includes(q) ||
-            item.nomor_po?.toLowerCase().includes(q) ||
-            item.supplier_nama?.toLowerCase().includes(q)
-        );
-      }
+      const rows = ((result as unknown as FeedRow[]) || []).map(toInboundOutbound).filter(cocokCari);
 
       setData(rows);
 
-      // Bila filter tipe 'ALL' dan total data lebih dari 1 halaman,
-      // ambil seluruh dataset ringkas untuk kalkulasi summary card yang akurat satu periode
-      if ((!filterTipe || filterTipe === 'ALL') && exactCount > pageSize) {
-        let sumQuery = supabase
-          .from('inbound_outbound_feed')
-          .select(FEED_COLUMNS);
-
-        if (outletId !== 'ALL') sumQuery = sumQuery.eq('outlet_id', outletId);
-        if (bahanId && bahanId !== 'ALL') sumQuery = sumQuery.eq('bahan_baku_id', bahanId);
-        if (startDate) sumQuery = sumQuery.gte('created_at', `${startDate}T00:00:00`);
-        if (endDate) sumQuery = sumQuery.lte('created_at', `${endDate}T23:59:59`);
-        sumQuery = sumQuery.limit(2000);
-
-        const { data: allSumResult } = await sumQuery;
-        if (allSumResult) {
-          let sumRows = ((allSumResult as unknown as FeedRow[]) || []).map(toInboundOutbound);
-          if (searchQuery && searchQuery.trim()) {
-            const q = searchQuery.toLowerCase().trim();
-            sumRows = sumRows.filter(
-              (item) =>
-                item.bahan_baku?.nama.toLowerCase().includes(q) ||
-                item.kategori.toLowerCase().includes(q) ||
-                item.catatan?.toLowerCase().includes(q) ||
-                item.tujuan_outlet_nama?.toLowerCase().includes(q) ||
-                item.nomor_sj?.toLowerCase().includes(q) ||
-                item.nomor_po?.toLowerCase().includes(q) ||
-                item.supplier_nama?.toLowerCase().includes(q)
-            );
-          }
-          setSummaryData(sumRows);
-        } else {
-          setSummaryData(rows);
+      // Kartu ringkasan menjumlah SELURUH periode sesuai filter (termasuk filter IN/OUT),
+      // bukan hanya 100 baris halaman aktif. PostgREST memotong tiap request di 1000
+      // baris (.limit(2000) pun jadi 1000), jadi seluruh halaman ditarik -- paralel,
+      // karena jumlah barisnya sudah diketahui dari count.
+      if (exactCount > pageSize) {
+        const halaman = await Promise.all(
+          rentangHalaman(exactCount, 1000).map(([from, to]) =>
+            terapkanFilter(supabase.from('inbound_outbound_feed').select(FEED_COLUMNS)).range(from, to)
+          )
+        );
+        const semua: FeedRow[] = [];
+        for (const h of halaman as { data: unknown; error: any }[]) {
+          if (h.error) throw h.error;
+          semua.push(...((h.data as FeedRow[]) || []));
         }
+        // Halaman paralel bisa tumpang-tindih bila ada baris baru di tengah penarikan.
+        const unik = new Map(semua.map((r) => [r.id, r]));
+        setSummaryData([...unik.values()].map(toInboundOutbound).filter(cocokCari));
       } else {
         setSummaryData(rows);
       }

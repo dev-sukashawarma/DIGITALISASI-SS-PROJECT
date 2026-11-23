@@ -120,40 +120,6 @@ export default function InboundOutboundPage() {
     setPage(0);
   };
 
-  // Menyembunyikan menu di nav saja tidak cukup -- URL-nya tetap bisa dibuka
-  // langsung. Datanya sendiri sudah dibatasi RLS `ledger_read`, guard ini
-  // menegakkan maksudnya: halaman arus barang gudang khusus staff gudang, admin, dan purchasing.
-  const canViewInboundOutbound = ['kitchen', 'admin', 'purchasing', 'developer'].includes(outletStaff?.role ?? '');
-  if (outletStaff && !canViewInboundOutbound) {
-    return (
-      <AppLayout>
-        <div className="min-h-screen bg-[#fff8f1] flex items-center justify-center px-6">
-          <div className="bg-white border border-suka-brown/10 rounded-2xl shadow-xs p-10 max-w-md text-center">
-            <div className="w-14 h-14 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <ShieldAlert className="w-7 h-7 text-amber-600" />
-            </div>
-            <p className="text-suka-brown font-extrabold text-sm">Halaman khusus staff gudang & manajemen</p>
-            <p className="text-suka-brown/60 text-xs mt-2 leading-relaxed">
-              Inbound / Outbound mencatat arus barang Gudang Pusat. Untuk riwayat stok
-              outletmu, buka halaman <span className="font-bold">Ledger Stok</span>.
-            </p>
-          </div>
-        </div>
-      </AppLayout>
-    );
-  }
-
-  if (!outletStaff) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fff8f1]">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 animate-spin text-suka-orange mx-auto" />
-          <p className="text-suka-brown font-bold uppercase tracking-wider text-sm">Memuat Data...</p>
-        </div>
-      </div>
-    );
-  }
-
   const filteredData = useMemo(() => {
     const raw = (data || []).filter(item => {
       const matchesTipe = filterTipe === 'ALL' || item.tipe === filterTipe;
@@ -255,6 +221,42 @@ export default function InboundOutboundPage() {
       diffKgDisplay,
     };
   }, [summaryData, filteredData, selectedBahanId]);
+
+  // Semua hook (useMemo di atas) WAJIB dipanggil sebelum return dini di bawah:
+  // hook sesudah early return mengubah jumlah hook antar render -> crash React #310.
+  // Menyembunyikan menu di nav saja tidak cukup -- URL-nya tetap bisa dibuka
+  // langsung. Datanya sendiri sudah dibatasi RLS `ledger_read`, guard ini
+  // menegakkan maksudnya: halaman arus barang gudang khusus staff gudang, admin, dan purchasing.
+  const canViewInboundOutbound = ['kitchen', 'admin', 'purchasing', 'developer'].includes(outletStaff?.role ?? '');
+  if (outletStaff && !canViewInboundOutbound) {
+    return (
+      <AppLayout>
+        <div className="min-h-screen bg-[#fff8f1] flex items-center justify-center px-6">
+          <div className="bg-white border border-suka-brown/10 rounded-2xl shadow-xs p-10 max-w-md text-center">
+            <div className="w-14 h-14 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <ShieldAlert className="w-7 h-7 text-amber-600" />
+            </div>
+            <p className="text-suka-brown font-extrabold text-sm">Halaman khusus staff gudang & manajemen</p>
+            <p className="text-suka-brown/60 text-xs mt-2 leading-relaxed">
+              Inbound / Outbound mencatat arus barang Gudang Pusat. Untuk riwayat stok
+              outletmu, buka halaman <span className="font-bold">Ledger Stok</span>.
+            </p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!outletStaff) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#fff8f1]">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-12 h-12 animate-spin text-suka-orange mx-auto" />
+          <p className="text-suka-brown font-bold uppercase tracking-wider text-sm">Memuat Data...</p>
+        </div>
+      </div>
+    );
+  }
 
   const isFiltered = Boolean(
     searchTerm || 

@@ -144,4 +144,36 @@ describe('useInboundOutbound hook', () => {
     const tipeCalls = mockEq.mock.calls.filter((call) => call[0] === 'tipe');
     expect(tipeCalls).toHaveLength(0);
   });
+
+  it('kartu ringkasan menarik SELURUH halaman periode (paralel, ikut filter tipe), bukan 100 baris halaman aktif', async () => {
+    const contoh = (id: string, tipe: 'IN' | 'OUT') => ({
+      id, outlet_id: 'o', bahan_baku_id: 'b', tipe, sumber: 'vendor_po', kategori: 'Pembelian Vendor',
+      qty: 1, harga_satuan: 1000, saldo_sesudah: 1, catatan: null, created_by: null,
+      created_at: '2026-10-24T10:00:00Z', pencatat_nama: null, bahan_nama: 'AYAM', bahan_satuan: 'kg',
+      satuan_tengah: null, faktor_tengah: null, satuan_kecil: 'gram', faktor_tampilan: 1000,
+      satuan_distribusi: 'kg', ref_shipment_id: null, tujuan_outlet_nama: null, nomor_sj: null,
+      nomor_po: null, supplier_nama: null,
+    });
+    mockRange.mockImplementation((from: number) =>
+      Promise.resolve({
+        data: [contoh(`r-${from}`, 'IN')],
+        count: from === 0 ? 2500 : null,
+        error: null,
+      })
+    );
+
+    const { result } = renderHook(() =>
+      useInboundOutbound('ALL', 0, undefined, undefined, undefined, 'ALL', 'IN')
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const rentang = mockRange.mock.calls.map((c) => [c[0], c[1]]);
+    expect(rentang).toContainEqual([0, 999]);
+    expect(rentang).toContainEqual([1000, 1999]);
+    expect(rentang).toContainEqual([2000, 2999]);
+    // filter tipe juga dipakai untuk query ringkasan (1 halaman daftar + 3 halaman ringkasan)
+    expect(mockEq.mock.calls.filter((c) => c[0] === 'tipe' && c[1] === 'IN').length).toBe(4);
+    // baris dari ketiga halaman ringkasan terkumpul (r-0 dari halaman daftar & ringkasan dedup by id)
+    expect(result.current.summaryData?.map((r) => r.id).sort()).toEqual(['r-0', 'r-1000', 'r-2000']);
+  });
 });

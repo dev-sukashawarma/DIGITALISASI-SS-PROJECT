@@ -1,6 +1,6 @@
 // Hanya untuk kode server (Server Component / Server Action).
 import { unstable_cache } from 'next/cache'
-import { summarizeDay, type DaySummary, type RawOrder } from './aggregate'
+import { summarizeDay, extractPackageDrinks, cleanMenuName, KNOWN_DRINK_NAMES_BY_ID, type DaySummary, type RawOrder } from './aggregate'
 import { dayGeneration } from '@/lib/server/dayGenerations'
 
 /* ── Pemuat ringkasan harian Laporan Penjualan, dengan cache ─────────────────
@@ -75,7 +75,16 @@ function codeFingerprint(...parts: Array<string | number | ((...args: any[]) => 
   return (h >>> 0).toString(36)
 }
 
-const DAY_CACHE_FINGERPRINT = codeFingerprint(ORDER_SELECT, fetchDayOrders, summarizeDay)
+// Semua fungsi & konstanta yang menentukan isi ringkasan ikut masuk: toString()
+// summarizeDay hanya memuat NAMA fungsi pembantunya, bukan isinya.
+const DAY_CACHE_FINGERPRINT = codeFingerprint(
+  ORDER_SELECT,
+  fetchDayOrders,
+  summarizeDay,
+  extractPackageDrinks,
+  cleanMenuName,
+  JSON.stringify(KNOWN_DRINK_NAMES_BY_ID),
+)
 
 const todayMemo = new Map<string, { at: number; promise: Promise<DaySummary> }>()
 

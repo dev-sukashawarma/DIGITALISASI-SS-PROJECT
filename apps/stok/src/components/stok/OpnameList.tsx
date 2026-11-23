@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { Opname } from '@/types/stok';
+import { getTodayWIB } from '@/lib/stok/opnameDate';
 import { Search, Calendar, User, Package, Scale, FileText, Clock, AlertTriangle, Inbox } from 'lucide-react';
 
 const TIPE_LABEL: Record<string, string> = {
@@ -26,7 +27,8 @@ export function OpnameList({ items }: { items: Opname[] }) {
   const draftCount = useMemo(() => items.filter((o) => o.status === 'draft').length, [items]);
   const pendingCount = useMemo(() => items.filter((o) => o.status === 'pending_approval').length, [items]);
   const finalToday = useMemo(() => {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    // opname.tanggal = tanggal WIB; toISOString() memberi tanggal UTC (salah 00:00–07:00 WIB).
+    const todayStr = getTodayWIB();
     return items.filter((o) => o.status === 'finalized' && o.tanggal === todayStr).length;
   }, [items]);
 

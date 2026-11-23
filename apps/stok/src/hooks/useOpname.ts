@@ -76,10 +76,10 @@ export function useOpnameActions() {
     return res.data!
   }, [])
 
-  const upsertItems = useCallback(async (items: Partial<OpnameItem>[]) => {
+  const upsertItems = useCallback(async (items: Partial<OpnameItem>[], bahanDikosongkan: string[] = []) => {
     // Pakai server action (service role) karena RLS tabel opname_item
     // tidak mengizinkan INSERT langsung dari client session crew biasa.
-    const result = await upsertOpnameItems(items as Parameters<typeof upsertOpnameItems>[0])
+    const result = await upsertOpnameItems(items as Parameters<typeof upsertOpnameItems>[0], bahanDikosongkan)
     if (result.error) throw new Error(result.error)
   }, [])
 

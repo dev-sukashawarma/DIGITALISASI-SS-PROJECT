@@ -531,7 +531,7 @@ export function RekonsiliasiTable({
                 const isPositiveDiff = item.selisih_qty > 0.01
                 const toleransi = nilaiToleransiSelisih(
                   item.selisih_qty,
-                  item.stok_sistem_qty,
+                  item.stok_sistem_terhitung_qty ?? item.stok_sistem_qty,
                   item.satuan,
                   item.satuan_kecil,
                   item.nama,
@@ -609,9 +609,16 @@ export function RekonsiliasiTable({
                           <div
                             key={v.vendor_nama}
                             className="text-[9px] font-bold text-suka-brown/70 truncate"
-                            title={`Vendor: ${v.vendor_nama}`}
+                            title={
+                              v.harga_kirim !== null && v.harga_kirim !== undefined
+                                ? `Vendor: ${v.vendor_nama} · harga rata-rata surat jalan`
+                                : `Vendor: ${v.vendor_nama} · harga master (surat jalan tanpa harga)`
+                            }
                           >
-                            {v.vendor_nama}: {formatQty(item, v.qty)} · @{formatRp(item.harga_master_kirim)}/{item.satuan_kirim}
+                            {v.vendor_nama}: {formatQty(item, v.qty)} ·{' '}
+                            {v.harga_kirim !== null && v.harga_kirim !== undefined
+                              ? `@${formatRp(v.harga_kirim)}/${item.satuan_kirim} (SJ)`
+                              : `@${formatRp(item.harga_master_kirim)}/${item.satuan_kirim}`}
                           </div>
                         ))}
                       </td>

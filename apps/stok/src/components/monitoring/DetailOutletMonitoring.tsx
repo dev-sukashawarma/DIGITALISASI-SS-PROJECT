@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { fetchOutletsList, fetchOutletItemsDetail } from '@/lib/queries/monitoring';
 import { getBahanBakuSource } from '@suka/design-system';
+import { formatTriUnitSaldoAdaptive } from '@/lib/format/compositeUnit';
 
 function formatLedgerType(type: string): string {
   const map: Record<string, string> = {
@@ -38,8 +39,10 @@ export function DetailOutletMonitoring({ outletId }: { outletId: string }) {
   }, []);
 
   const { data: outlets } = useQuery({
-    queryKey: ['monitoring', 'outlets'],
-    queryFn: () => fetchOutletsList(),
+    // `semua`: halaman ini bisa dibuka lewat URL untuk outlet yang tak tampil di
+    // papan (mis. outlet tutup) — namanya tetap harus terbaca.
+    queryKey: ['monitoring', 'outlets', 'semua'],
+    queryFn: () => fetchOutletsList({ semua: true }),
     // Master outlet jarang berubah — tak perlu ditarik ulang tiap menit.
     staleTime: 10 * 60_000,
   });
@@ -381,7 +384,19 @@ export function DetailOutletMonitoring({ outletId }: { outletId: string }) {
                   <div className="bg-suka-cream/35 border border-suka-brown/5 rounded-xl p-2.5 flex items-center justify-between">
                     <div>
                       <p className="text-[9px] font-black uppercase text-suka-brown/50 tracking-wider">Stok Aktual</p>
-                      <span className="text-xl font-black font-mono text-suka-ink">{item.current_qty}</span>
+                      {/* current_qty bisa tersimpan dalam satuan kecil (gram); tampilkan per
+                          satuan besar/tengah/kecil agar sebanding dengan Batas Minimum. */}
+                      <span className="text-xl font-black font-mono text-suka-ink">
+                        {formatTriUnitSaldoAdaptive(
+                          Number(item.current_qty) || 0,
+                          item.saldo_is_gram,
+                          item.satuan ?? '',
+                          item.satuan_tengah,
+                          item.faktor_tengah,
+                          item.satuan_kecil,
+                          item.faktor_tampilan
+                        )}
+                      </span>
                     </div>
                     <div className="text-right">
                       <p className="text-[9px] font-black uppercase text-suka-brown/50 tracking-wider">Batas Minimum</p>

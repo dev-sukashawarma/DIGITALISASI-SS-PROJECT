@@ -108,8 +108,11 @@ export function SpendingDetailModal({ transaction, onClose }: Props) {
                       {it.qtyDisetujuiDistribusi} {it.satuanDistribusi}
                     </span>
                   </td>
+                  {/* hargaSnapshot = harga per satuan DISTRIBUSI (dikonversi di server),
+                      bersatuan sama dengan kolom qty di sebelahnya. */}
                   <td className="py-3 text-right text-suka-brown/70 font-medium font-mono">
                     {formatRupiah(it.hargaSnapshot)}
+                    <span className="text-[10px] text-suka-brown/50 font-sans"> /{it.satuanDistribusi}</span>
                   </td>
                   <td className="py-3 text-right pr-1 font-bold text-suka-brown font-mono">
                     {formatRupiah(it.subtotal)}

@@ -637,7 +637,10 @@ export function RekonsiliasiTable({
                             className="text-[9px] font-bold text-suka-brown/70 truncate"
                             title="Estimasi FIFO berdasarkan surat jalan"
                           >
-                            ≈ {v.vendor_nama}: {formatQty(item, v.qty)} · @{formatRp(item.harga_master_kirim)}/{item.satuan_kirim}
+                            ≈ {v.vendor_nama}: {formatQty(item, v.qty)} ·{' '}
+                            {v.harga_kirim !== null && v.harga_kirim !== undefined
+                              ? `@${formatRp(v.harga_kirim)}/${item.satuan_kirim} (SJ)`
+                              : `@${formatRp(item.harga_master_kirim)}/${item.satuan_kirim}`}
                           </div>
                         ))}
                         {item.menu_usages && item.menu_usages.length > 0 && (

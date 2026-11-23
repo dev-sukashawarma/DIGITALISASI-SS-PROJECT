@@ -1412,6 +1412,16 @@ export async function fetchReconciliationSnapshot(
   const vendorOf = await resolveVendorNames(supabase, (ledgerRows || []) as any)
   const vendorMasukByBahan = new Map<string, Map<string, number>>()
   const vendorPakaiByBahan = new Map<string, Map<string, number>>()
+  // Nilai pemakaian per vendor menurut harga lapisan FIFO (harga kiriman yang stoknya
+  // terpakai); bagian tanpa harga kiriman dinilai master. Dipakai untuk label vendor
+  // pakai dan harga rata-rata pemakaian per bahan (pakai_rp & biaya resep teoritis),
+  // sama dengan yang ditampilkan timeline per baris.
+  const nilaiVendorPakai = new Map<string, Map<string, { qty: number; nilai: number; adaHargaSj: boolean }>>()
+  const masterKecilOf = (bId: string) => {
+    const f = faktorPenuhMap.get(bId) || 1
+    const h = Number(hargaMap.get(bId)?.harga_beli || 0)
+    return f > 0 ? h / f : h
+  }
   {
     const rowsByOutletBahan = new Map<string, { bId: string; rs: any[] }>()
     for (const r of ledgerRows || []) {
@@ -1434,22 +1444,36 @@ export async function fetchReconciliationSnapshot(
       normalisasi: normalizeLedgerRow,
     })
     for (const [obKey, { bId, rs }] of rowsByOutletBahan) {
+      const masterKecil = masterKecilOf(bId)
       const win: FifoWindowRow[] = rs.map((r) => ({
         id: r.id,
         qty: Number(r.qty || 0),
         vendor: Number(r.qty) > 0 ? vendorOf(r) : null,
+        harga: Number(r.qty) > 0 ? hargaKecilWajar(hargaKecilSjRekon(r), masterKecil) : null,
       }))
       const attr = attributeFifo({
         openingBalance: Number(rs[0].saldo_sebelum || 0),
-        priorInflowsNewestFirst: priorByOB.get(obKey) || [],
+        priorInflowsNewestFirst: (priorByOB.get(obKey) || []).map((l) => ({
+          ...l,
+          harga: hargaKecilWajar(l.harga ?? null, masterKecil),
+        })),
         windowRows: win,
       })
       const m = vendorPakaiByBahan.get(bId) || new Map<string, number>()
+      const nv = nilaiVendorPakai.get(bId) || new Map<string, { qty: number; nilai: number; adaHargaSj: boolean }>()
       for (const r of rs) {
         if (r.tipe !== 'pemakaian') continue
-        for (const part of attr.get(r.id) || []) m.set(part.vendor, (m.get(part.vendor) || 0) + part.qty)
+        for (const part of attr.get(r.id) || []) {
+          m.set(part.vendor, (m.get(part.vendor) || 0) + part.qty)
+          const cur = nv.get(part.vendor) || { qty: 0, nilai: 0, adaHargaSj: false }
+          cur.qty += part.qty
+          cur.nilai += part.qty * (part.harga !== null ? part.harga : masterKecil)
+          cur.adaHargaSj = cur.adaHargaSj || part.harga !== null
+          nv.set(part.vendor, cur)
+        }
       }
       vendorPakaiByBahan.set(bId, m)
+      nilaiVendorPakai.set(bId, nv)
     }
   }
 
@@ -1844,7 +1868,23 @@ export async function fetchReconciliationSnapshot(
     }
   }
 
-  // Biaya bahan menurut resep (teoritis) = kebutuhan resep x harga master per satuan kecil.
+  // Harga rata-rata pemakaian per satuan kecil (FIFO) per bahan; null = tak ada data
+  // pemakaian -> pemanggil memakai master.
+  const hargaPakaiKecilOf = (bId: string): number | null => {
+    const nv = nilaiVendorPakai.get(bId)
+    if (!nv) return null
+    let qty = 0
+    let nilai = 0
+    for (const v of nv.values()) {
+      qty += v.qty
+      nilai += v.nilai
+    }
+    return qty > 0 ? nilai / qty : null
+  }
+
+  // Biaya bahan menurut resep (teoritis) = kebutuhan resep x harga pemakaian per satuan
+  // kecil (rata-rata FIFO, sama dengan pakai_rp; master bila tak ada pemakaian), supaya
+  // selisih aktual vs resep murni selisih jumlah, bukan selisih harga.
   // Baris tanpa harga master (unit price 0) dilewati & dihitung jumlahnya.
   let teoritisPakaiRp = 0
   let teoritisTidakTerhitung = 0
@@ -1855,7 +1895,8 @@ export async function fetchReconciliationSnapshot(
         const b = bahanById.get(ing.bahan_baku_id)
         const h = hargaMap.get(ing.bahan_baku_id)
         const kemasan = Number(b?.faktor_tampilan) || Number(h?.kemasan_qty) || 1
-        const unit = kemasan > 0 ? (h?.harga_beli || 0) / kemasan : 0
+        const unitMaster = kemasan > 0 ? (h?.harga_beli || 0) / kemasan : 0
+        const unit = unitMaster > 0 ? hargaPakaiKecilOf(ing.bahan_baku_id) ?? unitMaster : 0
         // Potongan stok BOM selalu dalam satuan kecil bahan; label satuan resep (mis. "pcs",
         // "lembar") hanya penamaan -- jadi tidak dipakai untuk menolak baris.
         if (b && unit > 0) {
@@ -1933,7 +1974,9 @@ export async function fetchReconciliationSnapshot(
     const saldoAwalRp = Math.round(saldoAwal * unitPriceKecil)
     const masukRpMaster = Math.round(masukQty * unitPriceKecil)
     const masukRpRiil = riil?.hasRealPrice ? Math.round(riil.total) : masukRpMaster
-    const pakaiRp = Math.round(pakaiQty * unitPriceKecil)
+    // Pemakaian dinilai dengan harga rata-rata lapisan FIFO yang terpakai (harga kiriman),
+    // sama dengan timeline; saldo/stok/selisih tetap harga master (kebijakan harga terakhir).
+    const pakaiRp = Math.round(pakaiQty * (hargaPakaiKecilOf(b.id) ?? unitPriceKecil))
     const wasteRp = Math.round(wasteQty * unitPriceKecil)
     const mutasiLainRp = Math.round(mutasiLainQty * unitPriceKecil)
     const stokSistemRp = Math.round(stokSistem * unitPriceKecil)
@@ -2075,7 +2118,15 @@ export async function fetchReconciliationSnapshot(
         })
         .sort((a, c) => c.qty - a.qty),
       vendor_pakai: Array.from(vendorPakaiByBahan.get(b.id)?.entries() || [])
-        .map(([vendor_nama, qty]) => ({ vendor_nama, qty }))
+        .map(([vendor_nama, qty]) => {
+          // Skala yang sama dengan harga_master_kirim (per satuan kirim).
+          const nv = nilaiVendorPakai.get(b.id)?.get(vendor_nama)
+          const fPenuh = faktorPenuhMap.get(b.id) || 1
+          const fDist = getDistribusiFactor(b as any)
+          const harga_kirim =
+            nv && nv.adaHargaSj && nv.qty > 0 && fDist > 0 ? (nv.nilai / nv.qty) * (fPenuh / fDist) : null
+          return { vendor_nama, qty, harga_kirim }
+        })
         .sort((a, c) => c.qty - a.qty),
       menu_usages: menuUsageByBahan.get(b.id) || [],
     })

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@suka/auth';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Building2, ChevronDown, Check } from 'lucide-react';
 
 /**
@@ -23,9 +23,12 @@ export function formatShortOutletName(name: string): string {
 
 export default function GlobalOutletFilter({ outlets }: { outlets: { id: string; name: string }[] }) {
   const { outletStaff } = useAuth();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+
+  if (pathname?.startsWith('/laba-rugi')) return null;
 
   const selected = searchParams.get('outlet_id') || 'all';
   const selectedOutlet = outlets.find(o => o.id === selected);

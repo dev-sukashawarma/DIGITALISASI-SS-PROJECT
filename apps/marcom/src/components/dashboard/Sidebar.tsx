@@ -25,6 +25,7 @@ import {
   UtensilsCrossed,
   CreditCard,
   BarChart3,
+  HeartHandshake,
 } from 'lucide-react'
 import { signOut } from '@/app/actions/auth'
 import { isMelani, isPutriHambali, isAdminLike } from '@/lib/access-control'
@@ -76,6 +77,7 @@ export default function Sidebar({
     '/dashboard/content-planner': true,
     '/dashboard/content-planner#rencana-konten': true,
     '/dashboard/menu': true,
+    '/dashboard/laba-rugi': true,
   })
 
   const toggleMenu = (href: string, e: React.MouseEvent) => {
@@ -308,6 +310,26 @@ export default function Sidebar({
         },
       ],
     },
+    {
+      name: 'Laba Rugi',
+      href: '/dashboard/laba-rugi',
+      icon: DollarSign,
+      badge: null,
+      children: [
+        {
+          name: 'Laba Rugi Internal',
+          href: '/dashboard/laba-rugi/internal',
+          icon: Store,
+          badge: null,
+        },
+        {
+          name: 'Laba Rugi Mitra',
+          href: '/dashboard/laba-rugi/mitra',
+          icon: HeartHandshake,
+          badge: null,
+        },
+      ],
+    },
   ]
 
   let visibleNavItems: NavItem[] = []
@@ -323,11 +345,12 @@ export default function Sidebar({
       },
     ]
   } else if (isMelani(user.email)) {
-    // Melani: Hanya Konten Planner & Katalog Menu & Promo
+    // Melani: Konten Planner, Katalog Menu & Promo, dan Laba Rugi
     visibleNavItems = navItems.filter(
       (item) =>
         item.href === '/dashboard/content-planner' ||
-        item.href === '/dashboard/menu'
+        item.href === '/dashboard/menu' ||
+        item.href === '/dashboard/laba-rugi'
     )
   } else if (isPutriHambali(user.email)) {
     // Putri Hambali: Sisa tab (Overview, Kalender, Outlet, Endorsement, Budget & OPEX)
@@ -335,11 +358,12 @@ export default function Sidebar({
       (item) =>
         item.href !== '/dashboard/content-planner' &&
         item.href !== '/dashboard/menu' &&
+        item.href !== '/dashboard/laba-rugi' &&
         item.href !== '/dashboard/users'
     )
   } else {
-    // Default fallback untuk akun umum
-    visibleNavItems = navItems
+    // Default fallback untuk akun umum (tanpa Laba Rugi khusus Melani)
+    visibleNavItems = navItems.filter((item) => item.href !== '/dashboard/laba-rugi')
   }
 
   const closeMobile = () => onMobileToggle(false)

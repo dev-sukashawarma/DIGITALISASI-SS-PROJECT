@@ -1,0 +1,63 @@
+export type Preset = 'today' | 'yesterday' | '7d' | '30d' | 'last_month' | 'this_month'
+
+function iso(d: Date): string { return d.toISOString().slice(0, 10) }
+function addDays(ymd: string, n: number): string {
+  const d = new Date(ymd + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return iso(d)
+}
+
+export function presetRange(preset: Preset, now = new Date()): { from: string; to: string } {
+  // gunakan tanggal lokal Asia/Jakarta (UTC+7)
+  const jkt = new Date(now.getTime() + 7 * 3600 * 1000)
+  const todayStr = jkt.toISOString().slice(0, 10)
+  
+  if (preset === 'yesterday') {
+    const yesterday = addDays(todayStr, -1)
+    return { from: yesterday, to: yesterday }
+  }
+  
+  // Bulan kalender penuh sebelum bulan berjalan — bukan "30 hari ke belakang",
+  // supaya angkanya bisa dibandingkan langsung dengan tutup buku bulanan.
+  if (preset === 'last_month') {
+    const month = jkt.getUTCMonth() + 1
+    const year = jkt.getUTCFullYear()
+    return month === 1 ? monthRange(year - 1, 12) : monthRange(year, month - 1)
+  }
+
+  if (preset === 'this_month') {
+    const mm = String(jkt.getUTCMonth() + 1).padStart(2, '0')
+    const yyyy = jkt.getUTCFullYear()
+    return { from: `${yyyy}-${mm}-01`, to: todayStr }
+  }
+  
+  const span = preset === 'today' ? 0 : preset === '7d' ? 6 : 29
+  return { from: addDays(todayStr, -span), to: todayStr }
+}
+
+export function diffDays(from: string, to: string): number {
+  const days = Math.round((Date.parse(to) - Date.parse(from)) / 86400000) + 1
+  return Number.isFinite(days) && days > 0 ? days : 1
+}
+
+export function previousRange(range: { from: string; to: string }): { from: string; to: string } {
+  // Jika rentang adalah 1 bulan kalender penuh (mis. preset 'last_month' 1–30 Sep),
+  // pembandingnya wajib 1 bulan kalender penuh sebelumnya (1–31 Agu), bukan 30 hari mundur.
+  const m = /^(\d{4})-(\d{2})-01$/.exec(range.from)
+  if (m) {
+    const year = Number(m[1])
+    const month = Number(m[2])
+    const full = monthRange(year, month)
+    if (range.to === full.to) {
+      return month === 1 ? monthRange(year - 1, 12) : monthRange(year, month - 1)
+    }
+  }
+  const days = diffDays(range.from, range.to)
+  return { from: addDays(range.from, -days), to: addDays(range.from, -1) }
+}
+
+/** Rentang tanggal 1 bulan kalender penuh. `month` 1-indexed (1=Januari). */
+export function monthRange(year: number, month: number): { from: string; to: string } {
+  const mm = String(month).padStart(2, '0')
+  const lastDay = new Date(year, month, 0).getDate()
+  return { from: `${year}-${mm}-01`, to: `${year}-${mm}-${String(lastDay).padStart(2, '0')}` }
+}
+

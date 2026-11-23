@@ -2,10 +2,11 @@
 
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@suka/auth'
-import { LogOut, User, Loader2, LayoutDashboard, Receipt, CheckSquare, Users, BarChart3, ClipboardCheck, BookOpen, Menu, X, ArrowLeft, Trash2, ListChecks, Wallet } from 'lucide-react'
+import { LogOut, User, Loader2, LayoutDashboard, Receipt, CheckSquare, Users, BarChart3, ClipboardCheck, BookOpen, Menu, X, ArrowLeft, Trash2, ListChecks, Wallet, DollarSign, Store, HeartHandshake, ChevronDown } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useApprovals } from '../lib/ApprovalsContext'
+import { canAccessLabaRugi } from '../lib/labaRugiAccess'
 
 export type NavItem = { 
   href: string; 
@@ -15,6 +16,8 @@ export type NavItem = {
   appKey?: 'inventori';
   allowedRoles?: string[];
   excludedRoles?: string[];
+  requiresLabaRugiAccess?: boolean;
+  children?: NavItem[];
 }
 export type NavGroup = { title: string; items: NavItem[] }
 
@@ -24,6 +27,16 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/', label: 'Overview', icon: LayoutDashboard },
       { href: '/reports', label: 'Laporan', icon: BarChart3 },
+      {
+        href: '/laba-rugi',
+        label: 'Laba Rugi',
+        icon: DollarSign,
+        requiresLabaRugiAccess: true,
+        children: [
+          { href: '/laba-rugi/internal', label: 'Laba Rugi Internal', icon: Store },
+          { href: '/laba-rugi/mitra', label: 'Laba Rugi Mitra', icon: HeartHandshake },
+        ],
+      },
       { href: '/buku-kas', label: 'Buku Kas (OPEX)', icon: Wallet },
       { href: '/inventaris-sidak', label: 'Sidak Inventaris', icon: ClipboardCheck, allowedRoles: ['regional_manager', 'area_manager'] },
       { href: '/ceklist-harian', label: 'Ceklist Harian', icon: ListChecks, allowedRoles: ['regional_manager', 'area_manager', 'admin', 'owner', 'developer'] },
@@ -57,10 +70,13 @@ interface ManagerLayoutProps {
 
 export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
   const pathname = usePathname()
-  const { outletStaff, signOut } = useAuth()
+  const { outletStaff, user, signOut } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isMenuSheetOpen, setIsMenuSheetOpen] = useState(false)
+  const [expandedParents, setExpandedParents] = useState<Record<string, boolean>>({
+    '/laba-rugi': true,
+  })
   const [inventoriUrl, setInventoriUrl] = useState(
     process.env.NEXT_PUBLIC_APP_URL_INVENTORI || 'https://inventori.sukashawarma.com',
   )
@@ -72,6 +88,9 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
   const defaultTitle = "Manager Dashboard"
 
   const isItemVisible = (item: NavItem) => {
+    if (item.requiresLabaRugiAccess) {
+      return canAccessLabaRugi(outletStaff, user?.email)
+    }
     if (!outletStaff) return true
     if (outletStaff.role === 'developer') return true // superuser teknis
     if (item.excludedRoles && item.excludedRoles.includes(outletStaff.role)) return false
@@ -86,9 +105,13 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
     }))
     .filter(group => group.items.length > 0)
 
-  const allLinks = visibleGroups.flatMap(g => g.items)
+  const allLinks = visibleGroups.flatMap(g =>
+    g.items.flatMap(item => (item.children ? [...item.children, item] : [item]))
+  )
 
-  const currentNavPath = allLinks.find(l => !l.external && l.href !== homePath && pathname.startsWith(l.href))?.href ?? homePath
+  const currentNavPath =
+    allLinks.find(l => !l.external && l.href !== homePath && (pathname === l.href || pathname.startsWith(l.href + '/')))?.href ??
+    homePath
   const currentLink = allLinks.find(l => l.href === currentNavPath)
 
   const userMenuRef = useRef<HTMLDivElement>(null)
@@ -142,36 +165,79 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
                 {group.title}
               </div>
               <div className="space-y-0.5">
-                {group.items.map(({ href, label, icon: Icon, appKey }) => {
-                  const active = currentNavPath === href
+                {group.items.map((item) => {
+                  const { href, label, icon: Icon, appKey, children: subItems } = item
+                  const hasChildren = Boolean(subItems && subItems.length > 0)
+                  const isExactActive = currentNavPath === href
+                  const hasActiveChild = hasChildren && subItems!.some(c => currentNavPath === c.href)
+                  const active = isExactActive
                   const count = href === '/approvals' ? (pendingRequests.length + pendingReturCount) : href === '/waste' ? pendingWasteCount : 0
                   const targetHref = appKey === 'inventori' ? inventoriUrl : href
+                  const isExpanded = expandedParents[href] ?? true
 
                   return (
-                    <Link
-                      key={href}
-                      href={targetHref}
-                      prefetch={true}
-                      className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                        active
-                          ? 'bg-suka-orange text-white shadow-xs'
-                          : 'text-suka-brown/70 hover:bg-suka-brown/5 hover:text-suka-brown'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Icon className={`w-4 h-4 ${active ? 'text-white' : 'text-suka-gray-400'}`} />
-                        <span>{label}</span>
+                    <div key={href} className="space-y-0.5">
+                      <div className="flex items-center gap-1">
+                        <Link
+                          href={targetHref}
+                          prefetch={true}
+                          className={`flex-1 flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                            active
+                              ? 'bg-suka-orange text-white shadow-xs'
+                              : hasActiveChild
+                                ? 'bg-suka-orange/10 text-suka-orange'
+                                : 'text-suka-brown/70 hover:bg-suka-brown/5 hover:text-suka-brown'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Icon className={`w-4 h-4 ${active ? 'text-white' : hasActiveChild ? 'text-suka-orange' : 'text-suka-gray-400'}`} />
+                            <span>{label}</span>
+                          </div>
+                          {count > 0 && (
+                            <span className={`px-2 py-0.5 text-[10px] font-black rounded-full ${
+                              active 
+                                ? 'bg-white text-suka-orange' 
+                                : 'bg-suka-orange text-white'
+                            }`}>
+                              {count}
+                            </span>
+                          )}
+                        </Link>
+                        {hasChildren && (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedParents(prev => ({ ...prev, [href]: !isExpanded }))}
+                            aria-label={`Toggle submenu ${label}`}
+                            className="p-1.5 rounded-lg text-suka-gray-400 hover:text-suka-brown hover:bg-suka-brown/5 transition-colors cursor-pointer"
+                          >
+                            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                          </button>
+                        )}
                       </div>
-                      {count > 0 && (
-                        <span className={`px-2 py-0.5 text-[10px] font-black rounded-full ${
-                          active 
-                            ? 'bg-white text-suka-orange' 
-                            : 'bg-suka-orange text-white'
-                        }`}>
-                          {count}
-                        </span>
+                      {hasChildren && isExpanded && (
+                        <div className="ml-4 pl-2.5 border-l border-suka-brown/10 space-y-0.5">
+                          {subItems!.map((child) => {
+                            const ChildIcon = child.icon
+                            const childActive = currentNavPath === child.href
+                            return (
+                              <Link
+                                key={child.href}
+                                href={child.href}
+                                prefetch={true}
+                                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                                  childActive
+                                    ? 'bg-suka-orange text-white shadow-xs'
+                                    : 'text-suka-brown/65 hover:bg-suka-brown/5 hover:text-suka-brown'
+                                }`}
+                              >
+                                <ChildIcon className={`w-3.5 h-3.5 ${childActive ? 'text-white' : 'text-suka-gray-400'}`} />
+                                <span>{child.label}</span>
+                              </Link>
+                            )
+                          })}
+                        </div>
                       )}
-                    </Link>
+                    </div>
                   )
                 })}
               </div>
@@ -362,7 +428,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
                       {group.title}
                     </h3>
                     <div className="grid grid-cols-2 gap-2">
-                      {group.items.map(({ href, label, icon: Icon, appKey }) => {
+                      {group.items.flatMap((item) => item.children ? [item, ...item.children] : [item]).map(({ href, label, icon: Icon, appKey }) => {
                         const active = currentNavPath === href
                         const count = href === '/approvals' ? (pendingRequests.length + pendingReturCount) : href === '/waste' ? pendingWasteCount : 0
                         const targetHref = appKey === 'inventori' ? inventoriUrl : href

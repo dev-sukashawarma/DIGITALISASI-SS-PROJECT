@@ -1,0 +1,89 @@
+import { Wallet, Users, Award, UserCog, Clock, Megaphone, Star, Tag,
+  Droplets, Zap, Wifi, Home, Globe, Building2, Landmark, type LucideIcon } from 'lucide-react'
+
+export const OUTLET_CATEGORIES = [
+  'pengeluaran_outlet', 'gaji_crew_outlet', 'bonus_leader', 'bonus_area_manager',
+  'lembur', 'ads', 'endorsement', 'promo', 'pdam', 'pln', 'gas', 'internet', 'sewa_outlet',
+  'joint_expense', 'salary', 'bahan_baku', 'transport', 'utilitas', 'lainnya',
+  'bonus_crew', 'bonus_regional_manager'
+] as const
+export const PUSAT_CATEGORIES = ['pengeluaran_global', 'gaji_staff_kantor'] as const
+export const INCOME_CATEGORIES = ['pemasukan_lain', 'modal_awal', 'setoran_owner'] as const
+export const PENGELUARAN_CATEGORIES = [...OUTLET_CATEGORIES, ...PUSAT_CATEGORIES] as const
+/**
+ * Ditanggung dana investasi (RAB pembukaan outlet): dicatat dengan type 'rab',
+ * TIDAK PERNAH dihitung OPEX/laba. Sengaja di luar PENGELUARAN_CATEGORIES
+ * supaya tidak pernah ikut daftar/perhitungan kategori OPEX. Lihat lib/pengeluaran/rab.ts.
+ */
+export const RAB_CATEGORIES = ['rab'] as const
+
+export const EXPENSE_CATEGORIES = [...OUTLET_CATEGORIES, ...PUSAT_CATEGORIES, ...INCOME_CATEGORIES, ...RAB_CATEGORIES] as const
+export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number]
+export type ExpenseScope = 'outlet' | 'pusat'
+export type TransactionType = 'income' | 'expense'
+
+const PUSAT_SET = new Set<string>(PUSAT_CATEGORIES)
+export function deriveScope(category: string, outletId?: string | null): ExpenseScope {
+  if (outletId && outletId !== 'ffffffff-ffff-ffff-ffff-ffffffffffff' && outletId !== '00000000-0000-0000-0000-000000000000') {
+    return 'outlet'
+  }
+  return PUSAT_SET.has(category) ? 'pusat' : 'outlet'
+}
+
+export const SALARY_CATEGORIES = [
+  'salary',
+  'gaji_crew_outlet',
+  'gaji_staff_kantor',
+  'bonus_leader',
+  'bonus_area_manager',
+  'bonus_crew',
+  'bonus_regional_manager',
+  'lembur'
+] as const
+
+export function isSalaryCategory(category: string): boolean {
+  return (SALARY_CATEGORIES as readonly string[]).includes(category)
+}
+
+/**
+ * Mendeteksi apakah suatu transaksi adalah lemburan outlet/petty cash
+ * baik dari kategori sistem ('lembur', 'overtime') maupun dari kata kunci deskripsi.
+ */
+export function isLemburExpense(category?: string | null, description?: string | null): boolean {
+  if (!category && !description) return false
+  const cat = (category || '').toLowerCase().trim()
+  if (cat === 'lembur' || cat === 'overtime') return true
+  const d = (description || '').toLowerCase()
+  if (d.includes('hpp menu kol') || d.includes('kol -')) return false
+  return /\blembur(?:an)?\b/i.test(d) || /\bovertime\b/i.test(d)
+}
+
+export const CATEGORY_META: Record<ExpenseCategory, { label: string; color: string; icon: LucideIcon }> = {
+  pengeluaran_outlet: { label: 'Pengeluaran Outlet', color: '#4b5563', icon: Wallet },
+  gaji_crew_outlet:   { label: 'Gaji Crew Outlet',   color: '#701604', icon: Users },
+  bonus_leader:       { label: 'Bonus Leader',       color: '#b45309', icon: Award },
+  bonus_area_manager: { label: 'Bonus Area Manager', color: '#92400e', icon: UserCog },
+  lembur:             { label: 'Lembur',             color: '#c2410c', icon: Clock },
+  ads:                { label: 'Ads',                color: '#2563eb', icon: Megaphone },
+  endorsement:        { label: 'Endorsement',        color: '#7c3aed', icon: Star },
+  promo:              { label: 'Promo',              color: '#db2777', icon: Tag },
+  pdam:               { label: 'PDAM',               color: '#0891b2', icon: Droplets },
+  pln:                { label: 'PLN',                color: '#0a7d2c', icon: Zap },
+  gas:                { label: 'Gas',                color: '#ea580c', icon: Wallet },
+  internet:           { label: 'Internet',           color: '#0d9488', icon: Wifi },
+  sewa_outlet:        { label: 'Biaya Sewa Outlet',  color: '#d97706', icon: Home },
+  joint_expense:      { label: 'Joint Expense',      color: '#dc2626', icon: Globe },
+  salary:             { label: 'Salary',             color: '#8b5cf6', icon: Users },
+  pengeluaran_global: { label: 'Pengeluaran Global', color: '#dc2626', icon: Globe },
+  gaji_staff_kantor:  { label: 'Gaji Staff Kantor',  color: '#9f1239', icon: Building2 },
+  pemasukan_lain:     { label: 'Pemasukan Lain',     color: '#16a34a', icon: Wallet },
+  modal_awal:         { label: 'Modal Awal',         color: '#059669', icon: Wallet },
+  setoran_owner:      { label: 'Setoran Owner',      color: '#10b981', icon: Wallet },
+  bahan_baku:         { label: 'Bahan Baku Lainnya',  color: '#ca8a04', icon: Wallet },
+  utilitas:           { label: 'Utilitas',           color: '#0891b2', icon: Zap },
+  transport:          { label: 'Transport',          color: '#0369a1', icon: Wallet },
+  lainnya:            { label: 'Lainnya',            color: '#4b5563', icon: Wallet },
+  bonus_crew:         { label: 'Bonus Crew',         color: '#b45309', icon: Award },
+  bonus_regional_manager: { label: 'Bonus Regional Manager', color: '#92400e', icon: UserCog },
+  rab:                { label: 'RAB (Ditanggung Investasi)', color: '#0369a1', icon: Landmark },
+}

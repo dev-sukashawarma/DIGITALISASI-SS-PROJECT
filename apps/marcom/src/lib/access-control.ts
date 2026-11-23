@@ -46,19 +46,21 @@ export function isRouteAllowed(
     return true
   }
 
-  // Melani: restricted to Konten Planner and Katalog Menu & Promo
+  // Melani: restricted to Konten Planner, Katalog Menu & Promo, and Laba Rugi
   if (isMelani(email)) {
     return (
       pathname.startsWith('/dashboard/content-planner') ||
-      pathname.startsWith('/dashboard/menu')
+      pathname.startsWith('/dashboard/menu') ||
+      pathname.startsWith('/dashboard/laba-rugi')
     )
   }
 
-  // Putri Hambali: restricted from Konten Planner, Katalog Menu & Promo, and Admin Users
+  // Putri Hambali: restricted from Konten Planner, Katalog Menu & Promo, Laba Rugi, and Admin Users
   if (isPutriHambali(email)) {
     if (
       pathname.startsWith('/dashboard/content-planner') ||
       pathname.startsWith('/dashboard/menu') ||
+      pathname.startsWith('/dashboard/laba-rugi') ||
       pathname.startsWith('/dashboard/users')
     ) {
       return false
@@ -66,8 +68,8 @@ export function isRouteAllowed(
     return true
   }
 
-  // Standard non-admin marcom: cannot access /dashboard/users
-  if (pathname.startsWith('/dashboard/users')) {
+  // Standard non-admin marcom: cannot access /dashboard/users or /dashboard/laba-rugi
+  if (pathname.startsWith('/dashboard/users') || pathname.startsWith('/dashboard/laba-rugi')) {
     return false
   }
 

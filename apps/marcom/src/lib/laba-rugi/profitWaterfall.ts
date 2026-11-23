@@ -1,0 +1,261 @@
+/**
+ * Rincian pembentuk Laba Bersih, langkah demi langkah.
+ *
+ * Urutannya mengikuti `computeProfit`/`computeCompanyProfit` PERSIS — termasuk
+ * kenyataan bahwa waste TIDAK mengurangi laba kotor melainkan dipotong di
+ * tahap laba bersih. Kalau rumus di profit.ts berubah, test di sini merah
+ * lebih dulu ketimbang rincian dan angka besarnya diam-diam berbeda.
+ */
+
+export type WaterfallKind = 'base' | 'deduction' | 'subtotal' | 'total'
+
+export interface WaterfallStep {
+  key: string
+  label: string
+  /** Bertanda: pengurangan negatif, omzet dasar positif. Subtotal = nilai berjalan. */
+  amount: number
+  kind: WaterfallKind
+  /** Porsi terhadap omzet kotor, dalam persen. 0 bila belum ada penjualan. */
+  pctOfGross: number
+  /** Label kustom untuk persentase jika basisnya bukan omzet kotor saat ini (misal 3% Gross Mitra). */
+  pctLabel?: string
+  /** Penjelasan singkat, ditampilkan di bawah label. */
+  hint?: string
+  /**
+   * Rincian pembentuk baris ini, bila ada. Murni informatif — jumlahnya wajib
+   * sama dengan `amount` dan tidak pernah ikut dihitung ulang ke dalam rantai.
+   */
+  breakdown?: WaterfallDetail[]
+}
+
+export interface WaterfallDetail {
+  label: string
+  /** Bertanda sama dengan baris induknya (pengurangan = negatif). */
+  amount: number
+}
+
+export interface WaterfallInput {
+  grossRevenue: number
+  deductions: number
+  hpp: number
+  waste: number
+  opexMonthly: number
+  opexPettyCash: number
+  centralExpense: number
+  /** Joint Expense (biaya bersama operasional antar-outlet) bila ada. */
+  jointExpense?: number
+  /** Lembur kas toko (petty cash / kasir) bila ada. */
+  opexLembur?: number
+  /** Biaya kantor pusat hanya ikut pada tampilan gabungan seluruh outlet. */
+  includeCentral: boolean
+  /** Rincian pembentuk Beban Head Office (misal beban kotor + potongan Fee Manajemen 3%). */
+  centralExpenseBreakdown?: WaterfallDetail[]
+  opexMonthlyBreakdown?: WaterfallDetail[]
+  /** Income Lainnya Kas Office (pendapatan pusat); hanya ikut bila includeCentral. */
+  pendapatanLain?: number
+  /** Pendapatan management fee dari mitra (khusus scope internal). */
+  managementFeeIncome?: number
+  /** Pendapatan margin pasokan bahan baku mitra (10% HPP dasar) untuk pusat/holding. */
+  mitraHppMarginIncome?: number
+  /** Potongan management fee pusat (khusus scope mitra). */
+  managementFeeExpense?: number
+  /** Potongan bagi hasil ke pusat untuk outlet mitra yang sudah BEP (misal 50% laba bersih). */
+  bepProfitShareExpense?: number
+  /** Rincian omzet kotor per channel penjualan. */
+  grossRevenueBreakdown?: WaterfallDetail[]
+  /** Rincian potongan merchant per channel penjualan. */
+  deductionsBreakdown?: WaterfallDetail[]
+}
+
+export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
+  const {
+    grossRevenue, deductions, hpp, waste,
+    opexMonthly, opexPettyCash, centralExpense, includeCentral,
+    jointExpense = 0,
+    opexLembur = 0,
+    opexMonthlyBreakdown,
+    centralExpenseBreakdown,
+    managementFeeIncome = 0,
+    pendapatanLain = 0,
+    mitraHppMarginIncome = 0,
+    managementFeeExpense = 0,
+    bepProfitShareExpense = 0,
+    grossRevenueBreakdown,
+    deductionsBreakdown,
+  } = input
+
+  const pct = (n: number) => (grossRevenue > 0 ? (n / grossRevenue) * 100 : 0)
+
+  // Fee manajemen dan margin pasokan bahan adalah transaksi ANTAR-KANTONG
+  // (pusat <-> mitra). Keduanya diletakkan berpasangan di blok yang sama,
+  // di atas Pendapatan Bersih, supaya pada tampilan gabungan sisi pendapatan
+  // dan sisi bebannya saling menghapus DI DEPAN MATA -- bukan dengan
+  // menghilangkan salah satunya dari layar.
+  //
+  // Beban fee sengaja TIDAK lagi diletakkan di bawah bersama opex: selama ia
+  // di sana, tampilan gabungan mengakui pendapatannya tanpa pernah membukukan
+  // bebannya, sehingga `all` tak pernah sama dengan `internal` + `mitra`.
+  const netRevenue = grossRevenue - deductions + managementFeeIncome + mitraHppMarginIncome - managementFeeExpense
+  const labaKotor = netRevenue - hpp
+  const opex = opexMonthly + jointExpense + opexLembur + opexPettyCash + (includeCentral ? centralExpense : 0)
+  const pendapatanLainEfektif = includeCentral ? pendapatanLain : 0
+  const labaBersih = labaKotor - waste - opex - bepProfitShareExpense + pendapatanLainEfektif
+
+  const steps: WaterfallStep[] = [
+    {
+      key: 'omzet_kotor',
+      label: 'Omzet Kotor Penjualan',
+      hint: 'Nilai penjualan sebelum potongan apa pun',
+      amount: grossRevenue,
+      kind: 'base',
+      pctOfGross: grossRevenue > 0 ? 100 : 0,
+      breakdown: grossRevenueBreakdown?.length ? grossRevenueBreakdown : undefined,
+    },
+    {
+      key: 'potongan',
+      label: 'Admin Fee',
+      hint: 'Diskon promo toko & komisi platform aplikasi',
+      amount: -deductions,
+      kind: 'deduction',
+      pctOfGross: pct(-deductions),
+      breakdown: deductionsBreakdown?.length ? deductionsBreakdown : undefined,
+    },
+    ...(managementFeeIncome > 0 ? [{
+      key: 'fee_manajemen_mitra',
+      label: 'Pendapatan Management Fee Mitra (3%)',
+      hint: `Fee pengelolaan 3% dari omzet kotor kemitraan (setara ${pct(managementFeeIncome).toFixed(1)}% terhadap omzet internal)`,
+      amount: managementFeeIncome,
+      kind: 'base' as const,
+      pctOfGross: pct(managementFeeIncome),
+      pctLabel: '3% Gross Mitra',
+    }] : []),
+    ...(mitraHppMarginIncome > 0 ? [{
+      key: 'margin_pasokan_mitra',
+      label: 'Pendapatan Margin Pasokan Bahan Baku Mitra (10% HPP Dasar)',
+      hint: `Margin 10% atas HPP dasar bahan baku resep untuk seluruh outlet kemitraan — selisih antara yang ditagihkan ke mitra dan modal bahan pusat (setara ${pct(mitraHppMarginIncome).toFixed(1)}% terhadap omzet kotor)`,
+      amount: mitraHppMarginIncome,
+      kind: 'base' as const,
+      pctOfGross: pct(mitraHppMarginIncome),
+      pctLabel: '10% HPP Dasar',
+    }] : []),
+    ...(managementFeeExpense > 0 ? [{
+      key: 'fee_manajemen_pusat',
+      label: 'Beban Management Fee Mitra ke Pusat (3%)',
+      hint: managementFeeIncome > 0
+        ? 'Sisi beban dari fee yang sama — pada tampilan gabungan ia menghapus baris pendapatannya di atas'
+        : 'Sisi beban unit kemitraan — sisi penerimaannya langsung mengurangi Beban Head Office di bawah (tanpa duplikasi)',
+      amount: -managementFeeExpense,
+      kind: 'deduction' as const,
+      pctOfGross: pct(-managementFeeExpense),
+    }] : []),
+    {
+      key: 'pendapatan_bersih',
+      label: 'Pendapatan Bersih',
+      amount: netRevenue,
+      kind: 'subtotal',
+      pctOfGross: pct(netRevenue),
+    },
+    {
+      key: 'hpp',
+      label: 'Beban Pokok (HPP Resep)',
+      hint: 'Modal bahan baku menurut resep menu yang terjual',
+      amount: -hpp,
+      kind: 'deduction',
+      pctOfGross: pct(-hpp),
+    },
+    {
+      key: 'laba_kotor',
+      label: 'Laba Kotor',
+      amount: labaKotor,
+      kind: 'subtotal',
+      pctOfGross: pct(labaKotor),
+    },
+    {
+      key: 'waste',
+      label: 'Kerugian Waste',
+      hint: 'Bahan rusak/basi — di luar HPP resep, memotong laba bersih',
+      amount: -waste,
+      kind: 'deduction',
+      pctOfGross: pct(-waste),
+    },
+    {
+      key: 'opex_bulanan',
+      label: 'Beban Bulanan Outlet',
+      hint: 'Gaji, listrik, air, internet, sewa',
+      amount: -opexMonthly,
+      kind: 'deduction',
+      pctOfGross: pct(-opexMonthly),
+      breakdown: opexMonthlyBreakdown?.length ? opexMonthlyBreakdown : undefined,
+    },
+    ...(jointExpense > 0 ? [{
+      key: 'joint_expense',
+      label: 'Joint Expense',
+      hint: 'Biaya bersama operasional antar-outlet',
+      amount: -jointExpense,
+      kind: 'deduction' as const,
+      pctOfGross: pct(-jointExpense),
+    }] : []),
+    ...(opexLembur > 0 ? [{
+      key: 'opex_lembur',
+      label: 'Lembur Kas Toko (Petty Cash)',
+      hint: 'Upah lembur kru harian via kas kecil kasir',
+      amount: -opexLembur,
+      kind: 'deduction' as const,
+      pctOfGross: pct(-opexLembur),
+    }] : []),
+    {
+      key: 'opex_petty_cash',
+      label: 'Pengeluaran Petty Cash Operasional',
+      hint: 'Belanja harian & operasional outlet',
+      amount: -opexPettyCash,
+      kind: 'deduction',
+      pctOfGross: pct(-opexPettyCash),
+    },
+  ]
+
+  if (includeCentral) {
+    steps.push({
+      key: 'biaya_pusat',
+      label: 'Beban Head Office',
+      hint: centralExpenseBreakdown?.length
+        ? 'Biaya manajemen bersih setelah dikurangi potongan Fee Manajemen Mitra 3%'
+        : 'Biaya manajemen, tidak dibebankan ke satu outlet',
+      amount: -centralExpense,
+      kind: 'deduction',
+      pctOfGross: pct(-centralExpense),
+      breakdown: centralExpenseBreakdown?.length ? centralExpenseBreakdown : undefined,
+    })
+  }
+
+  if (pendapatanLainEfektif > 0) {
+    steps.push({
+      key: 'pendapatan_lain',
+      label: 'Pendapatan Lain-lain',
+      hint: 'Income Lainnya Kas Office (penjualan barang bekas), pendapatan pusat',
+      amount: pendapatanLainEfektif,
+      kind: 'deduction',
+      pctOfGross: pct(pendapatanLainEfektif),
+    })
+  }
+
+  if (bepProfitShareExpense > 0) {
+    steps.push({
+      key: 'bagi_hasil_bep_pusat',
+      label: 'Bagi Hasil 50:50 ke Pusat (Outlet BEP)',
+      hint: 'Potongan bagi hasil 50:50 untuk kantor pusat dari outlet kemitraan yang sudah Balik Modal (BEP)',
+      amount: -bepProfitShareExpense,
+      kind: 'deduction',
+      pctOfGross: pct(-bepProfitShareExpense),
+    })
+  }
+
+  steps.push({
+    key: 'laba_bersih',
+    label: 'Laba Bersih',
+    amount: labaBersih,
+    kind: 'total',
+    pctOfGross: pct(labaBersih),
+  })
+
+  return steps
+}

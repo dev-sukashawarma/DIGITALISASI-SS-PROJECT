@@ -1,0 +1,2198 @@
+'use client'
+
+import { useMemo, useState, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase'
+import { useScopedFilter } from '@/components/laba-rugi/hooks'
+import { BiayaRabPanel } from '@/components/laba-rugi/BiayaRabPanel'
+import { useOutlets } from '@/components/laba-rugi/hooks'
+import { outletTampilDiPeriode } from '@/lib/laba-rugi/outletTutup'
+import { useSalesDaily } from '@/components/laba-rugi/hooks'
+import { useExpenses } from '@/components/laba-rugi/hooks'
+import { useHpp } from '@/components/laba-rugi/hooks'
+import { useWaste } from '@/components/laba-rugi/hooks'
+import { computeCompanyProfit } from '@/lib/laba-rugi/profit'
+import { PeriodFilter } from '@/components/laba-rugi/PeriodFilter'
+import type { Preset } from '@/lib/laba-rugi/period'
+import { rupiah } from '@/lib/laba-rugi/format'
+import { PageHeader, StatTilesSkeleton } from '@/components/laba-rugi/ui'
+import { toast } from 'sonner'
+import CountUp from '@/components/laba-rugi/CountUp'
+import { 
+  TrendingUp, 
+  Boxes, 
+  Layers, 
+  Receipt, 
+  Banknote, 
+  Calculator,
+  ShieldCheck,
+  AlertTriangle,
+  PieChart,
+  Store,
+  Sparkles,
+  Search,
+  Download,
+  Clock,
+  RefreshCw
+} from 'lucide-react'
+import { motion } from 'framer-motion'
+import { isTestOutlet } from '@/lib/laba-rugi/outletFilters'
+import { CATEGORY_META, isLemburExpense } from '@/lib/laba-rugi/expenseCategories'
+import { useMitraInvestments } from '@/components/laba-rugi/hooks'
+import { applyHoOpexManagementFeeOffset, computeMitraManagementFees } from '@/lib/laba-rugi/managementFee'
+import { NetProfitBreakdownModal } from '@/components/laba-rugi/NetProfitBreakdownModal'
+import { GrossSalesBreakdownModal } from '@/components/laba-rugi/GrossSalesBreakdownModal'
+import { CogsWasteBreakdownModal } from '@/components/laba-rugi/CogsWasteBreakdownModal'
+import { OpexBreakdownModal } from '@/components/laba-rugi/OpexBreakdownModal'
+import { DownloadProfitDataModal } from '@/components/laba-rugi/DownloadProfitDataModal'
+import { bukuKasHref, bukuKasHrefKartu, pettyCashHref } from '@/lib/laba-rugi/bukuKasLink'
+import { isInScope, mitraOutletIds, SCOPE_LABEL, type ProfitScope } from '@/lib/laba-rugi/outletOwnership'
+import { useProratedOpex } from '@/components/laba-rugi/hooks'
+import { useHRPayroll } from '@/components/laba-rugi/hooks'
+import { barisPayrollDariHr, gantiPayrollDenganHr } from '@/lib/laba-rugi/opexDariHr'
+import { terapkanClosingOpex, rentangClosingTepat } from '@/lib/laba-rugi/closing/terapkanClosingOpex'
+import {
+  pendapatanMitraClosingUntuk,
+  penyesuaianLabaKotorClosing,
+  closingLabaRugiMitraUntuk,
+  feeManajemenClosingMitra,
+  penyesuaianLabaRugiMitraClosing,
+  barisPenyesuaianOpexMitra,
+  labaKotorInternalPerOutletClosing,
+  penyesuaianLabaKotorOutletClosing,
+} from '@/lib/laba-rugi/closing/closingBulanan'
+import { PRORATED_CATEGORIES, adalahSemiTetap } from '@/lib/laba-rugi/opexProrata'
+import { clearPeriodCache } from '@/lib/laba-rugi/periodCache'
+import { createThrottledRefresher } from '@/lib/laba-rugi/realtimeThrottle'
+
+import { getSourceLabel } from '@/lib/laba-rugi/channels'
+import { useTikTokSettlement } from '@/components/laba-rugi/hooks'
+import { usePendapatanLain } from '@/components/laba-rugi/hooks'
+
+// Urutan & isi tombol preset disamakan dengan Buku Kas (OPEX).
+const PRESET_SAMA_DENGAN_BUKU_KAS: Preset[] = ['yesterday', 'today', '7d', 'this_month', 'last_month']
+
+function labelKategoriOpex(kategori: string, payrollDariHr: boolean): string {
+  if (payrollDariHr && kategori === 'bonus_area_manager') return 'Bonus AM & RM'
+  return CATEGORY_META[kategori as keyof typeof CATEGORY_META]?.label ?? kategori
+}
+
+function formatLastUpdated(dateIso?: string) {
+  if (!dateIso) return ''
+  try {
+    const d = new Date(dateIso)
+    return new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).format(d) + ' WIB'
+  } catch {
+    return ''
+  }
+}
+
+export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
+  const queryClient = useQueryClient()
+  const supabase = createClient()
+
+  const { data: rawOutlets = [] } = useOutlets()
+  const { investments: mitraInvestments, loading: mitraLoading } = useMitraInvestments()
+
+  const allOutlets = useMemo(() => [
+    { id: 'ss-online', name: 'SS ONLINE', type: 'online' } as any,
+    ...rawOutlets.filter(o => !isTestOutlet(o))
+  ], [rawOutlets])
+
+  const { filter, setFilter, lockedOutletId } = useScopedFilter()
+
+  // Himpunan outlet kemitraan — dasar pemisahan Internal vs Mitra.
+  const mitraIds = useMemo(
+    () => mitraOutletIds(allOutlets, mitraInvestments),
+    [allOutlets, mitraInvestments],
+  )
+  // Closing September 2026: semua transaksi outlet mitra di bulan itu milik kolom
+  // mitra (sheet FIXED), termasuk yang sebelum tanggal mulai kemitraan (Pamulang
+  // 8 Sep, Sawangan DTC 26 Sep) — jadi batas tanggal mulai tidak dipakai.
+  const abaikanTanggalMulai = rentangClosingTepat(filter.from, filter.to)
+  const cutoffDates = useMemo(() => {
+    const map = new Map<string, string>()
+    if (abaikanTanggalMulai) return map
+    for (const [id, inv] of Object.entries(mitraInvestments)) {
+      if (inv?.tanggal_mulai) {
+        map.set(id, inv.tanggal_mulai)
+      }
+    }
+    return map
+  }, [mitraInvestments, abaikanTanggalMulai])
+
+  const inScope = useMemo(
+    () => (outletId: string | null | undefined, dateStr?: string | null) => {
+      const targetDate = dateStr ?? filter.to ?? filter.from
+      return isInScope(scope, outletId, mitraIds, targetDate, cutoffDates)
+    },
+    [scope, mitraIds, filter.to, filter.from, cutoffDates],
+  )
+
+  // Daftar outlet (dropdown filter & seed tabel) ikut menyempit sesuai scope.
+  const outlets = useMemo(
+    () => allOutlets.filter(o => inScope(o.id)),
+    [allOutlets, inScope],
+  )
+
+  // Filter outlet tersimpan di store lintas halaman. Kalau pengguna memilih
+  // satu outlet di tab Internal lalu pindah ke tab Mitra, outlet itu tak ada
+  // lagi di daftar — tanpa reset ini seluruh angka jadi nol tanpa penjelasan.
+  useEffect(() => {
+    if (mitraLoading || lockedOutletId) return
+    if (filter.outletId === 'all') return
+    if (inScope(filter.outletId)) return
+    setFilter({ ...filter, outletId: 'all' })
+  }, [mitraLoading, lockedOutletId, filter, inScope, setFilter])
+
+  // Laba Rugi Global hanya punya satu arti: seluruh outlet. Pemilih outletnya
+  // disembunyikan, dan nilainya DIPAKSA 'all' — bukan sekadar disembunyikan.
+  //
+  // Filter outlet hidup di store lintas halaman, dan penjaga di atas tak pernah
+  // menolaknya di scope 'all' (semua outlet dianggap in-scope). Tanpa paksaan
+  // ini, memilih satu outlet di halaman lain membuat Laba Rugi Global terbuka
+  // dalam keadaan sudah terfilter — diam-diam tanpa opex kantor pusat, karena
+  // opex itu hanya ikut saat `isAllOutlets`.
+  //
+  // `lockedOutletId` (role mitra, read-only) TIDAK boleh ditimpa: kuncinya
+  // justru yang menjaga mereka melihat outletnya sendiri saja.
+  const hideOutletPicker = scope === 'all' && !lockedOutletId
+  useEffect(() => {
+    if (!hideOutletPicker) return
+    if (filter.outletId === 'all') return
+    setFilter({ ...filter, outletId: 'all' })
+  }, [hideOutletPicker, filter, setFilter])
+
+  const [outletSearch, setOutletSearch] = useState('')
+  const [sortBy, setSortBy] = useState<'net' | 'margin' | 'omzet'>('net')
+  const [lastUpdated, setLastUpdated] = useState<string>(() => new Date().toISOString())
+  const todayJakarta = useMemo(() => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date()), [])
+  const isPast = filter.to < todayJakarta
+
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      clearPeriodCache()
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['sales-daily'] }),
+        queryClient.refetchQueries({ queryKey: ['expenses'] }),
+        queryClient.refetchQueries({ queryKey: ['hpp-client-calculated'] }),
+        queryClient.refetchQueries({ queryKey: ['hpp-client-calculated-v3'] }),
+        queryClient.refetchQueries({ queryKey: ['waste'] }),
+        queryClient.refetchQueries({ queryKey: ['prorata-auxiliary-data'] }),
+        queryClient.refetchQueries({ queryKey: ['hr_payroll_summary'] }),
+        queryClient.refetchQueries({ queryKey: ['mitra-investments'] }),
+        queryClient.refetchQueries({ queryKey: ['outlets'] }),
+      ])
+      setLastUpdated(new Date().toISOString())
+      toast.success('Memperbarui data laba rugi dari database...')
+    } catch (err) {
+      console.error('Failed to refresh profit data:', err)
+      toast.error('Gagal memperbarui data laba rugi')
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  useEffect(() => {
+    // Debounce 600 ms lama hampir selalu "menyala" di jam ramai (jeda 600 ms
+    // antar-order itu sering), dan tiap nyala mengunduh ulang HPP ±30.000
+    // order + 90.000 item. Kini maks. sekali per 30 detik (event pertama tetap
+    // langsung), dan ditunda selama tab tersembunyi.
+    const refresher = createThrottledRefresher(() => {
+        clearPeriodCache()
+        queryClient.invalidateQueries({ queryKey: ['sales-daily'] })
+        queryClient.invalidateQueries({ queryKey: ['expenses'] })
+        queryClient.invalidateQueries({ queryKey: ['hpp-client-calculated'] })
+        queryClient.invalidateQueries({ queryKey: ['hpp-client-calculated-v3'] })
+        queryClient.invalidateQueries({ queryKey: ['waste'] })
+        queryClient.invalidateQueries({ queryKey: ['prorata-auxiliary-data'] })
+        queryClient.invalidateQueries({ queryKey: ['hr_payroll_summary'] })
+        queryClient.invalidateQueries({ queryKey: ['mitra-investments'] })
+        queryClient.invalidateQueries({ queryKey: ['outlets'] })
+    }, 30_000)
+    const invalidate = () => refresher.trigger()
+
+    const channel = supabase
+      .channel('profit-realtime-sub')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_expenses' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'waste_records' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payroll_records' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_financials' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mitra_investments' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'outlets' }, invalidate)
+      .subscribe()
+
+    return () => {
+      refresher.dispose()
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, queryClient])
+
+  const effectiveFilter = useMemo(() => ({ ...filter, source: 'all' as const }), [filter])
+  
+  const sales = useSalesDaily(effectiveFilter, outlets)
+  const expenses = useExpenses(effectiveFilter)
+  const hpp = useHpp(effectiveFilter)
+  const waste = useWaste(effectiveFilter)
+  const { settlements: tiktokSettlements } = useTikTokSettlement({
+    from: effectiveFilter.from,
+    to: effectiveFilter.to,
+  })
+
+  // Penyaringan scope dipasang SEKALI di sumber datanya, bukan di tiap
+  // perhitungan — hero metrics, laporan P&L, leaderboard, dan ekspor CSV/PDF
+  // semuanya membaca baris yang sudah disaring ini.
+  const salesRows = useMemo(() => sales.rows.filter(r => inScope(r.outlet_id, (r as any).sales_date || (r as any).date || (r as any).order_date)), [sales.rows, inScope])
+  const hppRows = useMemo(() => hpp.rows.filter(r => inScope(r.outlet_id, (r as any).date || (r as any).order_date)), [hpp.rows, inScope])
+  const wasteRows = useMemo(() => waste.rows.filter(r => inScope(r.outlet_id, (r as any).date || (r as any).created_at)), [waste.rows, inScope])
+  // Biaya pusat (`scope === 'pusat'`) tak punya outlet_id: ia beban kantor
+  // pusat, jadi ikut di tampilan gabungan & Internal, tapi tidak di Mitra.
+  const rawExpenseRows = useMemo(
+    () => expenses.rows.filter(r => (r.scope === 'pusat' ? scope !== 'mitra' : inScope(r.outlet_id, (r as any).expense_date || (r as any).date))),
+    [expenses.rows, inScope, scope],
+  )
+
+  const {
+    rows: prorataRows,
+    isProrated,
+    monthInfo: prorataMonthInfo,
+    loading: prorataLoading,
+  } = useProratedOpex({
+    filter: effectiveFilter,
+    rawExpenses: rawExpenseRows,
+    outlets,
+    // Gaji staf kantor pusat (HR) = biaya pusat: ikut di Global & Internal, tidak di Mitra.
+    includeOfficePayroll: scope !== 'mitra',
+  })
+
+  // Mesin prorata membuat baris gaji/bonus/internet untuk SEMUA outlet yang
+  // punya slip HR — bukan hanya outlet yang lolos saringan scope di atas.
+  // Tanpa saringan kedua ini, Laba Rugi Mitra ikut memikul gaji outlet
+  // internal (dan sebaliknya). Ekspor (profitExportFetcher) sudah menyaring
+  // setelah prorata; layar harus sama.
+  //
+  // Gaji & bonus outlet: sumber kebenaran OPEX adalah Buku Kas, yang menghitungnya
+  // dari ringkasan payroll HR. Baris gaji/bonus buatan mesin prorata diganti
+  // dengan baris HR itu (lihat lib/opexDariHr.ts); kalau HR belum punya slip
+  // untuk rentang ini, angka mesin tetap dipakai — sama seperti kartu Buku Kas.
+  const hrFilter = useMemo(
+    () => ({ from: effectiveFilter.from, to: effectiveFilter.to, outletId: 'ALL_OUTLETS' }),
+    [effectiveFilter.from, effectiveFilter.to],
+  )
+  const hrPayroll = useHRPayroll(hrFilter)
+  // Closing OPEX September 2026 (lib/closing): untuk rentang tepat 1–30 Sep,
+  // baris "Penyesuaian closing" menyamakan OPEX internal & HQ dengan sheet FIXED.
+  const hasilClosingOpex = useMemo(() => {
+    let barisHr = barisPayrollDariHr({ hr: hrPayroll.data, from: effectiveFilter.from, to: effectiveFilter.to })
+    if (barisHr && effectiveFilter.outletId !== 'all') {
+      barisHr = barisHr.filter(r => r.outlet_id === effectiveFilter.outletId)
+    }
+    return terapkanClosingOpex(gantiPayrollDenganHr(prorataRows, barisHr), {
+      from: effectiveFilter.from,
+      to: effectiveFilter.to,
+      outletId: effectiveFilter.outletId,
+    })
+  }, [prorataRows, hrPayroll.data, effectiveFilter.from, effectiveFilter.to, effectiveFilter.outletId])
+  // Closing Laba Rugi Mitra (Oktober 2026, semua outlet): angka per outlet mitra
+  // mengikuti laporan closing. OPEX disamakan lewat baris penyesuaian per outlet.
+  const closingMitra = scope === 'mitra'
+    ? closingLabaRugiMitraUntuk(effectiveFilter.from, effectiveFilter.to, filter.outletId)
+    : null
+  // Closing per outlet internal (Oktober 2026): tabel per outlet & filter satu outlet.
+  const closingInternalPerOutlet = scope === 'internal'
+    ? labaKotorInternalPerOutletClosing(effectiveFilter.from, effectiveFilter.to)
+    : null
+  const expenseRows = useMemo(() => {
+    const rows = hasilClosingOpex.rows
+      .filter(r => (r.scope === 'pusat' ? scope !== 'mitra' : inScope(r.outlet_id, (r as any).expense_date || (r as any).date)))
+    return closingMitra ? [...rows, ...barisPenyesuaianOpexMitra(closingMitra, rows, mitraIds)] : rows
+  }, [hasilClosingOpex, inScope, scope, closingMitra, mitraIds])
+
+  // Baris gaji/bonus berasal dari ringkasan HR (id 'hr-…')? Bonus dari HR adalah
+  // angka nyata rentang itu (bukan prorata), dan bonus AM & RM digabung satu baris.
+  const payrollDariHr = useMemo(() => expenseRows.some(r => String(r.id).startsWith('hr-bonus') || String(r.id).startsWith('hr-gaji-') && r.scope === 'outlet'), [expenseRows])
+
+  const loading = sales.loading || expenses.loading || hpp.loading || waste.loading || mitraLoading || prorataLoading || hrPayroll.isLoading
+  const error = sales.error || expenses.error || hpp.error || waste.error
+
+  const isAllOutlets = filter.outletId === 'all'
+  const includeCentral = isAllOutlets && scope !== 'mitra'
+  const pengeluaranPusatRaw = useMemo(
+    () => expenseRows.filter(r => r.scope === 'pusat').reduce((sum, r) => sum + r.amount, 0),
+    [expenseRows],
+  )
+
+  // Perhitungan Management Fee Kemitraan terpusat (< Nov 2026 di pendapatan pusat, >= Nov 2026 memotong OPEX Head Office)
+  const managementFeeData = useMemo(
+    () =>
+      computeMitraManagementFees({
+        salesRows: sales.rows,
+        outlets: allOutlets,
+        investments: mitraInvestments,
+        periodFrom: effectiveFilter.from,
+        periodTo: effectiveFilter.to,
+      }),
+    [sales.rows, allOutlets, mitraInvestments, effectiveFilter.from, effectiveFilter.to],
+  )
+
+  // Omzet penjualan outlet (sebelum ditambahkan management fee)
+  const actualGrossSalesLive = useMemo(
+    () => salesRows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0), 0), 
+    [salesRows]
+  )
+
+  // Closing bulanan (Laba Rugi Internal, semua outlet): pendapatan pusat dari mitra =
+  // baris NET PROFIT SS + NET PROFIT HPP laporan resmi, bukan hitungan live.
+  const pendapatanMitraClosing = scope === 'internal' && isAllOutlets
+    ? pendapatanMitraClosingUntuk(effectiveFilter.from, effectiveFilter.to)
+    : null
+
+  const hoFeeOffset = useMemo(
+    () =>
+      applyHoOpexManagementFeeOffset(
+        includeCentral ? pengeluaranPusatRaw : 0,
+        includeCentral && !pendapatanMitraClosing ? managementFeeData.totalFeeForHoOpex : 0,
+      ),
+    [includeCentral, pengeluaranPusatRaw, pendapatanMitraClosing, managementFeeData.totalFeeForHoOpex],
+  )
+  const pengeluaranPusat = includeCentral ? hoFeeOffset.netHoOpex : pengeluaranPusatRaw
+
+  // Penerimaan Management Fee oleh Head Office (scope all & internal):
+  // Sebelum Nov 2026 dicatat di pendapatan pusat; mulai Nov 2026 dialokasikan memotong OPEX Head Office (hanya surplus di atas OPEX HO yang tetap di sini).
+  const managementFeeReceived = pendapatanMitraClosing
+    ? pendapatanMitraClosing.feeManajemen
+    : (scope === 'all' || scope === 'internal')
+    ? (isAllOutlets
+        ? managementFeeData.totalFeeLegacyRevenue + hoFeeOffset.surplusToRevenue
+        : (mitraIds.has(filter.outletId) ? (managementFeeData.perOutletFee.get(filter.outletId)?.fee ?? 0) : 0))
+    : 0
+  
+  // Pembayaran Management Fee ke Pusat oleh Kemitraan (khusus scope mitra)
+  // Sisi BEBAN fee. Wajib ikut di scope 'all': di sana kedua kantongnya
+  // (pusat penerima, mitra pembayar) sama-sama ada di dalam layar, jadi kalau
+  // hanya pendapatannya yang dibukukan, laba gabungan kelebihan sebesar fee —
+  // dan `all` tak pernah sama dengan `internal` + `mitra`.
+  const managementFeeExpense = closingMitra
+    ? feeManajemenClosingMitra(closingMitra)
+    : (scope === 'mitra' || scope === 'all')
+    ? (isAllOutlets ? managementFeeData.totalMitraFee : (managementFeeData.perOutletFee.get(filter.outletId)?.fee ?? 0))
+    : 0
+
+  // Total HPP outlet kemitraan dalam cakupan filter, dipisah tiga angka:
+  // `hpp` = yang ditagihkan ke mitra (base + 10%), `base` = modal bahan pusat,
+  // `markup` = selisih keduanya. Ketiganya dijumlah dari nilai per item supaya
+  // eksak — tidak ada pembagian balik 1,1 di level agregat.
+  const mitraHppTotals = useMemo(() => {
+    return hpp.rows
+      .filter(r => (isAllOutlets ? mitraIds.has(r.outlet_id) : (r.outlet_id === filter.outletId && mitraIds.has(r.outlet_id))) && !isTestOutlet(r.outlet_id))
+      .reduce(
+        (acc, r) => ({
+          hpp: acc.hpp + (Number(r.hpp) || 0),
+          base: acc.base + (Number(r.baseHpp) || 0),
+          markup: acc.markup + (Number(r.markup) || 0),
+        }),
+        { hpp: 0, base: 0, markup: 0 },
+      )
+  }, [hpp.rows, mitraIds, isAllOutlets, filter.outletId])
+
+  const totalMitraHpp = mitraHppTotals.hpp
+  const totalMitraBaseHpp = mitraHppTotals.base
+
+  // Pendapatan Margin Pasokan Bahan Baku Mitra = 10% dari HPP DASAR, yaitu
+  // selisih antara yang ditagihkan ke mitra dan modal bahan pusat.
+  //
+  // Diakui di dua scope dengan alasan berbeda:
+  // - `internal`: HPP & omzet mitra tak ikut di sini, jadi ini pendapatan baru.
+  // - `all`: HPP mitra ikut sebagai biaya dalam angka yang SUDAH ber-markup,
+  //   jadi margin ini mengembalikannya ke modal sebenarnya. Kalau dicabut,
+  //   laba global malah terlalu kecil sebesar markup itu.
+  const mitraHppMarginReceived = pendapatanMitraClosing
+    ? pendapatanMitraClosing.marginHpp
+    : (scope === 'all' || scope === 'internal')
+    ? mitraHppTotals.markup
+    : 0
+
+  // Omzet Kotor = uang dari PELANGGAN saja. Fee manajemen dan margin pasokan
+  // bahan bukan penjualan; keduanya pindah ke blok antar-kantong di bawah
+  // "Penjualan Bersih" (tetap dijumlah ke Pendapatan Bersih, jadi laba tidak
+  // bergeser). Selama keduanya ikut di sini, Margin Kotor % dan seluruh kartu
+  // rasio memakai penyebut yang digelembungkan — dan gelembungnya membesar
+  // seiring bertambahnya outlet mitra.
+  const totalPotongan = useMemo(
+    () => salesRows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + (Number(r.total_deductions) || 0), 0), 
+    [salesRows]
+  )
+  const totalPlatformFee = useMemo(
+    () => salesRows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + (Number(r.platform_fee) || 0), 0), 
+    [salesRows]
+  )
+  const totalDeductionsLive = totalPotongan + totalPlatformFee
+
+  const pengeluaranLembur = useMemo(
+    () => expenseRows
+      .filter(r => 
+        r.scope === 'outlet' && 
+        !isTestOutlet(r.outlet_id) && 
+        !isTestOutlet(r.outlet_name) && 
+        isLemburExpense(r.category, r.description)
+      )
+      .reduce((sum, r) => sum + r.amount, 0),
+    [expenseRows]
+  )
+
+  const pengeluaranOutletPettyCashMurni = useMemo(
+    () => expenseRows
+      .filter(r => 
+        r.scope === 'outlet' && 
+        r.source === 'petty_cash' && 
+        !isTestOutlet(r.outlet_id) && 
+        !isTestOutlet(r.outlet_name) &&
+        !isLemburExpense(r.category, r.description)
+      )
+      .reduce((sum, r) => sum + r.amount, 0),
+    [expenseRows]
+  )
+
+  const pengeluaranOutletBulanan = useMemo(
+    () => expenseRows
+      .filter(r => 
+        r.scope === 'outlet' && 
+        r.source === 'monthly' && 
+        !isTestOutlet(r.outlet_id) && 
+        !isTestOutlet(r.outlet_name) &&
+        !isLemburExpense(r.category, r.description)
+      )
+      .reduce((sum, r) => sum + r.amount, 0),
+    [expenseRows]
+  )
+  const totalJointExpense = useMemo(
+    () => expenseRows
+      .filter(r => 
+        r.scope === 'outlet' && 
+        !isTestOutlet(r.outlet_id) && 
+        !isTestOutlet(r.outlet_name) && 
+        !isLemburExpense((r as any).category, (r as any).description) && 
+        ((r as any).category === 'joint_expense' || (r as any).category === 'joint_expanse')
+      )
+      .reduce((sum, r) => sum + r.amount, 0),
+    [expenseRows]
+  )
+  const pengeluaranOutletBulananMurni = Math.max(0, pengeluaranOutletBulanan - totalJointExpense)
+  const pengeluaranOutlet = pengeluaranOutletBulanan + pengeluaranLembur + pengeluaranOutletPettyCashMurni
+  // Income Lainnya (Kas Office) = pendapatan pusat: hanya di Laba Perusahaan semua outlet, bukan laba outlet/mitra.
+  const tampilPendapatanLain = isAllOutlets && scope !== 'mitra'
+  const { data: pendapatanLainData = 0 } = usePendapatanLain(filter, tampilPendapatanLain)
+
+  const totalHppLive = useMemo(
+    () => hppRows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + r.hpp, 0), 
+    [hppRows]
+  )
+  const totalWasteLive = useMemo(
+    () => wasteRows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + r.nilai_waste, 0), 
+    [wasteRows]
+  )
+
+  // Closing bulanan (September & Oktober 2026, Laba Rugi Internal, semua outlet): omzet,
+  // potongan, HPP, dan waste mengikuti laporan resmi, termasuk komisi TikTok GO yang di
+  // laporan terpotong dua kali. Penyesuaiannya tampil sebagai baris sendiri di rincian.
+  const liveLabaKotor = { omzet: actualGrossSalesLive, potongan: totalDeductionsLive, hpp: totalHppLive, waste: totalWasteLive }
+  const penyesuaianLabaKotor = scope === 'internal' && isAllOutlets
+    ? penyesuaianLabaKotorClosing(effectiveFilter.from, effectiveFilter.to, liveLabaKotor)
+    : scope === 'internal' && !mitraIds.has(filter.outletId)
+    ? penyesuaianLabaKotorOutletClosing(effectiveFilter.from, effectiveFilter.to, filter.outletId, liveLabaKotor)
+    : closingMitra
+    ? penyesuaianLabaRugiMitraClosing(closingMitra, liveLabaKotor)
+    : null
+  // Laporan closing Oktober 2026 tidak memuat pendapatan lain-lain.
+  const pendapatanLain = !tampilPendapatanLain
+    ? 0
+    : (penyesuaianLabaKotor?.pendapatanLain ?? pendapatanLainData)
+  const actualGrossSales = actualGrossSalesLive + (penyesuaianLabaKotor?.omzet ?? 0)
+  const actualGrossRevenue = actualGrossSales
+  const totalDeductions = totalDeductionsLive + (penyesuaianLabaKotor ? penyesuaianLabaKotor.potongan + penyesuaianLabaKotor.komisiTiktokKedua : 0)
+  const totalHpp = totalHppLive + (penyesuaianLabaKotor?.hpp ?? 0)
+  const totalWaste = totalWasteLive + (penyesuaianLabaKotor?.waste ?? 0)
+  
+  // Pendapatan bersih: Gross - Potongan (sudah termasuk Management Fee Mitra pada scope internal)
+  const netRevenue = actualGrossRevenue - totalDeductions + managementFeeReceived + mitraHppMarginReceived - managementFeeExpense
+  const labaKotor = netRevenue - totalHpp
+  const marginKotor = actualGrossRevenue > 0 ? (labaKotor / actualGrossRevenue) * 100 : 0
+  
+  // Laba bersih outlet: untuk mitra, dipotong management fee pusat
+  // Apakah ada transaksi antar-kantong (pusat <-> mitra) di scope ini, dan
+  // apakah KEDUA sisinya berada di layar yang sama. Kalau ya, angka gabungan
+  // wajib diberi keterangan: tanpa itu, laba global yang (benar) lebih kecil
+  // dari penjumlahan kasar tampak seperti ada laba yang hilang.
+  const adaAntarKantong = managementFeeReceived > 0 || mitraHppMarginReceived > 0 || managementFeeExpense > 0
+  const duaSisiDiLayarSama = managementFeeReceived > 0 && managementFeeExpense > 0
+
+  // Outlets breakdown (dihitung lebih dulu agar potongan bagi hasil 50% outlet BEP
+  // di tabel dan di kartu Laba Bersih atas selalu sinkron 100%).
+  const outletBreakdown = useMemo(() => {
+    const map = new Map<string, { name: string; omzet: number; deductions: number; expense: number; hpp: number; waste: number }>()
+
+    // Baris nol hanya untuk outlet yang masih tampil di periode ini; outlet tutup
+    // yang masih punya angka tetap muncul lewat data di bawah (lib/outletTutup.ts).
+    outlets.filter(o => !isTestOutlet(o) && outletTampilDiPeriode(o, filter.from)).forEach(o => {
+      map.set(o.id, { name: o.name, omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 })
+    })
+
+    salesRows.filter(s => !isTestOutlet(s.outlet_id)).forEach(s => {
+      const cur = map.get(s.outlet_id) ?? { name: s.outlet_name || (s.outlet_id === 'ss-online' ? 'SS ONLINE' : 'Outlet Tidak Dikenal'), omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
+      const deductions = (Number(s.total_deductions) || 0) + (Number(s.platform_fee) || 0)
+      const gross = (Number(s.omzet) || 0) + (Number(s.total_deductions) || 0)
+      cur.omzet += gross
+      cur.deductions += deductions
+      map.set(s.outlet_id, cur)
+    })
+
+    expenseRows.filter(e => !isTestOutlet(e.outlet_id) && !isTestOutlet(e.outlet_name)).forEach(e => {
+      if (e.scope !== 'outlet' || !e.outlet_id) return
+      const cur = map.get(e.outlet_id) ?? { name: e.outlet_name ?? 'Outlet Tidak Dikenal', omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
+      cur.expense += e.amount
+      map.set(e.outlet_id, cur)
+    })
+
+    hppRows.filter(h => !isTestOutlet(h.outlet_id)).forEach(h => {
+      const cur = map.get(h.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
+      cur.hpp += h.hpp
+      if (h.channels) {
+        const curChannels = (cur as any).cogsChannels ?? { outlet: 0, food_apps: 0, tiktok_go: 0, website: 0 }
+        curChannels.outlet += h.channels.outlet || 0
+        curChannels.food_apps += h.channels.food_apps || 0
+        curChannels.tiktok_go += h.channels.tiktok_go || 0
+        curChannels.website += h.channels.website || 0
+        ;(cur as any).cogsChannels = curChannels
+      }
+      map.set(h.outlet_id, cur)
+    })
+
+    wasteRows.filter(w => !isTestOutlet(w.outlet_id)).forEach(w => {
+      const cur = map.get(w.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
+      cur.waste += w.nilai_waste
+      map.set(w.outlet_id, cur)
+    })
+
+    // Closing Laba Rugi Mitra: omzet, potongan, HPP, waste, fee, dan persen bagi hasil
+    // per outlet mengikuti laporan closing (OPEX sudah disamakan lewat baris penyesuaian).
+    if (closingMitra) {
+      for (const [id, val] of map) {
+        const c = closingMitra.data[id]
+        val.omzet = c?.totals.grossRevenue ?? 0
+        val.deductions = c?.totals.totalDeductions ?? 0
+        val.hpp = c?.totals.totalCogs ?? 0
+        val.waste = c?.totals.totalWaste ?? 0
+        ;(val as any).cogsChannels = c
+          ? { outlet: c.pos.cogs, food_apps: c.foodApps.cogs, tiktok_go: c.tiktok.cogs, website: 0 }
+          : undefined
+      }
+      for (const [id, c] of Object.entries(closingMitra.data)) {
+        if (!map.has(id)) {
+          map.set(id, {
+            name: c.name, omzet: c.totals.grossRevenue, deductions: c.totals.totalDeductions,
+            expense: 0, hpp: c.totals.totalCogs, waste: c.totals.totalWaste,
+          })
+        }
+      }
+    } else if (closingInternalPerOutlet) {
+      // Closing per outlet internal: omzet, potongan (termasuk komisi TikTok GO kedua),
+      // HPP, dan waste mengikuti laporan; OPEX internal sudah sama dengan data asli.
+      for (const [id, val] of map) {
+        if (mitraIds.has(id)) continue
+        const c = closingInternalPerOutlet.outlets[id]
+        val.omzet = c?.omzet ?? 0
+        val.deductions = c ? c.potongan + c.komisiTiktokKedua : 0
+        val.hpp = c?.hpp ?? 0
+        val.waste = c?.waste ?? 0
+        if (!c) (val as any).cogsChannels = undefined
+      }
+    }
+
+    return [...map.entries()]
+      .map(([id, val]) => {
+        const grossRev = val.omzet
+        const netRev = val.omzet - val.deductions
+        const labaKotor = grossRev - val.hpp - val.deductions
+        const feeInfo = managementFeeData.perOutletFee.get(id)
+        const closingOutlet = closingMitra?.data[id]
+        const isOutletMitraScope = scope === 'internal'
+          ? false
+          : (scope === 'mitra' ? true : mitraIds.has(id))
+        const mgmtFee = closingMitra
+          ? (closingOutlet?.totals.managementFeeAmount ?? 0)
+          : isOutletMitraScope ? (feeInfo?.fee ?? 0) : 0
+        const mgmtFeePct = closingMitra
+          ? (closingOutlet?.totals.managementFeePct ?? 0)
+          : isOutletMitraScope ? (feeInfo?.pct ?? 0) : 0
+        const closingPct = closingOutlet?.totals.profitSharingPct
+        const isBep = closingMitra ? (closingPct ?? 100) < 100 : Boolean(feeInfo?.isBep)
+        const profitSharingPct = closingMitra ? (closingPct ?? 100) : (feeInfo?.profitSharingPct ?? (isBep ? 50 : 100))
+        const netBeforeShare = labaKotor - val.expense - val.waste - mgmtFee
+        // Jika outlet kemitraan sudah BEP (50:50), laba bersih untuk mitra dibagi 2 (50%).
+        const applyBepShare = isOutletMitraScope && isBep && profitSharingPct < 100 && netBeforeShare > 0
+        const mitraNetShare = applyBepShare ? Math.round((netBeforeShare * profitSharingPct) / 100) : netBeforeShare
+        const bepShareDeduction = applyBepShare ? (netBeforeShare - mitraNetShare) : 0
+        const net = mitraNetShare
+        const margin = grossRev > 0 ? (net / grossRev) * 100 : 0
+        const totalCost = val.deductions + val.hpp + val.waste + val.expense + mgmtFee + bepShareDeduction
+        return { 
+          id, 
+          name: val.name, 
+          omzet: grossRev, 
+          deductions: val.deductions, 
+          netRev, 
+          expense: val.expense, 
+          hpp: val.hpp, 
+          cogsChannels: (val as any).cogsChannels as { outlet: number; food_apps: number; tiktok_go: number; website: number } | undefined,
+          waste: val.waste, 
+          mgmtFee,
+          mgmtFeePct,
+          isBep,
+          profitSharingPct,
+          netBeforeShare,
+          bepShareDeduction,
+          isMitra: isOutletMitraScope,
+          labaKotor, 
+          net, 
+          margin,
+          totalCost 
+        }
+      })
+      .filter(item => item.omzet > 0 || item.expense > 0 || item.hpp > 0 || item.waste > 0)
+      .sort((a, b) => {
+        if (sortBy === 'margin') return b.margin - a.margin
+        if (sortBy === 'omzet') return b.netRev - a.netRev
+        return b.net - a.net
+      })
+  }, [salesRows, expenseRows, hppRows, wasteRows, outlets, filter.from, sortBy, managementFeeData, mitraIds, scope, closingMitra, closingInternalPerOutlet])
+
+  // Informasi pembagian hasil (50:50) ketika memfilter satu outlet kemitraan yang sudah BEP
+  const selectedMitraFeeInfo = !isAllOutlets && (scope === 'mitra' || mitraIds.has(filter.outletId))
+    ? managementFeeData.perOutletFee.get(filter.outletId)
+    : undefined
+  // Closing Laba Rugi Mitra satu outlet: persen bagi hasil mengikuti laporan closing.
+  const closingPctTerpilih = closingMitra && !isAllOutlets
+    ? (closingMitra.data[filter.outletId]?.totals.profitSharingPct ?? 100)
+    : null
+  const isSelectedOutletBep = closingPctTerpilih !== null ? closingPctTerpilih < 100 : Boolean(selectedMitraFeeInfo?.isBep)
+  const selectedMitraSharePct = closingPctTerpilih ?? selectedMitraFeeInfo?.profitSharingPct ?? (isSelectedOutletBep ? 50 : 100)
+  const selectedPusatSharePct = Math.max(0, 100 - selectedMitraSharePct)
+
+  // managementFeeExpense sudah dipotong di netRevenue (blok antar-kantong).
+  const labaBersihSebelumBagiHasil = labaKotor - pengeluaranOutlet - totalWaste
+  const totalBepShareDeduction = useMemo(
+    () => outletBreakdown.reduce((sum, r) => sum + (r.bepShareDeduction || 0), 0),
+    [outletBreakdown],
+  )
+  const bepProfitShareExpense = scope === 'mitra'
+    ? (isAllOutlets
+        ? totalBepShareDeduction
+        : (isSelectedOutletBep && labaBersihSebelumBagiHasil > 0
+            ? labaBersihSebelumBagiHasil - Math.round((labaBersihSebelumBagiHasil * selectedMitraSharePct) / 100)
+            : 0))
+    : (!isAllOutlets && isSelectedOutletBep && labaBersihSebelumBagiHasil > 0
+        ? labaBersihSebelumBagiHasil - Math.round((labaBersihSebelumBagiHasil * selectedMitraSharePct) / 100)
+        : 0)
+
+  const labaBersih = labaBersihSebelumBagiHasil - bepProfitShareExpense
+  
+  const labaPerusahaan = computeCompanyProfit(labaBersih, pengeluaranPusat, pendapatanLain).labaPerusahaan
+  const displayLaba = isAllOutlets ? labaPerusahaan : labaBersih
+  const costBase = actualGrossRevenue > 0 ? actualGrossRevenue : (netRevenue > 0 ? netRevenue : 0)
+  const displayMargin = costBase > 0 ? (displayLaba / costBase) * 100 : 0
+
+  const jatahBagiHasilMitra = labaBersihSebelumBagiHasil > 0 ? Math.round((labaBersihSebelumBagiHasil * selectedMitraSharePct) / 100) : 0
+  const jatahBagiHasilPusat = labaBersihSebelumBagiHasil > 0 ? Math.round(labaBersihSebelumBagiHasil) - jatahBagiHasilMitra : 0
+
+  // Struktur Biaya vs Omzet:
+  // Seluruh biaya dihitung proporsinya terhadap Omzet Kotor (actualGrossRevenue),
+  // konsisten dengan judul card dan margin per outlet di leaderboard.
+  const costHpp = scope === 'all' ? Math.max(0, totalHpp - mitraHppMarginReceived) : totalHpp
+  const costOpex = pengeluaranOutlet + (isAllOutlets ? pengeluaranPusat : 0)
+  const costFee =
+    totalDeductions +
+    (scope === 'mitra' || (!isAllOutlets && mitraIds.has(filter.outletId))
+      ? managementFeeExpense + bepProfitShareExpense
+      : (scope === 'all' && isAllOutlets ? hoFeeOffset.appliedDeduction : 0))
+  const costWaste = totalWaste
+  const totalBiaya = costHpp + costOpex + costFee + costWaste
+
+  // Cost proportions (dalam persen terhadap Omzet Kotor)
+  const pctHpp = costBase > 0 ? (costHpp / costBase) * 100 : 0
+  const pctOpex = costBase > 0 ? (costOpex / costBase) * 100 : 0
+  const pctFee = costBase > 0 ? (costFee / costBase) * 100 : 0
+  const pctWaste = costBase > 0 ? (costWaste / costBase) * 100 : 0
+  const pctTotalBiaya = costBase > 0 ? (totalBiaya / costBase) * 100 : 0
+  const pctSisaMargin = costBase > 0 ? (displayLaba / costBase) * 100 : 0
+
+  // Skala visual bar agar proporsional dan tidak meluber saat beban > 100% (saat rugi)
+  const barScale = pctTotalBiaya > 100 ? (100 / pctTotalBiaya) : 1
+  const barHpp = pctHpp * barScale
+  const barOpex = pctOpex * barScale
+  const barFee = pctFee * barScale
+  const barWaste = pctWaste * barScale
+
+  const filteredOutlets = useMemo(() => {
+    if (!outletSearch.trim()) return outletBreakdown
+    return outletBreakdown.filter(o => o.name.toLowerCase().includes(outletSearch.toLowerCase()))
+  }, [outletBreakdown, outletSearch])
+
+  const filteredTotals = useMemo(() => {
+    return filteredOutlets.reduce((acc, row) => ({
+      omzet: acc.omzet + row.omzet,
+      deductions: acc.deductions + row.deductions,
+      hpp: acc.hpp + row.hpp,
+      waste: acc.waste + row.waste,
+      expense: acc.expense + row.expense,
+      mgmtFee: acc.mgmtFee + row.mgmtFee,
+      bepShareDeduction: acc.bepShareDeduction + (row.bepShareDeduction || 0),
+      net: acc.net + row.net,
+    }), { omzet: 0, deductions: 0, hpp: 0, waste: 0, expense: 0, mgmtFee: 0, bepShareDeduction: 0, net: 0 })
+  }, [filteredOutlets])
+
+  const filteredAvgMargin = filteredTotals.omzet > 0 ? (filteredTotals.net / filteredTotals.omzet) * 100 : 0
+
+  const profitableOutletsCount = outletBreakdown.filter(o => o.net > 0).length
+  const lossOutletsCount = outletBreakdown.filter(o => o.net < 0).length
+
+  // Health diagnosis
+  const isHealthy = displayMargin >= 20
+  const isModerate = displayMargin >= 5 && displayMargin < 20
+
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false)
+  const [breakdownOpen, setBreakdownOpen] = useState(false)
+  const [activeBreakdownModal, setActiveBreakdownModal] = useState<'sales' | 'cogs' | 'opex' | 'net' | null>(null)
+  // Rincian per kategori untuk baris "Beban Bulanan Outlet" di modal. Sumbernya
+  // baris yang PERSIS sama dengan yang membentuk `pengeluaranOutletBulananMurni`,
+  // supaya jumlah rinciannya tak mungkin meleset dari angka induknya.
+  const opexMonthlyBreakdown = useMemo(() => {
+    const perKategori = new Map<string, number>()
+    expenseRows
+      .filter(r => 
+        r.scope === 'outlet' && 
+        r.source === 'monthly' && 
+        !isTestOutlet(r.outlet_id) && 
+        !isTestOutlet(r.outlet_name) &&
+        !isLemburExpense((r as any).category, (r as any).description) &&
+        (r as any).category !== 'joint_expense' &&
+        (r as any).category !== 'joint_expanse'
+      )
+      .forEach(r => {
+        const key = (r as any).category || 'lainnya'
+        perKategori.set(key, (perKategori.get(key) ?? 0) + r.amount)
+      })
+    return [...perKategori.entries()]
+      .map(([kategori, jumlah]) => {
+        const isCatProrated = isProrated && (PRORATED_CATEGORIES as readonly string[]).includes(kategori) && !adalahSemiTetap(kategori) && !(payrollDariHr && kategori.startsWith('bonus_'))
+        const baseLabel = labelKategoriOpex(kategori, payrollDariHr)
+        const prorataSuffix = prorataMonthInfo.overlapDays === 1
+          ? `Beban 1 Hari · 1/${prorataMonthInfo.totalDays} bln`
+          : `Beban ${prorataMonthInfo.overlapDays} Hari · ${prorataMonthInfo.overlapDays}/${prorataMonthInfo.totalDays} bln`
+        const label = isCatProrated
+          ? `${baseLabel} (${prorataSuffix})`
+          : baseLabel
+        return {
+          label,
+          amount: -jumlah,
+        }
+      })
+      .sort((a, b) => a.amount - b.amount)
+  }, [expenseRows, isProrated, prorataMonthInfo, payrollDariHr])
+
+  const penyesuaianOmzet = penyesuaianLabaKotor?.omzet ?? 0
+  const penyesuaianPotongan = penyesuaianLabaKotor?.potongan ?? 0
+  const komisiTiktokKedua = penyesuaianLabaKotor?.komisiTiktokKedua ?? 0
+  const labelPenyesuaianClosing = `Penyesuaian closing ${penyesuaianLabaKotor?.label ?? ''}`.trim()
+
+  // Rincian Omzet Kotor per Channel Penjualan (POS, Food Apps, Online Marketplace)
+  const grossRevenueBreakdown = useMemo(() => {
+    const map = new Map<string, number>()
+    salesRows
+      .filter(r => !isTestOutlet(r.outlet_id))
+      .forEach(r => {
+        const src = r.sales_source || 'pos'
+        const gross = (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0)
+        map.set(src, (map.get(src) ?? 0) + gross)
+      })
+    const list = [...map.entries()]
+      .filter(([_, amount]) => amount > 0)
+      .map(([src, amount]) => ({
+        label: getSourceLabel(src),
+        amount,
+      }))
+      .sort((a, b) => b.amount - a.amount)
+    if (Math.abs(penyesuaianOmzet) >= 0.5) list.push({ label: labelPenyesuaianClosing, amount: penyesuaianOmzet })
+    return list
+  }, [salesRows, penyesuaianOmzet, labelPenyesuaianClosing])
+
+  // Rincian Potongan Merchant per Channel Penjualan
+  const deductionsBreakdown = useMemo(() => {
+    const map = new Map<string, number>()
+    salesRows
+      .filter(r => !isTestOutlet(r.outlet_id))
+      .forEach(r => {
+        const src = r.sales_source || 'pos'
+        const ded = (Number(r.total_deductions) || 0) + (Number(r.platform_fee) || 0)
+        map.set(src, (map.get(src) ?? 0) + ded)
+      })
+    const list = [...map.entries()]
+      .filter(([_, amount]) => amount > 0)
+      .map(([src, amount]) => ({
+        label: getSourceLabel(src),
+        amount: -amount,
+      }))
+      .sort((a, b) => a.amount - b.amount)
+    if (komisiTiktokKedua >= 0.5) list.push({ label: 'Komisi TikTok Go — potongan kedua (closing)', amount: -komisiTiktokKedua })
+    if (Math.abs(penyesuaianPotongan) >= 0.5) list.push({ label: labelPenyesuaianClosing, amount: -penyesuaianPotongan })
+    return list
+  }, [salesRows, komisiTiktokKedua, penyesuaianPotongan, labelPenyesuaianClosing])
+
+  // Rincian Saluran Penjualan untuk Modal Omzet Penjualan
+  const salesChannelBreakdown = useMemo(() => {
+    const grossMap = new Map<string, number>()
+    const dedMap = new Map<string, number>()
+    const countMap = new Map<string, number>()
+
+    salesRows
+      .filter(r => !isTestOutlet(r.outlet_id))
+      .forEach(r => {
+        const src = r.sales_source || 'pos'
+        const gross = (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0)
+        const ded = (Number(r.total_deductions) || 0) + (Number(r.platform_fee) || 0)
+        const count = Number(r.jumlah_order_completed) || 0
+        grossMap.set(src, (grossMap.get(src) ?? 0) + gross)
+        dedMap.set(src, (dedMap.get(src) ?? 0) + ded)
+        countMap.set(src, (countMap.get(src) ?? 0) + count)
+      })
+
+    const allKeys = new Set([...grossMap.keys(), ...dedMap.keys()])
+    return [...allKeys]
+      .map(key => {
+        const gross = grossMap.get(key) ?? 0
+        const deductions = dedMap.get(key) ?? 0
+        const net = gross - deductions
+        const orderCount = countMap.get(key) ?? 0
+        return {
+          key,
+          label: getSourceLabel(key),
+          gross,
+          deductions,
+          net,
+          orderCount,
+        }
+      })
+      .filter(item => item.gross > 0 || item.deductions > 0)
+      .sort((a, b) => b.gross - a.gross)
+  }, [salesRows])
+
+  // Rincian Outlet untuk Modal Omzet Penjualan
+  const salesOutletList = useMemo(() => {
+    return outletBreakdown.map(o => ({
+      id: o.id,
+      name: o.name,
+      gross: o.omzet,
+      deductions: o.deductions,
+      net: o.netRev,
+      isMitra: o.isMitra,
+    }))
+  }, [outletBreakdown])
+
+  // Rincian Outlet untuk Modal Beban Pokok (HPP & Waste)
+  const cogsOutletList = useMemo(() => {
+    return outletBreakdown.map(o => ({
+      id: o.id,
+      name: o.name,
+      hpp: o.hpp,
+      waste: o.waste,
+      totalCost: o.hpp + o.waste,
+      gross: o.omzet,
+      isMitra: o.isMitra,
+    }))
+  }, [outletBreakdown])
+
+  // Rincian per kategori untuk modal OPEX: seluruh beban outlet (bulanan + kas
+  // kecil) di luar lembur & joint expense, yang punya baris sendiri.
+  const opexKategoriGabungan = useMemo(() => {
+    const perKategori = new Map<string, number>()
+    expenseRows
+      .filter(r =>
+        r.scope === 'outlet' &&
+        !isTestOutlet(r.outlet_id) &&
+        !isTestOutlet(r.outlet_name) &&
+        !isLemburExpense((r as any).category, (r as any).description) &&
+        (r as any).category !== 'joint_expense' &&
+        (r as any).category !== 'joint_expanse'
+      )
+      .forEach(r => {
+        const key = (r as any).category || 'lainnya'
+        perKategori.set(key, (perKategori.get(key) ?? 0) + r.amount)
+      })
+    const prorataSuffix = prorataMonthInfo.overlapDays === 1
+      ? `Beban 1 Hari · 1/${prorataMonthInfo.totalDays} bln`
+      : `Beban ${prorataMonthInfo.overlapDays} Hari · ${prorataMonthInfo.overlapDays}/${prorataMonthInfo.totalDays} bln`
+    return [...perKategori.entries()].map(([kategori, amount]) => {
+      const baseLabel = labelKategoriOpex(kategori, payrollDariHr)
+      const isCatProrated = isProrated && (PRORATED_CATEGORIES as readonly string[]).includes(kategori) && !adalahSemiTetap(kategori) && !(payrollDariHr && kategori.startsWith('bonus_'))
+      return { label: isCatProrated ? `${baseLabel} (${prorataSuffix})` : baseLabel, amount }
+    })
+  }, [expenseRows, isProrated, prorataMonthInfo, payrollDariHr])
+
+  // Rincian Kategori & Lokasi untuk Modal Biaya Operasional (OPEX)
+  const opexCategoriesList = useMemo(() => {
+    const list: Array<{ key: string; label: string; amount: number; isProrated?: boolean }> = []
+
+    // Per kategori, gabungan input bulanan + kas kecil — sama dengan cara Buku
+    // Kas (OPEX) mengelompokkan. Dulu kas kecil dijadikan satu baris gelondongan
+    // "Kas Kecil", sehingga mis. "Pengeluaran Outlet" di sini hanya memuat porsi
+    // input bulanan dan tak pernah cocok dengan Buku Kas.
+    opexKategoriGabungan.forEach((item) => {
+      list.push({
+        key: item.label,
+        label: item.label,
+        amount: item.amount,
+        isProrated: isProrated && item.label.includes('Beban'),
+      })
+    })
+
+    if (totalJointExpense > 0) {
+      list.push({
+        key: 'joint_expense',
+        label: 'Joint Expense',
+        amount: totalJointExpense,
+        isProrated: false,
+      })
+    }
+
+    if (pengeluaranLembur > 0) {
+      list.push({
+        key: 'lembur',
+        label: 'Lembur Kas Toko (Petty Cash)',
+        amount: pengeluaranLembur,
+        isProrated: false,
+      })
+    }
+
+    if (includeCentral && (pengeluaranPusat > 0 || hoFeeOffset.appliedDeduction > 0)) {
+      list.push({
+        key: 'pusat',
+        label: hoFeeOffset.appliedDeduction > 0
+          ? `Biaya Operasional Head Office (setelah Potongan Fee Management 3% -${rupiah(hoFeeOffset.appliedDeduction)})`
+          : 'Biaya Operasional Head Office',
+        amount: pengeluaranPusat,
+        isProrated: false,
+      })
+    }
+
+    return list.sort((a, b) => b.amount - a.amount)
+  }, [opexKategoriGabungan, totalJointExpense, pengeluaranLembur, includeCentral, pengeluaranPusat, hoFeeOffset.appliedDeduction, isProrated])
+
+  const opexOutletList = useMemo(() => {
+    const list = outletBreakdown.map(o => ({
+      id: o.id,
+      name: o.name,
+      expense: o.expense,
+      gross: o.omzet,
+      isMitra: o.isMitra,
+    }))
+
+    if (includeCentral && (pengeluaranPusat > 0 || hoFeeOffset.appliedDeduction > 0)) {
+      list.push({
+        id: 'pusat',
+        name: hoFeeOffset.appliedDeduction > 0
+          ? `Head Office (Bersih · Potongan Fee Management 3% -${rupiah(hoFeeOffset.appliedDeduction)})`
+          : 'Head Office',
+        expense: pengeluaranPusat,
+        gross: 0,
+        isMitra: false,
+      })
+    }
+
+    return list.sort((a, b) => b.expense - a.expense)
+  }, [outletBreakdown, includeCentral, pengeluaranPusat, hoFeeOffset.appliedDeduction])
+
+  const centralExpenseBreakdown = useMemo(() => {
+    if (!includeCentral || hoFeeOffset.appliedDeduction <= 0) return undefined
+    return [
+      { label: 'Beban Operasional Head Office (Kotor)', amount: -pengeluaranPusatRaw },
+      { label: 'Potongan Fee Management 3%', amount: hoFeeOffset.appliedDeduction },
+    ]
+  }, [includeCentral, hoFeeOffset.appliedDeduction, pengeluaranPusatRaw])
+
+  const waterfallInput = useMemo(() => ({
+    grossRevenue: actualGrossSales,
+    deductions: totalDeductions,
+    hpp: totalHpp,
+    waste: totalWaste,
+    opexMonthly: totalJointExpense > 0 ? pengeluaranOutletBulananMurni : pengeluaranOutletBulanan,
+    jointExpense: totalJointExpense,
+    opexLembur: pengeluaranLembur,
+    opexPettyCash: pengeluaranOutletPettyCashMurni,
+    centralExpense: pengeluaranPusat,
+    includeCentral,
+    pendapatanLain,
+    opexMonthlyBreakdown,
+    centralExpenseBreakdown,
+    managementFeeIncome: managementFeeReceived,
+    mitraHppMarginIncome: mitraHppMarginReceived,
+    managementFeeExpense: managementFeeExpense,
+    bepProfitShareExpense: bepProfitShareExpense,
+    grossRevenueBreakdown,
+    deductionsBreakdown,
+  }), [
+    actualGrossSales, totalDeductions, totalHpp, totalWaste,
+    totalJointExpense, pengeluaranOutletBulananMurni, pengeluaranOutletBulanan, pengeluaranLembur, pengeluaranOutletPettyCashMurni, pengeluaranPusat, includeCentral,
+    opexMonthlyBreakdown, centralExpenseBreakdown, managementFeeReceived, mitraHppMarginReceived, managementFeeExpense, bepProfitShareExpense,
+    grossRevenueBreakdown, deductionsBreakdown, pendapatanLain,
+  ])
+
+  return (
+    <div className="space-y-8 animate-fade-in pb-12">
+      <PageHeader
+        title={scope === 'all' ? 'Laba Rugi Global' : `Laba Rugi ${SCOPE_LABEL[scope]}`}
+        description={
+          scope === 'mitra'
+            ? 'Omzet, beban pokok, dan biaya operasional khusus outlet kemitraan (di luar biaya kantor pusat)'
+            : scope === 'internal'
+              ? 'Omzet, beban pokok, dan biaya operasional outlet milik pusat, termasuk biaya kantor pusat'
+              : 'Seluruh outlet — pusat dan kemitraan — digabung, termasuk biaya kantor pusat. Sama dengan Laba Internal + Laba Mitra: fee manajemen & margin bahan antar-kantong dibukukan kedua sisinya, jadi tidak terhitung dua kali.'
+        }
+        icon={Calculator}
+      >
+        {/* Baris atas hanya berisi PENYARING — "apa yang sedang dilihat".
+            Tombol perintah turun ke pita di bawah supaya keduanya tak
+            berdesakan sebagai hal yang setara. */}
+        <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} hideSource={true} hideOutlet={hideOutletPicker} presets={PRESET_SAMA_DENGAN_BUKU_KAS} />
+      </PageHeader>
+
+      {scope !== 'mitra' && hasilClosingOpex.catatan && (
+        <div className={`-mt-3 mb-3 rounded-xl border px-3 py-2 text-xs font-semibold ${hasilClosingOpex.diterapkan ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+          {hasilClosingOpex.catatan}
+          {scope === 'all' && isAllOutlets && abaikanTanggalMulai && (
+            <p className="mt-1">
+              Global bulan <strong>September</strong> memakai data aktual. Laba Rugi Internal dan Mitra mengikuti laporan closing,
+              termasuk beban mitra yang ditanggung pusat, sehingga Internal + Mitra tidak sama dengan Global. Menunggu konfirmasi
+              jika ingin diselaraskan.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Status Sinkronisasi / Last Updated */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 -mt-5 mb-2 pt-3 border-t border-suka-brown/10 text-xs">
+        <div className="flex items-center gap-2">
+          {isPast ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200/80 font-bold text-[11px] shadow-2xs">
+              <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>Terakhir diperbarui: <strong>{formatLastUpdated(lastUpdated)}</strong> (Data Lampau Tersimpan)</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200/80 font-bold text-[11px] shadow-2xs">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>Live Realtime · Sinkronisasi POS: <strong>{formatLastUpdated(lastUpdated)}</strong></span>
+            </span>
+          )}
+        </div>
+        {/* Semua perintah berkumpul di sini: muat ulang & ekspor. Gayanya
+            netral supaya filter aktif (oranye) tetap jadi yang paling menonjol. */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={loading || isRefreshing}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-suka-brown hover:text-suka-ink bg-white hover:bg-suka-gray-50 border border-suka-gray-200 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
+            title="Muat ulang data laba rugi dari database"
+          >
+            <RefreshCw className={`w-3 h-3 text-suka-orange ${loading || isRefreshing ? 'animate-spin' : ''}`} />
+            <span>Segarkan Data</span>
+          </button>
+
+          <span className="w-px h-4 bg-suka-gray-200" aria-hidden="true" />
+
+          <button
+            onClick={() => setIsDownloadModalOpen(true)}
+            title="Unduh laporan laba rugi (PDF / CSV / ZIP)"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-suka-brown hover:text-suka-ink bg-white hover:bg-suka-gray-50 border border-suka-gray-200 rounded-xl transition-all shadow-2xs active:scale-95 cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5 text-suka-orange" />
+            <span>Download Data</span>
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="p-4 bg-red-50 text-red-700 rounded-2xl border border-red-200 text-sm flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 shrink-0 text-red-600" />
+          <span>Gagal memuat data keuangan: {error}</span>
+        </div>
+      )}
+
+      {loading ? (
+        <StatTilesSkeleton count={4} />
+      ) : (
+        <div className="space-y-8">
+          
+          {/* 1. TOP EXECUTIVE HERO METRICS (Balanced 4-Column Grid) */}
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={{ visible: { transition: { staggerChildren: 0.05 } }, hidden: {} }}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+          >
+            {/* Card 1: Omzet Penjualan (Kotor) */}
+            <div 
+              onClick={() => setActiveBreakdownModal('sales')}
+              className="bg-white/85 backdrop-blur-xl p-5 rounded-3xl border border-suka-brown/10 shadow-sm hover:shadow-md hover:border-orange-300 transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer group"
+            >
+              <div className="absolute top-0 left-0 w-2 h-full bg-orange-500 rounded-l-3xl" />
+              <div className="flex justify-between items-start pl-2">
+                <div>
+                  <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider group-hover:text-orange-600 transition-colors">Omzet Penjualan (Kotor)</p>
+                  <p className="text-[11px] text-suka-gray-400 font-medium mt-0.5">
+                    Pemasukan kotor dari pelanggan sebelum potongan
+                  </p>
+                </div>
+                <div className="p-2.5 rounded-2xl bg-orange-50 text-orange-600 group-hover:scale-105 transition-transform">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-4 pl-2">
+                <h3 className="text-2xl font-black text-suka-brown tracking-tight">
+                  <span className="text-base font-semibold">Rp </span>
+                  <CountUp end={actualGrossRevenue} duration={1} separator="." />
+                </h3>
+                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full">
+                    Net Masuk: {rupiah(actualGrossRevenue - totalDeductions)}
+                  </span>
+                  {managementFeeReceived > 0 && (
+                    <span className="text-[10px] font-bold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-full border border-blue-200" title="Pendapatan Management Fee 3% dari kemitraan yang masuk ke kas pusat">
+                      +Fee Mitra {rupiah(managementFeeReceived)}
+                    </span>
+                  )}
+                  {mitraHppMarginReceived > 0 && (
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-300" title="Pendapatan Margin Pasokan Bahan Baku 10% HPP Dasar Kemitraan">
+                      +Margin Bahan Mitra {rupiah(mitraHppMarginReceived)}
+                    </span>
+                  )}
+                  {scope === 'mitra' && managementFeeExpense > 0 && (
+                    <span className="text-[10px] font-bold text-blue-800 bg-blue-100/80 px-2 py-0.5 rounded-full border border-blue-300" title="Beban Management Fee 3% yang disetor ke pusat">
+                      -Fee Pusat {rupiah(managementFeeExpense)}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2.5 pt-2 border-t border-suka-gray-100 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-rose-600">
+                    Admin Fee: -{rupiah(totalDeductions)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setActiveBreakdownModal('sales')
+                    }}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-700 underline decoration-dotted underline-offset-2 transition-colors active:scale-95 cursor-pointer ml-auto"
+                  >
+                    <Search className="w-3 h-3" /> Lihat rincian
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2: Beban Pokok (COGS + Waste) */}
+            <div 
+              onClick={() => setActiveBreakdownModal('cogs')}
+              className="bg-white/85 backdrop-blur-xl p-5 rounded-3xl border border-suka-brown/10 shadow-sm hover:shadow-md hover:border-amber-300 transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer group"
+            >
+              <div className="absolute top-0 left-0 w-2 h-full bg-amber-500 rounded-l-3xl" />
+              <div className="flex justify-between items-start pl-2">
+                <div>
+                  <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider group-hover:text-amber-700 transition-colors">Beban Pokok (HPP)</p>
+                  <p className="text-[11px] text-suka-gray-400 font-medium mt-0.5">Modal bahan resep & waste</p>
+                </div>
+                <div className="p-2.5 rounded-2xl bg-amber-50 text-amber-600 group-hover:scale-105 transition-transform">
+                  <Boxes className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-4 pl-2">
+                <h3 className="text-2xl font-black text-suka-brown tracking-tight">
+                  <span className="text-base font-semibold text-amber-800">-Rp </span>
+                  <CountUp end={totalHpp + totalWaste} duration={1} separator="." />
+                </h3>
+                <div className="flex items-center gap-3 mt-1.5 text-[11px] text-suka-gray-500 font-semibold">
+                  <span>HPP: {rupiah(totalHpp)}</span>
+                  <span>Waste: {rupiah(totalWaste)}</span>
+                </div>
+                <div className="mt-2.5 pt-2 border-t border-suka-gray-100 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-amber-800">
+                    {actualGrossRevenue > 0 ? `${((totalHpp + totalWaste) / actualGrossRevenue * 100).toFixed(1)}% dari Omzet` : ''}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setActiveBreakdownModal('cogs')
+                    }}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-amber-800 hover:text-amber-900 underline decoration-dotted underline-offset-2 transition-colors active:scale-95 cursor-pointer ml-auto"
+                  >
+                    <Search className="w-3 h-3" /> Lihat rincian
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 3: Beban Operasional (OPEX) */}
+            <div 
+              onClick={() => setActiveBreakdownModal('opex')}
+              className="bg-white/85 backdrop-blur-xl p-5 rounded-3xl border border-suka-brown/10 shadow-sm hover:shadow-md hover:border-rose-300 transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer group"
+            >
+              <div className="absolute top-0 left-0 w-2 h-full bg-rose-500 rounded-l-3xl" />
+              <div className="flex justify-between items-start pl-2">
+                <div>
+                  <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider group-hover:text-rose-600 transition-colors">Biaya Operasional</p>
+                  <p className="text-[11px] text-suka-gray-400 font-medium mt-0.5">Gaji, sewa, listrik & kas</p>
+                </div>
+                <div className="p-2.5 rounded-2xl bg-rose-50 text-rose-600 group-hover:scale-105 transition-transform">
+                  <Receipt className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-4 pl-2">
+                <h3 className="text-2xl font-black text-suka-brown tracking-tight">
+                  <span className="text-base font-semibold text-rose-700">-Rp </span>
+                  <CountUp end={pengeluaranOutlet + (isAllOutlets ? pengeluaranPusat : 0)} duration={1} separator="." />
+                </h3>
+                <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] text-suka-gray-500 font-semibold">
+                  {/* Pecahan ditampilkan supaya angka outlet bisa dicocokkan langsung dengan
+                      Buku Kas ("Outlet Internal" / "Semua Outlet"), yang tidak memuat kantor pusat. */}
+                  <span>
+                    {includeCentral
+                      ? `Outlet ${rupiah(pengeluaranOutlet)} · HO ${rupiah(pengeluaranPusat)}`
+                      : `Beban Outlet`}
+                  </span>
+                  {includeCentral && hoFeeOffset.appliedDeduction > 0 && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      Potongan Fee Management 3% -{rupiah(hoFeeOffset.appliedDeduction)}
+                    </span>
+                  )}
+                  {isProrated && (
+                    <span
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300/70 shadow-2xs"
+                      title={`Beban tetap (Gaji, Sewa, Internet) dialokasikan proporsional: ${prorataMonthInfo.overlapDays} hari dari total ${prorataMonthInfo.totalDays} hari bulan ini`}
+                    >
+                      <Sparkles className="w-3 h-3 text-amber-600" />
+                      {prorataMonthInfo.overlapDays === 1
+                        ? `Beban 1 Hari (${prorataMonthInfo.totalDays} hr)`
+                        : `Beban ${prorataMonthInfo.overlapDays} Hari`}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2.5 pt-2 border-t border-suka-gray-100 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-suka-gray-400">
+                    {pengeluaranLembur > 0 ? 'Bulanan + Lembur + Kas' : 'Bulanan + Kas Kecil'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setActiveBreakdownModal('opex')
+                    }}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 hover:text-rose-700 underline decoration-dotted underline-offset-2 transition-colors active:scale-95 cursor-pointer ml-auto"
+                  >
+                    <Search className="w-3 h-3" /> Lihat rincian
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 4: Laba Bersih (Net Profit) - Hero Highlight */}
+            <div 
+              onClick={() => setActiveBreakdownModal('net')}
+              className={`p-5 rounded-3xl border shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer group ${
+                displayLaba >= 0 
+                  ? 'bg-gradient-to-br from-orange-50/80 via-white to-amber-50/50 border-suka-orange/30 hover:border-suka-orange/60' 
+                  : 'bg-gradient-to-br from-rose-50/80 via-white to-red-50/50 border-rose-200 hover:border-rose-400'
+              }`}
+            >
+              <div className={`absolute top-0 left-0 w-2 h-full rounded-l-3xl ${displayLaba >= 0 ? 'bg-suka-orange' : 'bg-rose-600'}`} />
+              <div className="flex justify-between items-start pl-2">
+                <div>
+                  <p className="text-xs font-extrabold text-suka-brown uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-suka-orange" /> Laba Bersih (Net)
+                  </p>
+                  <p className="text-[11px] text-suka-gray-500 font-medium mt-0.5">Hasil laba bersih akhir</p>
+                </div>
+                <div className={`p-2.5 rounded-2xl group-hover:scale-105 transition-transform ${displayLaba >= 0 ? 'bg-orange-100 text-suka-orange' : 'bg-rose-100 text-rose-600'}`}>
+                  <Banknote className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-4 pl-2">
+                <h3 className={`text-2xl sm:text-3xl font-black tracking-tight ${displayLaba >= 0 ? 'text-suka-brown' : 'text-rose-600'}`}>
+                  <span className="text-base font-semibold">{displayLaba < 0 ? '-Rp ' : 'Rp '}</span>
+                  <CountUp end={Math.abs(displayLaba)} duration={1} separator="." />
+                </h3>
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                    displayLaba >= 0
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                      : 'bg-rose-100 text-rose-800 border-rose-200'
+                  }`}>
+                    Margin: {displayMargin.toFixed(1)}%
+                  </span>
+                  {isSelectedOutletBep && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                      BEP · Bagi Hasil {selectedMitraSharePct}:{selectedPusatSharePct}
+                    </span>
+                  )}
+                  {isAllOutlets && bepProfitShareExpense > 0 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300" title="Outlet yang sudah BEP otomatis dipotong bagi hasil 50:50 ke pusat">
+                      BEP 50:50: -{rupiah(bepProfitShareExpense)}
+                    </span>
+                  )}
+                </div>
+                {isSelectedOutletBep && labaBersihSebelumBagiHasil > 0 && (
+                  <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px] bg-white/80 border border-suka-orange/20 rounded-xl p-2">
+                    <div>
+                      <span className="text-[10px] text-suka-gray-500 font-semibold block">Laba 100% Outlet</span>
+                      <span className="font-extrabold text-suka-brown">{rupiah(labaBersihSebelumBagiHasil)}</span>
+                    </div>
+                    <div className="border-l border-suka-gray-200 pl-2">
+                      <span className="text-[10px] text-suka-gray-500 font-semibold block">Jatah Pusat ({selectedPusatSharePct}%)</span>
+                      <span className="font-extrabold text-rose-600">-{rupiah(jatahBagiHasilPusat)}</span>
+                    </div>
+                  </div>
+                )}
+                <div className="hidden"><span>
+                  </span>
+                </div>
+                <div className="mt-2.5 pt-2 border-t border-suka-gray-100 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-suka-gray-400">
+                    Alur Waterfall
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setActiveBreakdownModal('net')
+                    }}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-suka-brown/70 hover:text-suka-brown underline decoration-dotted underline-offset-2 transition-colors active:scale-95 cursor-pointer ml-auto"
+                  >
+                    <Search className="w-3 h-3" /> Lihat rincian
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* 1. Modal Rincian Omzet Penjualan (Card 1) */}
+          <GrossSalesBreakdownModal
+            isOpen={activeBreakdownModal === 'sales'}
+            onClose={() => setActiveBreakdownModal(null)}
+            periodLabel={`${filter.from} s/d ${filter.to}`}
+            scopeLabel={isAllOutlets ? SCOPE_LABEL[scope] : (outlets.find(o => o.id === filter.outletId)?.name ?? SCOPE_LABEL[scope])}
+            grossRevenue={actualGrossRevenue}
+            totalDeductions={totalDeductions}
+            netRevenue={actualGrossRevenue - totalDeductions}
+            managementFeeReceived={managementFeeReceived}
+            mitraHppMarginReceived={mitraHppMarginReceived}
+            channels={salesChannelBreakdown}
+            outlets={salesOutletList}
+          />
+
+          {/* 2. Modal Rincian Beban Pokok (HPP & Waste) (Card 2) */}
+          <CogsWasteBreakdownModal
+            isOpen={activeBreakdownModal === 'cogs'}
+            onClose={() => setActiveBreakdownModal(null)}
+            periodLabel={`${filter.from} s/d ${filter.to}`}
+            scopeLabel={isAllOutlets ? SCOPE_LABEL[scope] : (outlets.find(o => o.id === filter.outletId)?.name ?? SCOPE_LABEL[scope])}
+            totalCogs={totalHpp + totalWaste}
+            totalHpp={totalHpp}
+            totalWaste={totalWaste}
+            grossRevenue={actualGrossRevenue}
+            outlets={cogsOutletList}
+            wasteDetailHref="/waste"
+          />
+
+          {/* 3. Modal Rincian Biaya Operasional (OPEX) (Card 3) */}
+          <OpexBreakdownModal
+            isOpen={activeBreakdownModal === 'opex'}
+            onClose={() => setActiveBreakdownModal(null)}
+            periodLabel={`${filter.from} s/d ${filter.to}`}
+            scopeLabel={isAllOutlets ? SCOPE_LABEL[scope] : (outlets.find(o => o.id === filter.outletId)?.name ?? SCOPE_LABEL[scope])}
+            totalOpex={pengeluaranOutlet + (isAllOutlets ? pengeluaranPusat : 0)}
+            opexMonthly={pengeluaranOutletBulanan}
+            opexLembur={pengeluaranLembur}
+            opexPettyCash={pengeluaranOutletPettyCashMurni}
+            centralExpense={pengeluaranPusat}
+            rawCentralExpense={pengeluaranPusatRaw}
+            centralFeeDeduction={hoFeeOffset.appliedDeduction}
+            isAllOutlets={isAllOutlets}
+            isProrated={isProrated}
+            prorataInfo={prorataMonthInfo}
+            categories={opexCategoriesList}
+            outlets={opexOutletList}
+            detailHref={{
+              monthly: bukuKasHref(filter, scope),
+              lembur: `${pettyCashHref(filter)}&category=lembur`,
+              pettyCash: pettyCashHref(filter),
+            }}
+            cardHref={{
+              bulanan: bukuKasHrefKartu(filter, scope, 'bulanan'),
+              lembur: bukuKasHrefKartu(filter, scope, 'lembur'),
+              kasKecil: bukuKasHrefKartu(filter, scope, 'kasKecil'),
+              pusat: bukuKasHrefKartu(filter, scope, 'pusat'),
+              total: bukuKasHrefKartu(filter, scope, 'total'),
+            }}
+          />
+
+          {/* 4. Modal Rincian Laba Bersih (Net Profit) (Card 4) */}
+          <NetProfitBreakdownModal
+            isOpen={activeBreakdownModal === 'net' || breakdownOpen}
+            onClose={() => {
+              setActiveBreakdownModal(null)
+              setBreakdownOpen(false)
+            }}
+            periodLabel={`${filter.from} s/d ${filter.to}`}
+            scopeLabel={isAllOutlets ? SCOPE_LABEL[scope] : (outlets.find(o => o.id === filter.outletId)?.name ?? SCOPE_LABEL[scope])}
+            input={waterfallInput}
+            detailHref={{ 
+              opex_monthly: bukuKasHref(filter, scope),
+              opex_lembur: `${pettyCashHref(filter)}&category=lembur`,
+              opex_petty_cash: pettyCashHref(filter) 
+            }}
+          />
+
+          {/* 5. Modal Tarik & Unduh Laporan Laba Rugi */}
+          <DownloadProfitDataModal
+            isOpen={isDownloadModalOpen}
+            onClose={() => setIsDownloadModalOpen(false)}
+            currentFilter={filter}
+            outlets={allOutlets}
+            scope={scope}
+            mitraInvestments={mitraInvestments}
+            currentData={{
+              outletBreakdown,
+              salesRows,
+              expenseRows,
+              tiktokSettlements,
+              summaryData: {
+                actualGrossSales,
+                totalDeductions,
+                netRevenue,
+                totalHpp,
+                labaKotor,
+                marginKotor,
+                pengeluaranOutlet,
+                totalWaste,
+                pengeluaranPusat,
+                pengeluaranPusatRaw,
+                potonganFeeManajemenPusat: hoFeeOffset.appliedDeduction,
+                managementFeeReceived,
+                mitraHppMarginReceived,
+                managementFeeExpense,
+                displayLaba,
+                displayMargin,
+                adaAntarKantong,
+                includeCentral,
+                totalJointExpense,
+              },
+            }}
+          />
+
+          {/* 2. CORE DUAL SECTION: P&L Statement (2/3) + Financial Health & Cost Structure (1/3) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            
+            {/* LEFT 2 COLS: STRUCTURED P&L STATEMENT */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="bg-white/90 backdrop-blur-xl rounded-3xl border border-suka-brown/10 shadow-sm p-6 sm:p-7 space-y-6">
+                
+                <div className="flex items-center justify-between border-b border-suka-gray-100 pb-4">
+                  <div>
+                    <h2 className="text-lg font-black text-suka-brown tracking-tight flex items-center gap-2">
+                      <Layers className="w-5 h-5 text-suka-orange" /> Laporan Laba Rugi Komprehensif
+                    </h2>
+                    <p className="text-xs text-suka-gray-500 font-medium mt-0.5">Alur perhitungan pendapatan bersih, biaya pokok, dan laba operasional</p>
+                  </div>
+                  <span className="text-xs font-bold uppercase tracking-wider px-3 py-1 bg-suka-cream rounded-xl text-suka-brown border border-suka-brown/10">
+                    P&L Formal
+                  </span>
+                </div>
+
+                {/* BLOCK 1: PENDAPATAN (REVENUE) */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-suka-gray-400 uppercase tracking-wider">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span> 1. Aliran Pendapatan (Revenue)
+                  </div>
+                  <div className="bg-suka-gray-50/70 rounded-2xl p-4 space-y-2.5 text-sm border border-suka-gray-100">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium text-suka-gray-600">Omzet Kotor Penjualan (Gross Sales)</span>
+                      <span className="font-bold text-suka-brown">{rupiah(actualGrossSales)}</span>
+                    </div>
+                    {/* Selalu tampil, termasuk saat Rp 0 -- baris yang
+                        muncul-hilang bikin pembaca mengira datanya tidak ada. */}
+                    <div className="flex justify-between items-center text-xs text-rose-600 pl-4 border-l-2 border-rose-300">
+                      <div>
+                        <span className="font-semibold block">Admin Fee (Promo & Biaya Platform)</span>
+                        {totalPlatformFee > 0 && (
+                          <span className="text-[10px] text-rose-500/80">
+                            Promo: {rupiah(totalPotongan)} · Komisi: {rupiah(totalPlatformFee)}
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-semibold">-{rupiah(totalDeductions)}</span>
+                    </div>
+                    {adaAntarKantong && (
+                      <div className="pt-2 mt-1 border-t border-dashed border-suka-gray-300">
+                        <p className="text-[11px] font-bold text-suka-brown/80 uppercase tracking-wide">
+                          Transaksi Antar-Kantong (Pusat &harr; Mitra)
+                        </p>
+                        <p className="text-[10px] text-suka-gray-500 leading-snug mt-0.5">
+                          {duaSisiDiLayarSama
+                            ? 'Kedua sisinya ada di layar ini, jadi saling menghapus — tidak menambah maupun mengurangi laba gabungan. Bukan penjualan ke pelanggan, karena itu tidak ikut ke Omzet Kotor.'
+                            : scope === 'mitra'
+                              ? 'Sisi beban. Pasangan pendapatannya ada di tab Internal.'
+                              : 'Sisi pendapatan. Pasangan bebannya ada di tab Mitra. Bukan penjualan ke pelanggan, karena itu tidak ikut ke Omzet Kotor.'}
+                        </p>
+                      </div>
+                    )}
+                    {managementFeeReceived > 0 && (
+                      <div className="flex justify-between items-center text-xs text-blue-700 pl-4 border-l-2 border-blue-400 bg-blue-50/50 py-1 pr-2 rounded-r-lg">
+                        <div>
+                          <span className="font-semibold block">Pendapatan Management Fee Mitra (3% Gross Mitra)</span>
+                          <span className="text-[10px] text-blue-600 block font-normal">
+                            {isAllOutlets 
+                              ? `3% dari omzet kotor outlet mitra belum BEP (${rupiah(managementFeeData.grossMitraBelumBep)}) · Outlet BEP bebas fee`
+                              : `3% dari omzet kotor outlet kemitraan`}
+                          </span>
+                        </div>
+                        <span className="font-bold text-sm shrink-0">+{rupiah(managementFeeReceived)}</span>
+                      </div>
+                    )}
+                    {mitraHppMarginReceived > 0 && (
+                      <div className="flex justify-between items-center text-xs text-amber-800 pl-4 border-l-2 border-amber-500 bg-amber-50/60 py-1 pr-2 rounded-r-lg">
+                        <div>
+                          <span className="font-semibold block">Pendapatan Margin Pasokan Bahan Baku Mitra (10% HPP Dasar)</span>
+                          <span className="text-[10px] text-amber-700 block font-normal">
+                            10% dari HPP dasar bahan baku mitra ({rupiah(totalMitraBaseHpp)}) · ditagihkan ke mitra {rupiah(totalMitraHpp)}
+                          </span>
+                        </div>
+                        <span className="font-bold text-sm shrink-0">+{rupiah(mitraHppMarginReceived)}</span>
+                      </div>
+                    )}
+                    {managementFeeExpense > 0 ? (
+                      <div className="flex justify-between items-center text-xs text-rose-600 pl-4 border-l-2 border-rose-300 bg-rose-50/40 py-1.5 pr-2 rounded-r-lg">
+                        <div>
+                          <span className="font-semibold block">Management Fee ke Kantor Pusat (3% Gross Mitra Belum BEP)</span>
+                          <span className="text-[10px] text-rose-500 block font-normal">
+                            {isAllOutlets 
+                              ? scope === 'all' && hoFeeOffset.appliedDeduction > 0
+                                ? `Dipotong 3% dari ${managementFeeData.jumlahOutletBelumBep} outlet belum BEP (${rupiah(managementFeeData.grossMitraBelumBep)}) · Sisi penerimaannya langsung mengurangi Beban Head Office di bawah (tanpa duplikasi)`
+                                : `Dipotong 3% hanya dari ${managementFeeData.jumlahOutletBelumBep} outlet belum BEP (${rupiah(managementFeeData.grossMitraBelumBep)}) · Outlet sudah BEP bebas fee`
+                              : `Dipotong 3% dari omzet kotor outlet`}
+                          </span>
+                        </div>
+                        <span className="font-bold text-sm shrink-0">-{rupiah(managementFeeExpense)}</span>
+                      </div>
+                    ) : scope === 'mitra' && !isAllOutlets ? (
+                      <div className="flex justify-between items-center text-xs text-emerald-700 pl-4 border-l-2 border-emerald-400 bg-emerald-50/50 py-1.5 pr-2 rounded-r-lg">
+                        <div>
+                          <span className="font-semibold block">Management Fee ke Kantor Pusat (0% · Bebas Fee)</span>
+                          <span className="text-[10px] text-emerald-600 block font-normal">
+                            Outlet ini telah mencapai status Balik Modal (BEP). Bebas potongan management fee.
+                          </span>
+                        </div>
+                        <span className="font-bold text-xs shrink-0 text-emerald-700">Rp 0</span>
+                      </div>
+                    ) : null}
+                    <div className="pt-2 border-t border-suka-gray-200 flex justify-between items-center font-bold">
+                      <span className="text-suka-brown">Pendapatan Bersih (Net Revenue)</span>
+                      <span className="text-emerald-700 font-black text-base">{rupiah(netRevenue)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* BLOCK 2: BIAYA POKOK & MARGIN KOTOR (COGS & GROSS PROFIT) */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-suka-gray-400 uppercase tracking-wider">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span> 2. Beban Pokok Penjualan (COGS)
+                  </div>
+                  <div className="bg-suka-gray-50/70 rounded-2xl p-4 space-y-2.5 text-sm border border-suka-gray-100">
+                    <div className="flex justify-between items-center text-rose-600">
+                      <span className="font-medium">Total Modal Bahan Dasar (HPP Resep)</span>
+                      <span className="font-bold">-{rupiah(totalHpp)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-rose-600">
+                      <span className="font-medium">Kerugian Bahan Rusak / Basi (Waste)</span>
+                      <span className="font-bold">-{rupiah(totalWaste)}</span>
+                    </div>
+                    <div className="pt-2 border-t border-suka-gray-200 flex justify-between items-center font-bold">
+                      <div className="flex items-center gap-2">
+                        <span className="text-suka-brown">Laba Kotor (Gross Profit)</span>
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                          Margin: {marginKotor.toFixed(1)}%
+                        </span>
+                      </div>
+                      <span className="text-suka-brown font-black text-base">{rupiah(labaKotor)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* BLOCK 3: BEBAN OPERASIONAL (OPEX) */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-suka-gray-400 uppercase tracking-wider">
+                    <span className="w-2 h-2 rounded-full bg-rose-500"></span> 3. Beban Operasional (OPEX)
+                  </div>
+                  <div className="bg-suka-gray-50/70 rounded-2xl p-4 space-y-2.5 text-sm border border-suka-gray-100">
+                    <div className="flex justify-between items-center text-rose-600">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium">Beban Tetap & Bulanan Outlet (Gaji, Listrik, Sewa)</span>
+                        {isProrated && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                            {prorataMonthInfo.overlapDays === 1
+                              ? `Beban 1 Hari (1/${prorataMonthInfo.totalDays} bln)`
+                              : `Beban ${prorataMonthInfo.overlapDays} Hari (${prorataMonthInfo.overlapDays}/${prorataMonthInfo.totalDays} bln)`}
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-bold">-{rupiah(totalJointExpense > 0 ? pengeluaranOutletBulananMurni : pengeluaranOutletBulanan)}</span>
+                    </div>
+                    {totalJointExpense > 0 && (
+                      <div className="flex justify-between items-center text-rose-600">
+                        <span className="font-medium">Joint Expense</span>
+                        <span className="font-bold">-{rupiah(totalJointExpense)}</span>
+                      </div>
+                    )}
+                    {pengeluaranLembur > 0 && (
+                      <div className="flex justify-between items-center text-orange-600">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-medium">Lembur Kas Toko (Petty Cash)</span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-800 border border-orange-200">
+                            Kasir Toko
+                          </span>
+                        </div>
+                        <span className="font-bold">-{rupiah(pengeluaranLembur)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center text-rose-600">
+                      <span className="font-medium">Biaya Kas Kecil Operasional (Petty Cash)</span>
+                      <span className="font-bold">-{rupiah(pengeluaranOutletPettyCashMurni)}</span>
+                    </div>
+                    {includeCentral && (pengeluaranPusat > 0 || hoFeeOffset.appliedDeduction > 0) && (
+                      <div className="flex justify-between items-center text-rose-600 gap-2">
+                        <div>
+                          <span className="font-medium block">Beban Operasional Head Office (Manajemen)</span>
+                          {hoFeeOffset.appliedDeduction > 0 && (
+                            <span className="text-xs font-bold text-emerald-700 block mt-0.5">
+                              Kotor {rupiah(pengeluaranPusatRaw)} · Potongan Fee Management 3% -{rupiah(hoFeeOffset.appliedDeduction)}
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-bold shrink-0">{pengeluaranPusat > 0 ? `-${rupiah(pengeluaranPusat)}` : rupiah(0)}</span>
+                      </div>
+                    )}
+                    {pendapatanLain > 0 && (
+                      <div className="flex justify-between items-center text-emerald-700">
+                        <span className="font-medium">Pendapatan Lain-lain (Income Lainnya Kas Office)</span>
+                        <span className="font-bold">+{rupiah(pendapatanLain)}</span>
+                      </div>
+                    )}
+                    {bepProfitShareExpense > 0 && (
+                      <div className="flex justify-between items-center text-rose-600 pt-2 border-t border-dashed border-suka-gray-200">
+                        <div>
+                          <span className="font-semibold block">Bagi Hasil ke Kantor Pusat (50% Outlet BEP)</span>
+                          <span className="text-[11px] text-suka-gray-500">
+                            {isSelectedOutletBep
+                              ? `Potongan ${selectedPusatSharePct}% dari laba operasional outlet (${rupiah(labaBersihSebelumBagiHasil)})`
+                              : 'Potongan 50% laba bersih dari outlet kemitraan yang sudah Balik Modal (BEP)'}
+                          </span>
+                        </div>
+                        <span className="font-bold">-{rupiah(bepProfitShareExpense)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* FINAL TOTAL ROW */}
+                <div className={`p-5 rounded-2xl border-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 ${
+                  displayLaba >= 0 
+                    ? 'bg-suka-cream/50 border-suka-orange/30 text-suka-brown' 
+                    : 'bg-rose-50/60 border-rose-200 text-rose-900'
+                }`}>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-black uppercase tracking-wide">LABA BERSIH AKHIR (NET PROFIT)</span>
+                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+                        displayLaba >= 0 ? 'bg-suka-orange text-white' : 'bg-rose-600 text-white'
+                      }`}>
+                        {displayMargin.toFixed(1)}% Margin
+                      </span>
+                    </div>
+                    <p className="text-xs text-suka-gray-500 mt-1">
+                      {isSelectedOutletBep
+                        ? `Hak laba bersih mitra (${selectedMitraSharePct}%) dengan skema bagi hasil ${selectedMitraSharePct}:${selectedPusatSharePct} dari laba operasional ${rupiah(labaBersihSebelumBagiHasil)}`
+                        : 'Keuntungan bersih riil setelah dikurangi seluruh beban dan biaya'}
+                    </p>
+                    {duaSisiDiLayarSama && (
+                      <p className="text-[11px] text-suka-brown/70 mt-1.5 leading-snug max-w-xl">
+                        <span className="font-bold">Laba Rugi Global = Laba Internal + Laba Mitra.</span>{' '}
+                        Management fee {rupiah(managementFeeExpense)} sudah dibukukan{' '}
+                        <span className="font-semibold">kedua sisinya</span> di sini — pendapatan pusat dan
+                        bebannya di mitra — jadi tak ada laba yang terhitung dua kali. Angka ini memang lebih
+                        kecil dari sekadar menjumlahkan omzet semua outlet, dan itu yang benar.
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <span className={`text-2xl sm:text-3xl font-black tracking-tight ${displayLaba >= 0 ? 'text-suka-brown' : 'text-rose-600'}`}>
+                      {displayLaba < 0 ? '-' : ''}{rupiah(Math.abs(displayLaba))}
+                    </span>
+                  </div>
+                </div>
+
+                {/* BLOCK 4: DISTRIBUSI BAGI HASIL (KHUSUS FILTER OUTLET BEP) */}
+                {isSelectedOutletBep && (
+                  <div className="space-y-3 pt-1">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2 text-xs font-bold text-suka-gray-400 uppercase tracking-wider">
+                        <span className="w-2 h-2 rounded-full bg-indigo-500"></span> 4. Distribusi Bagi Hasil ({selectedMitraSharePct}:{selectedPusatSharePct} · Sudah BEP)
+                      </div>
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Status Balik Modal (BEP) · Laba 100%: {rupiah(labaBersihSebelumBagiHasil)}
+                      </span>
+                    </div>
+                    {labaBersihSebelumBagiHasil > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex justify-between items-center gap-2">
+                          <div>
+                            <span className="text-xs font-bold text-amber-950 block">Jatah Bagi Hasil Mitra ({selectedMitraSharePct}%)</span>
+                            <span className="text-[11px] text-amber-800/80">Hak bersih mitra dari laba outlet</span>
+                          </div>
+                          <span className="text-lg font-black text-amber-800 shrink-0">{rupiah(jatahBagiHasilMitra)}</span>
+                        </div>
+                        <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex justify-between items-center gap-2">
+                          <div>
+                            <span className="text-xs font-bold text-emerald-950 block">Jatah Bagi Hasil Pusat ({selectedPusatSharePct}%)</span>
+                            <span className="text-[11px] text-emerald-800/80">Porsi bagi hasil kantor pusat (SS)</span>
+                          </div>
+                          <span className="text-lg font-black text-emerald-700 shrink-0">{rupiah(jatahBagiHasilPusat)}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3.5 rounded-2xl bg-suka-gray-50 border border-suka-gray-200 text-xs text-suka-gray-500">
+                        Outlet belum menghasilkan laba bersih positif pada periode ini, sehingga tidak ada alokasi bagi hasil ({selectedMitraSharePct}:{selectedPusatSharePct}).
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="hidden"><div><span>
+                    </span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* RIGHT 1 COL: COST ANATOMY & FINANCIAL HEALTH */}
+            <div className="lg:col-span-1 space-y-6">
+              
+              {/* Cost Anatomy Breakdown Card */}
+              <div className="bg-white/90 backdrop-blur-xl rounded-3xl border border-suka-brown/10 shadow-sm p-6 space-y-5">
+                <div className="flex items-center gap-2">
+                  <PieChart className="w-5 h-5 text-suka-orange" />
+                  <h3 className="font-black text-suka-brown text-sm uppercase tracking-wider">Struktur Biaya vs Omzet</h3>
+                </div>
+
+                {/* Mini Multi-Bar */}
+                <div className="space-y-2">
+                  <div className="h-4 w-full bg-suka-gray-100 rounded-full overflow-hidden flex shadow-inner">
+                    <div style={{ width: `${barHpp}%` }} className="bg-amber-500 h-full transition-all duration-300" title={`HPP: ${pctHpp.toFixed(1)}%`} />
+                    <div style={{ width: `${barOpex}%` }} className="bg-rose-500 h-full transition-all duration-300" title={`Opex: ${pctOpex.toFixed(1)}%`} />
+                    <div style={{ width: `${barFee}%` }} className="bg-purple-500 h-full transition-all duration-300" title={`Potongan/Fee: ${pctFee.toFixed(1)}%`} />
+                    <div style={{ width: `${barWaste}%` }} className="bg-red-700 h-full transition-all duration-300" title={`Waste: ${pctWaste.toFixed(1)}%`} />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-suka-gray-400 font-semibold uppercase">
+                    <span>Total Beban: {pctTotalBiaya.toFixed(1)}%</span>
+                    <span>Sisa Margin: {pctSisaMargin.toFixed(1)}%</span>
+                  </div>
+                </div>
+
+                {/* Progress items */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="flex items-center gap-2 font-semibold text-suka-gray-600">
+                      <span className="w-2.5 h-2.5 rounded-sm bg-amber-500"></span> HPP (Bahan Baku)
+                    </span>
+                    <span className="font-bold text-suka-brown">{pctHpp.toFixed(1)}%</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="flex items-center gap-2 font-semibold text-suka-gray-600">
+                      <span className="w-2.5 h-2.5 rounded-sm bg-rose-500"></span> Biaya Operasional (Opex)
+                    </span>
+                    <span className="font-bold text-suka-brown">{pctOpex.toFixed(1)}%</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="flex items-center gap-2 font-semibold text-suka-gray-600">
+                      <span className="w-2.5 h-2.5 rounded-sm bg-purple-500"></span> Admin Fee
+                    </span>
+                    <span className="font-bold text-suka-brown">{pctFee.toFixed(1)}%</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="flex items-center gap-2 font-semibold text-suka-gray-600">
+                      <span className="w-2.5 h-2.5 rounded-sm bg-red-700"></span> Waste (Bahan Basi)
+                    </span>
+                    <span className="font-bold text-suka-brown">{pctWaste.toFixed(1)}%</span>
+                  </div>
+                </div>
+
+                {/* Diagnosis Box */}
+                <div className={`p-4 rounded-2xl border text-xs leading-relaxed space-y-1.5 ${
+                  isHealthy 
+                    ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900' 
+                    : isModerate
+                    ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+                    : 'bg-rose-50/80 border-rose-200 text-rose-900'
+                }`}>
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>{isHealthy ? 'Margin Sehat' : isModerate ? 'Perhatian: Margin Sedang' : 'Peringatan: Margin Kritis / Rugi'}</span>
+                  </div>
+                  <p className="opacity-90">
+                    {isHealthy 
+                      ? 'Efisiensi biaya dan HPP terkendali dengan baik, menghasilkan margin laba bersih di atas target standar 20%.' 
+                      : isModerate 
+                      ? 'Margin bersih berada di rentang 5-20%. Evaluasi efisiensi operasional dan pengeluaran kas kecil.' 
+                      : 'Bisnis mengalami defisit atau margin di bawah 5%. Segera audit HPP resep dan kurangi biaya opex outlet.'}
+                  </p>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* 3. OUTLET PERFORMANCE LEADERBOARD (Full Width Table with Filtering & Sorting) */}
+          {isAllOutlets && (
+            <div className="bg-white/90 backdrop-blur-xl rounded-3xl border border-suka-brown/10 shadow-sm overflow-hidden space-y-4 p-6">
+              
+              {/* Header Table with Search and Controls */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-suka-gray-100 pb-4">
+                <div>
+                  <h3 className="text-base font-black text-suka-brown tracking-tight flex items-center gap-2">
+                    <Store className="w-5 h-5 text-suka-orange" /> Kinerja Profitabilitas per Outlet
+                  </h3>
+                  <p className="text-xs text-suka-gray-400 font-medium mt-0.5">
+                    Menampilkan {filteredOutlets.length} outlet ({profitableOutletsCount} untung, {lossOutletsCount} rugi)
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                  {/* Search box */}
+                  <div className="relative flex-1 sm:w-56">
+                    <Search className="w-4 h-4 text-suka-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input 
+                      type="text" 
+                      placeholder="Cari nama outlet..." 
+                      value={outletSearch}
+                      onChange={(e) => setOutletSearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-1.5 bg-suka-gray-50 border border-suka-gray-200 rounded-xl text-xs font-medium text-suka-brown placeholder-suka-gray-400 focus:outline-none focus:ring-2 focus:ring-suka-orange/30"
+                    />
+                  </div>
+
+                  {/* Sort selector */}
+                  <div className="flex items-center gap-1.5 bg-suka-gray-50 p-1 border border-suka-gray-200 rounded-xl text-xs font-semibold">
+                    <button 
+                      onClick={() => setSortBy('net')}
+                      className={`px-2.5 py-1 rounded-lg transition-all ${sortBy === 'net' ? 'bg-white text-suka-brown shadow-sm font-bold' : 'text-suka-gray-500 hover:text-suka-brown'}`}
+                    >
+                      Laba Bersih
+                    </button>
+                    <button 
+                      onClick={() => setSortBy('margin')}
+                      className={`px-2.5 py-1 rounded-lg transition-all ${sortBy === 'margin' ? 'bg-white text-suka-brown shadow-sm font-bold' : 'text-suka-gray-500 hover:text-suka-brown'}`}
+                    >
+                      Margin %
+                    </button>
+                    <button 
+                      onClick={() => setSortBy('omzet')}
+                      className={`px-2.5 py-1 rounded-lg transition-all ${sortBy === 'omzet' ? 'bg-white text-suka-brown shadow-sm font-bold' : 'text-suka-gray-500 hover:text-suka-brown'}`}
+                    >
+                      Omzet
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Responsive Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-suka-cream/20 text-left text-suka-gray-500 font-bold text-xs uppercase border-b border-suka-brown/5">
+                      <th className="py-3.5 px-4 w-12 text-center">#</th>
+                      <th className="py-3.5 px-4">Nama Outlet</th>
+                      <th className="py-3.5 px-4 text-right">Gross Omzet</th>
+                      <th className="py-3.5 px-4 text-right">Admin Fee</th>
+                      <th className="py-3.5 px-4 text-right">HPP</th>
+                      <th className="py-3.5 px-4 text-right">Waste</th>
+                      <th className="py-3.5 px-4 text-right">OPEX</th>
+                      <th className="py-3.5 px-4 text-right">Fee Mgmt</th>
+                      <th className="py-3.5 px-4 text-right">Laba Bersih</th>
+                      <th className="py-3.5 px-4 text-center">Margin</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-suka-gray-100 font-medium text-suka-ink">
+                    {filteredOutlets.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="py-8 text-center text-suka-gray-400">
+                          Tidak ditemukan outlet yang cocok dengan pencarian.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredOutlets.map((row, index) => {
+                        const isProfit = row.net >= 0
+                        const marginBadge = row.margin >= 20 
+                          ? 'text-emerald-800 bg-emerald-50 border-emerald-200' 
+                          : row.margin >= 5 
+                          ? 'text-amber-800 bg-amber-50 border-amber-200' 
+                          : 'text-rose-800 bg-rose-50 border-rose-200'
+
+                        return (
+                          <tr 
+                            key={row.id} 
+                            className="hover:bg-orange-50/30 transition-colors group whitespace-nowrap"
+                          >
+                            <td className="py-3.5 px-4 text-center text-suka-gray-400 font-bold text-xs">
+                              {index + 1}
+                            </td>
+                            <td className="py-3.5 px-4 font-bold text-suka-ink">
+                              <div className="flex items-center gap-1.5">
+                                <span>{row.name.replace('SUKA SHAWARMA ', '')}</span>
+                                {row.isMitra && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-blue-50 text-blue-600 border border-blue-200">
+                                    Mitra
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 text-right text-suka-brown font-bold">
+                              {rupiah(row.omzet)}
+                            </td>
+                            <td className="py-3.5 px-4 text-right text-rose-500">
+                              -{rupiah(row.deductions)}
+                            </td>
+                            <td className="py-3.5 px-4 text-right text-rose-500">
+                              -{rupiah(row.hpp)}
+                            </td>
+                            <td className="py-3.5 px-4 text-right text-rose-500">
+                              -{rupiah(row.waste)}
+                            </td>
+                            <td className="py-3.5 px-4 text-right text-rose-500">
+                              -{rupiah(row.expense)}
+                            </td>
+                            <td className="py-3.5 px-4 text-right">
+                              {row.isMitra ? (
+                                row.isBep ? (
+                                  <span className="text-[11px] font-semibold text-emerald-600" title="Sudah Balik Modal (BEP) - Bebas Management Fee 0%">
+                                    0% (BEP)
+                                  </span>
+                                ) : row.mgmtFee > 0 ? (
+                                  <span className="text-xs font-semibold text-rose-500" title={`Management Fee ${row.mgmtFeePct}% dari Gross Sales`}>
+                                    -{rupiah(row.mgmtFee)}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-suka-gray-400" title={row.mgmtFeePct > 0 ? `Belum BEP - Fee ${row.mgmtFeePct}%` : 'Skema Historis (Sebelum Sept 2026)'}>
+                                    {row.mgmtFeePct > 0 ? `${row.mgmtFeePct}%` : '-'}
+                                  </span>
+                                )
+                              ) : (
+                                <span className="text-xs text-suka-gray-300">-</span>
+                              )}
+                            </td>
+                            <td className={`py-3.5 px-4 text-right font-black ${isProfit ? 'text-emerald-700' : 'text-rose-600'}`}>
+                              {row.isBep && row.bepShareDeduction > 0 ? (
+                                <div className="flex flex-col items-end">
+                                  <span>{rupiah(row.net)}</span>
+                                  <span className="text-[10px] font-semibold text-amber-700">
+                                    50:50 dr {rupiah(row.netBeforeShare)}
+                                  </span>
+                                </div>
+                              ) : (
+                                rupiah(row.net)
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-bold rounded-lg border ${marginBadge}`}>
+                                {row.margin.toFixed(1)}%
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                  {filteredOutlets.length > 0 && (() => {
+                    const showCentralReconciliation = includeCentral && !outletSearch.trim()
+                    const netMitraIncomePusat = managementFeeReceived + mitraHppMarginReceived + (scope === 'all' ? totalBepShareDeduction : 0)
+                    const hasCentralRows = showCentralReconciliation && (pengeluaranPusat > 0 || hoFeeOffset.appliedDeduction > 0 || netMitraIncomePusat !== 0 || Boolean(penyesuaianLabaKotor))
+                    const totalOpexWithCentral = pengeluaranOutlet + (includeCentral ? pengeluaranPusat : 0)
+
+                    return (
+                      <tfoot className="bg-suka-cream/30 font-bold border-t-2 border-suka-brown/20 text-xs text-suka-brown">
+                        <tr className="whitespace-nowrap">
+                          <td colSpan={2} className="py-3.5 px-4 text-left font-black uppercase tracking-wider text-suka-ink">
+                            {hasCentralRows ? `SUBTOTAL (${filteredOutlets.length} OUTLET)` : `TOTAL (${filteredOutlets.length} OUTLET)`}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-black text-suka-brown">
+                            {rupiah(filteredTotals.omzet)}
+                          </td>
+                          <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                            {filteredTotals.deductions > 0 ? `-${rupiah(filteredTotals.deductions)}` : rupiah(0)}
+                          </td>
+                          <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                            {filteredTotals.hpp > 0 ? `-${rupiah(filteredTotals.hpp)}` : rupiah(0)}
+                          </td>
+                          <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                            {filteredTotals.waste > 0 ? `-${rupiah(filteredTotals.waste)}` : rupiah(0)}
+                          </td>
+                          <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                            {filteredTotals.expense > 0 ? `-${rupiah(filteredTotals.expense)}` : rupiah(0)}
+                          </td>
+                          <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                            {filteredTotals.mgmtFee > 0 ? `-${rupiah(filteredTotals.mgmtFee)}` : '-'}
+                          </td>
+                          <td className={`py-3.5 px-4 text-right font-black ${filteredTotals.net >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                            {rupiah(filteredTotals.net)}
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <span className={`inline-flex items-center px-2 py-0.5 text-xs font-bold rounded-lg border ${
+                              filteredAvgMargin >= 20 
+                                ? 'text-emerald-800 bg-emerald-50 border-emerald-200' 
+                                : filteredAvgMargin >= 5 
+                                ? 'text-amber-800 bg-amber-50 border-amber-200' 
+                                : 'text-rose-800 bg-rose-50 border-rose-200'
+                            }`}>
+                              {filteredAvgMargin.toFixed(1)}%
+                            </span>
+                          </td>
+                        </tr>
+
+                        {hasCentralRows && netMitraIncomePusat !== 0 && (
+                          <tr className="whitespace-nowrap border-t border-suka-brown/10 bg-blue-50/40 text-suka-ink">
+                            <td colSpan={2} className="py-2.5 px-4 text-left font-bold text-blue-900">
+                              <div>+ Pendapatan Head Office dari Kemitraan</div>
+                              <div className="text-[10px] font-medium text-blue-700">
+                                {managementFeeReceived > 0 && `Fee Mitra 3%: +${rupiah(managementFeeReceived)}`}
+                                {managementFeeReceived > 0 && mitraHppMarginReceived > 0 && ' · '}
+                                {mitraHppMarginReceived > 0 && `Margin Bahan 10%: +${rupiah(mitraHppMarginReceived)}`}
+                                {scope === 'all' && totalBepShareDeduction > 0 && ` · Bagi Hasil BEP: +${rupiah(totalBepShareDeduction)}`}
+                              </div>
+                            </td>
+                            <td colSpan={6} className="py-2.5 px-4 text-right text-[11px] font-semibold text-blue-700">
+                              Antar-Kantong (Head Office &harr; Mitra)
+                            </td>
+                            <td className="py-2.5 px-4 text-right font-black text-emerald-700">
+                              +{rupiah(netMitraIncomePusat)}
+                            </td>
+                            <td className="py-2.5 px-4 text-center text-suka-gray-400">-</td>
+                          </tr>
+                        )}
+
+                        {hasCentralRows && (pengeluaranPusat > 0 || hoFeeOffset.appliedDeduction > 0) && (
+                          <tr className="whitespace-nowrap border-t border-suka-brown/10 bg-rose-50/40 text-suka-ink">
+                            <td colSpan={2} className="py-2.5 px-4 text-left font-bold text-rose-900">
+                              <div>- Beban Operasional Head Office</div>
+                              <div className="text-[10px] font-medium text-rose-700">
+                                {hoFeeOffset.appliedDeduction > 0
+                                  ? `Kotor ${rupiah(pengeluaranPusatRaw)} · Potongan Fee Management 3% -${rupiah(hoFeeOffset.appliedDeduction)}`
+                                  : 'Biaya manajemen & operasional Head Office'}
+                              </div>
+                            </td>
+                            <td colSpan={4} className="py-2.5 px-4 text-right text-suka-gray-400">-</td>
+                            <td className="py-2.5 px-4 text-right font-bold text-rose-600">
+                              {pengeluaranPusat > 0 ? `-${rupiah(pengeluaranPusat)}` : rupiah(0)}
+                            </td>
+                            <td className="py-2.5 px-4 text-right text-suka-gray-400">-</td>
+                            <td className="py-2.5 px-4 text-right font-black text-rose-600">
+                              {pengeluaranPusat > 0 ? `-${rupiah(pengeluaranPusat)}` : rupiah(0)}
+                            </td>
+                            <td className="py-2.5 px-4 text-center text-suka-gray-400">-</td>
+                          </tr>
+                        )}
+
+                        {hasCentralRows && (
+                          <tr className="whitespace-nowrap border-t-2 border-suka-brown/25 bg-suka-cream/70">
+                            <td colSpan={2} className="py-3.5 px-4 text-left font-black uppercase tracking-wider text-suka-brown">
+                              TOTAL LABA BERSIH {scope === 'internal' ? 'INTERNAL' : 'GLOBAL'} (OUTLET + PUSAT)
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-black text-suka-brown">
+                              {rupiah(actualGrossRevenue)}
+                            </td>
+                            <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                              {totalDeductions > 0 ? `-${rupiah(totalDeductions)}` : rupiah(0)}
+                            </td>
+                            <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                              {totalHpp > 0 ? `-${rupiah(totalHpp)}` : rupiah(0)}
+                            </td>
+                            <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                              {totalWaste > 0 ? `-${rupiah(totalWaste)}` : rupiah(0)}
+                            </td>
+                            <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                              {totalOpexWithCentral > 0 ? `-${rupiah(totalOpexWithCentral)}` : rupiah(0)}
+                            </td>
+                            <td className="py-3.5 px-4 text-right text-blue-700 font-bold">
+                              {netMitraIncomePusat > 0 ? `+${rupiah(netMitraIncomePusat)}` : '-'}
+                            </td>
+                            <td className={`py-3.5 px-4 text-right font-black text-sm ${displayLaba >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                              {displayLaba < 0 ? `-${rupiah(Math.abs(displayLaba))}` : rupiah(displayLaba)}
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-bold rounded-lg border ${
+                                displayMargin >= 20 
+                                  ? 'text-emerald-800 bg-emerald-50 border-emerald-200' 
+                                  : displayMargin >= 5 
+                                  ? 'text-amber-800 bg-amber-50 border-amber-200' 
+                                  : 'text-rose-800 bg-rose-50 border-rose-200'
+                              }`}>
+                                {displayMargin.toFixed(1)}%
+                              </span>
+                            </td>
+                          </tr>
+                        )}
+                      </tfoot>
+                    )
+                  })()}
+                </table>
+              </div>
+
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* Biaya Ditanggung RAB: catatan informasi, TIDAK masuk laba mana pun.
+          Sengaja tidak tampil di Laba Rugi Mitra (keputusan owner 2026-11-05). */}
+      {scope !== 'mitra' && (
+        <BiayaRabPanel
+          from={filter.from}
+          to={filter.to}
+          target={filter.outletId !== 'all' ? filter.outletId : scope === 'internal' ? 'INTERNAL_PUSAT' : 'all'}
+          mitraIds={mitraIds}
+        />
+      )}
+    </div>
+  )
+}

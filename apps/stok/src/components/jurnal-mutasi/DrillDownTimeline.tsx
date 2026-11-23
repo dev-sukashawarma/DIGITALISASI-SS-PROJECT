@@ -51,7 +51,8 @@ export function DrillDownTimeline({
     setLoading(true)
     setError(null)
 
-    fetchItemTransactionLedger(outletId, item.bahan_baku_id, startDate, endDate)
+    // Semua Outlet + Rentang Tanggal: tiap outlet punya jendela opname sendiri.
+    fetchItemTransactionLedger(outletId, item.bahan_baku_id, startDate, endDate, period?.jendela_outlet)
       .then((data) => {
         if (active) {
           setRows(data)
@@ -68,7 +69,7 @@ export function DrillDownTimeline({
     return () => {
       active = false
     }
-  }, [outletId, item.bahan_baku_id, startDate, endDate])
+  }, [outletId, item.bahan_baku_id, startDate, endDate, period?.jendela_outlet])
 
   const formatQty = (qtySmall: number) => {
     return formatTriUnitSaldoFromGram(

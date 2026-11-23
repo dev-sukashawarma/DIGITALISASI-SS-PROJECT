@@ -5,7 +5,10 @@ import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
 import { estimateCartValue } from '@/app/actions/budget'
 import { BudgetBadge } from './BudgetBadge'
+import { BudgetStatusKeranjang } from './BudgetStatusKeranjang'
 import { RequestTopUpModal } from '@/components/monitoring/budget/OutletTopUpRequests'
+import { canViewVendorPrices } from '@/lib/stok/navAccess'
+import type { HasilEstimasiKeranjang } from '@/lib/stok/estimasiKeranjang'
 import { formatTriUnitSaldoAdaptive, convertToDistribusiUnit, convertToBaseUnit } from '@/lib/format/compositeUnit'
 import {
   Search,
@@ -58,15 +61,26 @@ export function PermintaanForm({
   const [isCartView, setIsCartView] = useState(false)
   const [showBatchNudge, setShowBatchNudge] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
-  const [cartEstimate, setCartEstimate] = useState<{
-    totalNilai: number
-    itemTanpaHarga: string[]
-    kategoriNilai: Record<string, number>
-  }>({
-    totalNilai: 0,
-    itemTanpaHarga: [],
-    kategoriNilai: {},
-  })
+  // Bentuk respons ditentukan SERVER dari role sesi: pembaca harga menerima
+  // rupiah ('rupiah'), crew/leader hanya status budget + persen ('status').
+  // `bolehLihatHarga` di bawah hanya tebakan UI selama respons pertama belum
+  // datang — tampilan selalu mengikuti `cartEstimate.mode` begitu ada.
+  const [cartEstimate, setCartEstimate] = useState<HasilEstimasiKeranjang | null>(null)
+  const bolehLihatHarga = canViewVendorPrices(outletStaff?.role)
+  const tampilRupiah = cartEstimate ? cartEstimate.mode === 'rupiah' : bolehLihatHarga
+  const estimasiRupiah = cartEstimate?.mode === 'rupiah' ? cartEstimate : null
+  const estimasiStatus = cartEstimate?.mode === 'status' ? cartEstimate : null
+  const totalNilai = estimasiRupiah?.totalNilai ?? 0
+  const kategoriNilai: Record<string, number> = estimasiRupiah?.kategoriNilai ?? {}
+  const itemTanpaHarga = cartEstimate?.itemTanpaHarga ?? []
+  const [estimasiGagal, setEstimasiGagal] = useState(false)
+  // Pembaca harga: sisa budget dalam rupiah (seperti dulu). Role lain: status +
+  // bar persen tanpa rupiah — server memang tidak mengirim rupiah untuk mereka.
+  const budgetIndikator = tampilRupiah ? (
+    <BudgetBadge status={budgetStatus} projectedAdd={totalNilai} />
+  ) : (
+    <BudgetStatusKeranjang hasil={estimasiStatus} gagal={estimasiGagal} />
+  )
 
   // Permintaan 'menunggu' yang sudah >12 jam dibebaskan dari daftar hide
   const STALE_HOURS = 12
@@ -121,34 +135,37 @@ export function PermintaanForm({
     return Array.from(map.entries()).map(([category, items]) => ({
       category,
       items,
-      subtotal: cartEstimate.kategoriNilai?.[category] ?? 0,
+      subtotal: estimasiRupiah?.kategoriNilai?.[category] ?? 0,
     }))
-  }, [finalCart, cartEstimate.kategoriNilai])
+  }, [finalCart, estimasiRupiah])
 
-  // Estimasi nilai Rupiah keranjang (debounce) — dikalikan langsung dengan Qty Satuan Pesan (Distribusi)
+  // Estimasi keranjang terhadap budget outlet (debounce). qty = Satuan Pesan
+  // (Distribusi). Tetap dipanggil walau keranjang kosong: crew perlu status
+  // budget outletnya (server membalas tanpa query harga bila kosong).
   useEffect(() => {
     const items = finalCart
-      .map(item => {
-        return { bahan_baku_id: item.id, qty: item.qty }
-      })
+      .map(item => ({ bahan_baku_id: item.id, qty: item.qty }))
       .filter(it => it.qty > 0)
 
-    if (items.length === 0) {
-      setCartEstimate(prev => {
-        if (prev.totalNilai === 0 && prev.itemTanpaHarga.length === 0 && Object.keys(prev.kategoriNilai).length === 0) return prev
-        return { totalNilai: 0, itemTanpaHarga: [], kategoriNilai: {} }
-      })
-      return
-    }
-
+    let batal = false
     const timer = setTimeout(() => {
-      estimateCartValue(items)
-        .then(res => setCartEstimate(res))
-        .catch(console.error)
-    }, 500)
+      estimateCartValue(items, outletId)
+        .then(res => {
+          if (batal) return
+          setCartEstimate(res)
+          setEstimasiGagal(false)
+        })
+        .catch(err => {
+          console.error(err)
+          if (!batal) setEstimasiGagal(true)
+        })
+    }, items.length === 0 ? 0 : 500)
 
-    return () => clearTimeout(timer)
-  }, [finalCart])
+    return () => {
+      batal = true
+      clearTimeout(timer)
+    }
+  }, [finalCart, outletId])
 
   // Filter bahan baku:
   // 1. Kategori ASET & PERLENGKAPAN (non-bahan / hardware) tidak bisa diminta lewat form bahan baku outlet
@@ -382,7 +399,7 @@ export function PermintaanForm({
 
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between mb-4">
           <div className="flex-1 w-full">
-            <BudgetBadge status={budgetStatus} projectedAdd={cartEstimate.totalNilai} />
+            {budgetIndikator}
           </div>
           {budgetStatus && budgetStatus.hasConfig && (
             <RequestTopUpModal outletId={outletId} plafon={budgetStatus.nominal} sisa={budgetStatus.sisa} />
@@ -438,7 +455,7 @@ export function PermintaanForm({
                   <div className="divide-y divide-suka-brown/5">
                     {group.items.map(item => {
                       const b = bahanBaku.find(x => x.id === item.id)
-                      const hargaBelumDiset = cartEstimate.itemTanpaHarga.includes(item.id)
+                      const hargaBelumDiset = itemTanpaHarga.includes(item.id)
                       return (
                         <div
                           key={item.id}
@@ -510,15 +527,15 @@ export function PermintaanForm({
           </div>
 
           {/* Category Subtotal & Total Estimasi Summary at the Bottom */}
-          {cartEstimate.totalNilai > 0 && (
+          {totalNilai > 0 && (
             <div className="p-4 sm:p-5 bg-suka-cream/30 border-t border-suka-brown/10 space-y-3">
-              {Object.keys(cartEstimate.kategoriNilai).length > 0 && (
+              {Object.keys(kategoriNilai).length > 0 && (
                 <div className="space-y-1.5">
                   <span className="text-[10px] font-extrabold uppercase text-suka-brown/60 tracking-wider block">
                     Subtotal per Kategori:
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
-                    {Object.entries(cartEstimate.kategoriNilai).map(([cat, val]) => (
+                    {Object.entries(kategoriNilai).map(([cat, val]) => (
                       <div key={cat} className="flex items-center justify-between bg-white px-3.5 py-2 rounded-xl border border-suka-brown/10 shadow-2xs">
                         <span className="font-bold text-suka-brown/80 truncate pr-2">{cat}</span>
                         <span className="font-black text-suka-brown shrink-0">{formatRp(val)}</span>
@@ -544,7 +561,7 @@ export function PermintaanForm({
                   </span>
                 </div>
                 <span className="text-base sm:text-lg font-black text-suka-orange">
-                  {formatRp(cartEstimate.totalNilai)}
+                  {formatRp(totalNilai)}
                 </span>
               </div>
             </div>
@@ -641,12 +658,12 @@ export function PermintaanForm({
               </div>
 
               {/* Category Breakdown in Modal */}
-              {Object.keys(cartEstimate.kategoriNilai).length > 0 && (
+              {Object.keys(kategoriNilai).length > 0 && (
                 <div className="bg-suka-cream/20 rounded-2xl p-3 border border-suka-brown/10 space-y-1 text-xs">
                   <span className="text-[10px] font-extrabold uppercase text-suka-brown/60 tracking-wider block mb-1">
                     Subtotal per Kategori:
                   </span>
-                  {Object.entries(cartEstimate.kategoriNilai).map(([cat, val]) => (
+                  {Object.entries(kategoriNilai).map(([cat, val]) => (
                     <div key={cat} className="flex justify-between items-center text-suka-brown">
                       <span className="text-suka-brown/80 font-medium">{cat}</span>
                       <span className="font-bold text-suka-brown">{formatRp(val)}</span>
@@ -654,7 +671,7 @@ export function PermintaanForm({
                   ))}
                   <div className="pt-2 mt-1 border-t border-suka-brown/10 flex justify-between items-center">
                     <span className="font-extrabold text-suka-brown">Total Estimasi</span>
-                    <span className="font-black text-suka-orange text-sm">{formatRp(cartEstimate.totalNilai)}</span>
+                    <span className="font-black text-suka-orange text-sm">{formatRp(totalNilai)}</span>
                   </div>
                 </div>
               )}
@@ -1002,7 +1019,7 @@ export function PermintaanForm({
             {/* Budget status badge */}
             <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between mb-4">
               <div className="flex-1 w-full">
-                <BudgetBadge status={budgetStatus} projectedAdd={cartEstimate.totalNilai} />
+                {budgetIndikator}
               </div>
               {budgetStatus && budgetStatus.hasConfig && (
                 <RequestTopUpModal outletId={outletId} plafon={budgetStatus.nominal} sisa={budgetStatus.sisa} />
@@ -1049,12 +1066,12 @@ export function PermintaanForm({
 
             {/* Submit Action */}
             <div className="pt-3 border-t border-suka-brown/10 space-y-2">
-              {Object.keys(cartEstimate.kategoriNilai).length > 1 && (
+              {Object.keys(kategoriNilai).length > 1 && (
                 <div className="bg-suka-cream/30 rounded-xl p-2.5 border border-suka-brown/10 space-y-1 text-[11px]">
                   <span className="text-[9px] font-black uppercase text-suka-brown/50 tracking-wider block">
                     Subtotal Kategori:
                   </span>
-                  {Object.entries(cartEstimate.kategoriNilai).map(([cat, val]) => (
+                  {Object.entries(kategoriNilai).map(([cat, val]) => (
                     <div key={cat} className="flex justify-between items-center text-suka-brown/80">
                       <span className="truncate pr-1">{cat}</span>
                       <span className="font-bold text-suka-brown shrink-0">{formatRp(val)}</span>
@@ -1063,10 +1080,10 @@ export function PermintaanForm({
                 </div>
               )}
 
-              {cartEstimate.totalNilai > 0 && (
+              {totalNilai > 0 && (
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-suka-brown/60">Total Estimasi:</span>
-                  <span className="font-extrabold text-suka-brown">{formatRp(cartEstimate.totalNilai)}</span>
+                  <span className="font-extrabold text-suka-brown">{formatRp(totalNilai)}</span>
                 </div>
               )}
 
@@ -1102,7 +1119,7 @@ export function PermintaanForm({
                   {cartItemCount} Bahan di Keranjang
                 </p>
                 <p className="font-extrabold text-sm text-white truncate mt-0.5">
-                  {cartEstimate.totalNilai > 0 ? `Est. ${formatRp(cartEstimate.totalNilai)}` : 'Tinjau & Kirim'}
+                  {totalNilai > 0 ? `Est. ${formatRp(totalNilai)}` : 'Tinjau & Kirim'}
                 </p>
               </div>
             </div>
@@ -1181,12 +1198,12 @@ export function PermintaanForm({
             </div>
 
             {/* Category Breakdown in Desktop Modal */}
-            {Object.keys(cartEstimate.kategoriNilai).length > 0 && (
+            {Object.keys(kategoriNilai).length > 0 && (
               <div className="bg-suka-cream/20 rounded-2xl p-3 border border-suka-brown/10 space-y-1 text-xs">
                 <span className="text-[10px] font-extrabold uppercase text-suka-brown/60 tracking-wider block mb-1">
                   Subtotal per Kategori:
                 </span>
-                {Object.entries(cartEstimate.kategoriNilai).map(([cat, val]) => (
+                {Object.entries(kategoriNilai).map(([cat, val]) => (
                   <div key={cat} className="flex justify-between items-center text-suka-brown">
                     <span className="text-suka-brown/80 font-medium">{cat}</span>
                     <span className="font-bold text-suka-brown">{formatRp(val)}</span>
@@ -1194,7 +1211,7 @@ export function PermintaanForm({
                 ))}
                 <div className="pt-2 mt-1 border-t border-suka-brown/10 flex justify-between items-center">
                   <span className="font-extrabold text-suka-brown">Total Estimasi</span>
-                  <span className="font-black text-suka-orange text-sm">{formatRp(cartEstimate.totalNilai)}</span>
+                  <span className="font-black text-suka-orange text-sm">{formatRp(totalNilai)}</span>
                 </div>
               </div>
             )}

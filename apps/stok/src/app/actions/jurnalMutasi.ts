@@ -23,7 +23,18 @@ import {
 import { assertStaffCanAccessOutlet } from '@/lib/stok/outletAccess'
 import { canViewJurnalMutasi } from '@/lib/stok/navAccess'
 import { isMutasiOrder, pemakaianPosPerBahan } from '@/lib/stok/mutasiOrder'
-import { ambilWaktuTutupOpname } from '@/lib/stok/waktuTutupOpname'
+import { ambilWaktuTutupOpname, pilihWaktuTutupOpname } from '@/lib/stok/waktuTutupOpname'
+import {
+  BATAS_MUNDUR_BASELINE_HARI,
+  batasHariWIB,
+  filterOrJendela,
+  keMikrodetik,
+  pilihOpnameRentang,
+  rentangGabungan,
+  susunJendelaOutlet,
+  type JendelaOutlet,
+  type JendelaWaktu,
+} from '@/lib/stok/jendelaRentangOpname'
 import { cariTukarBahan, isKelipatanKemasan } from '@/lib/stok/diagnosaSelisih'
 import { INFLOW_TIPE, klasifikasiMutasi } from '@/lib/stok/klasifikasiMutasi'
 import { gabungPosisiOutlet, saldoAwalOutlet, type PosisiOutletBahan } from '@/lib/stok/rekonsiliasiOutlet'
@@ -275,7 +286,11 @@ const PRIOR_INFLOW_MAX_HALAMAN = 15
 async function fetchPriorInflows(
   supabase: ReturnType<typeof makeServiceClient>,
   outletId: string | string[],
-  startIso: string,
+  /**
+   * Awal periode: satu instan untuk semua outlet, atau per outlet (mode Rentang
+   * Tanggal: jendela tiap outlet mulai dari waktu tutup opname baseline-nya).
+   */
+  awal: string | Map<string, string>,
   bahanIds: string[] | null,
   opts: {
     /** Saldo awal (satuan kecil) yang perlu ditutup per kunci. */
@@ -290,12 +305,25 @@ async function fetchPriorInflows(
   const terpakai = new Map<string, (BarisLapisan & { asal: any })[]>()
   if (sisa.size === 0) return new Map()
 
-  const batasBawah = new Date(Date.parse(startIso) - PRIOR_INFLOW_LOOKBACK_HARI * 86400000).toISOString()
+  // Per outlet: kueri sampai awal PALING AKHIR, lalu tiap baris disaring terhadap
+  // awal jendela outletnya sendiri (baris di dalam jendela bukan "sebelum periode").
+  const awalPer = typeof awal === 'string' ? null : awal
+  const rentangAwal = awalPer
+    ? rentangGabungan([...awalPer.values()].map((s) => ({ start: s, end: s })))
+    : { start: awal as string, end: awal as string }
+  const startIso = rentangAwal.end
+  const sebelumAwal = (r: any) => {
+    if (!awalPer) return true
+    const a = awalPer.get(r.outlet_id)
+    return a === undefined ? false : keMikrodetik(r.created_at) < keMikrodetik(a)
+  }
+
+  const batasBawah = new Date(Date.parse(rentangAwal.start) - PRIOR_INFLOW_LOOKBACK_HARI * 86400000).toISOString()
   const PAGE = 1000
   for (let hal = 0; hal < PRIOR_INFLOW_MAX_HALAMAN; hal++) {
     let q = supabase
       .from('ledger_stok')
-      .select('id, outlet_id, bahan_baku_id, tipe, qty, ref_shipment_id, ref_terima_vendor_id, ref_po_id')
+      .select('id, outlet_id, bahan_baku_id, tipe, qty, created_at, ref_shipment_id, ref_terima_vendor_id, ref_po_id')
       .lt('created_at', startIso)
       .gte('created_at', batasBawah)
       .gt('qty', 0)
@@ -311,7 +339,7 @@ async function fetchPriorInflows(
       break
     }
     const rows = (data || []) as any[]
-    const baris = rows.map((r) => {
+    const baris = rows.filter(sebelumAwal).map((r) => {
       const n = opts.normalisasi ? opts.normalisasi(r) : r
       return { kunci: opts.kunci(n), qty: Number(n.qty), vendor: null as string | null, asal: r }
     })
@@ -588,8 +616,21 @@ export interface ReconciliationPeriodInfo {
   mode: 'opname_session' | 'date_range'
   opname_terpilih?: OpnameSessionSummary | null
   opname_sebelumnya?: OpnameSessionSummary | null
+  /**
+   * Batas jendela sebenarnya. Outlet tunggal = persis jendela outlet itu; Semua
+   * Outlet = awal paling dini & akhir paling akhir dari jendela tiap outlet.
+   */
   start_date: string
   end_date: string
+  /** Tanggal (YYYY-MM-DD) yang dipilih pengguna di mode Rentang Tanggal. */
+  tanggal_mulai?: string
+  tanggal_akhir?: string
+  /**
+   * Jendela per outlet (lib/stok/jendelaRentangOpname). Mode Rentang Tanggal:
+   * awal = tutup opname terakhir sebelum tanggal mulai, akhir = tutup opname
+   * terakhir pada tanggal akhir; tanpa opname -> batas hari WIB.
+   */
+  jendela_outlet?: Record<string, JendelaOutlet>
 }
 
 export interface ReconciliationSnapshotResponse {
@@ -894,6 +935,53 @@ export async function fetchOpnameSessions(outletId: string): Promise<OpnameSessi
 }
 
 /**
+ * Waktu tutup banyak opname sekaligus (lihat lib/stok/waktuTutupOpname): baris
+ * ledger pertama milik tiap opname -> updated_at -> created_at. Satu kueri
+ * berhalaman, bukan satu kueri per opname.
+ */
+async function ambilWaktuTutupBanyak(
+  supabase: ReturnType<typeof makeServiceClient>,
+  opnames: { id: string; created_at: string; updated_at?: string | null; status?: string | null }[]
+): Promise<Map<string, string>> {
+  const pertama = new Map<string, string>()
+  const ids = [...new Set(opnames.map((o) => o.id))]
+  for (let i = 0; i < ids.length; i += 100) {
+    const chunk = ids.slice(i, i + 100)
+    try {
+      const rows = await fetchAllPages<any>(() =>
+        supabase
+          .from('ledger_stok')
+          .select('id, ref_opname_id, created_at')
+          .in('ref_opname_id', chunk)
+          .order('created_at', { ascending: true })
+          .order('id', { ascending: true })
+      )
+      for (const r of rows) if (!pertama.has(r.ref_opname_id)) pertama.set(r.ref_opname_id, r.created_at)
+    } catch (e) {
+      console.warn('Gagal memuat waktu tutup opname:', e)
+    }
+  }
+  const out = new Map<string, string>()
+  for (const o of opnames) out.set(o.id, pilihWaktuTutupOpname(o, pertama.get(o.id)))
+  return out
+}
+
+function keRingkasanOpname(o: any): OpnameSessionSummary {
+  return {
+    id: o.id,
+    tanggal: o.tanggal,
+    tipe: o.tipe,
+    status: o.status,
+    notes: o.notes ?? null,
+    created_at: o.created_at,
+    approved_at: o.approved_at ?? null,
+    created_by_name: o.outlet_staff?.name || null,
+    item_count: 0,
+    flagged_count: 0,
+  }
+}
+
+/**
  * Mengambil data Rekonsiliasi Snapshot Periodik
  */
 export async function fetchReconciliationSnapshot(
@@ -950,6 +1038,10 @@ export async function fetchReconciliationSnapshot(
   const prevFisikOB = new Map<string, number>()
   const fisikPenutupOB = new Map<string, number | null>()
   let auditNote: string | null = null
+  // Jendela waktu tiap outlet; startIso/endIso = gabungannya (lib/stok/jendelaRentangOpname).
+  let jendelaOutlet = new Map<string, JendelaOutlet>()
+  let tanggalMulai: string | undefined
+  let tanggalAkhir: string | undefined
 
   if (!isAll && params.mode === 'opname_session') {
     if (!params.opnameId) throw new Error('Parameter opnameId wajib diisi pada mode sesi opname')
@@ -1036,185 +1128,127 @@ export async function fetchReconciliationSnapshot(
       dateObj.setDate(dateObj.getDate() - 7)
       startIso = dateObj.toISOString()
     }
+    jendelaOutlet = new Map([
+      [
+        outletId,
+        {
+          start: startIso,
+          end: endIso,
+          opname_awal_id: opnameSebelumnya?.id ?? null,
+          opname_penutup_id: opnameTerpilih?.id ?? null,
+        },
+      ],
+    ])
   } else {
-    // Mode Rentang Tanggal Bebas
+    // Mode Rentang Tanggal: batas PER OUTLET mengikuti waktu tutup opname
+    // (lib/stok/jendelaRentangOpname), sama dengan mode sesi opname. Rentang
+    // 21–22 Nov satu outlet = sesi 21 Nov + sesi 22 Nov.
     const sDate = params.startDate || new Date().toISOString().slice(0, 10)
     const eDate = params.endDate || sDate
-    startIso = `${sDate}T00:00:00+07:00`
-    endIso = `${eDate}T23:59:59+07:00`
+    tanggalMulai = sDate
+    tanggalAkhir = eDate
 
-    if (isAll) {
-      // 1. Ambil opname terakhir per outlet yang <= startIso
-      const priorOpnames = await Promise.all(
-        targetOutletIds.map((oId) =>
-          supabase
-            .from('opname')
-            .select('id, outlet_id, tanggal, tipe, status, created_at')
-            .eq('outlet_id', oId)
-            .eq('status', 'finalized')
-            .lte('created_at', startIso)
-            .order('created_at', { ascending: false })
-            .limit(1)
-        )
+    const batasMundurIso = new Date(
+      Date.parse(batasHariWIB(sDate).awalIso) - BATAS_MUNDUR_BASELINE_HARI * 86400000
+    ).toISOString()
+    let kandidat: any[]
+    try {
+      // Satu kueri untuk semua outlet (dulu 2 kueri per outlet).
+      kandidat = await fetchAllPages<any>(() =>
+        supabase
+          .from('opname')
+          .select('id, outlet_id, tanggal, tipe, status, notes, created_at, updated_at, approved_at, outlet_staff!opname_created_by_fkey(name)')
+          .in('outlet_id', targetOutletIds)
+          .eq('status', 'finalized')
+          .gte('created_at', batasMundurIso)
+          .lte('created_at', batasHariWIB(eDate).akhirIso)
+          .order('created_at', { ascending: true })
+          .order('id', { ascending: true })
       )
-      const priorOpnameIds: string[] = []
-      const outletOfPriorOpname = new Map<string, string>()
-      for (const res of priorOpnames) {
-        const row = res.data?.[0]
-        if (row?.id) {
-          priorOpnameIds.push(row.id)
-          outletOfPriorOpname.set(row.id, row.outlet_id)
-        }
+    } catch (e: any) {
+      throw new Error(`Gagal memuat opname rentang: ${e?.message ?? e}`)
+    }
+
+    const pilihan = pilihOpnameRentang({
+      outletIds: targetOutletIds,
+      startDate: sDate,
+      endDate: eDate,
+      opnames: kandidat,
+    })
+    const dipilih = [...pilihan.values()].flatMap((p) => [p.awal, p.penutup]).filter((o): o is any => !!o)
+    const waktuTutup = await ambilWaktuTutupBanyak(supabase, dipilih)
+    jendelaOutlet = susunJendelaOutlet({
+      outletIds: targetOutletIds,
+      startDate: sDate,
+      endDate: eDate,
+      pilihan,
+      waktuTutup,
+    })
+    const gab = rentangGabungan(jendelaOutlet.values())
+    startIso = gab.start
+    endIso = gab.end
+
+    if (!isAll) {
+      const p = pilihan.get(outletId)
+      if (p?.awal) opnameSebelumnya = keRingkasanOpname(p.awal)
+      if (p?.penutup) {
+        opnameTerpilih = keRingkasanOpname(p.penutup)
+        auditNote = p.penutup.notes ?? null
       }
+    }
 
-      if (priorOpnameIds.length > 0) {
-        let pItems: any[] = []
-        try {
-          pItems = await fetchAllPages<any>(() =>
-            supabase
-              .from('opname_item')
-              .select('id, opname_id, bahan_baku_id, qty_fisik')
-              .in('opname_id', priorOpnameIds)
-              .order('id')
-          )
-        } catch (e) {
-          console.warn('Gagal memuat item opname baseline konsolidasi:', e)
-        }
-
-        // Per outlet: bahan yang TIDAK dihitung (qty_fisik null) di opname sebelumnya
-        // jatuh ke saldo ledger outlet itu (saldoAwalOutlet), bukan 0.
-        for (const item of pItems) {
-          const oId = outletOfPriorOpname.get(item.opname_id)
-          if (!oId) continue
-          if (item.qty_fisik !== null && item.qty_fisik !== undefined) {
-            prevFisikOB.set(kunciOB(oId, item.bahan_baku_id), Number(item.qty_fisik))
-          }
-        }
-      }
-
-      // 2. Ambil opname terakhir per outlet dalam rentang [startIso, endIso]
-      const endingOpnames = await Promise.all(
-        targetOutletIds.map((oId) =>
-          supabase
-            .from('opname')
-            .select('id, outlet_id, tanggal, tipe, status, created_at')
-            .eq('outlet_id', oId)
-            .eq('status', 'finalized')
-            .gte('created_at', startIso)
-            .lte('created_at', endIso)
-            .order('created_at', { ascending: false })
-            .limit(1)
-        )
-      )
-      const outletOfEndingOpname = new Map<string, string>()
-      for (const res of endingOpnames) {
-        const row = res.data?.[0]
-        if (row?.id) outletOfEndingOpname.set(row.id, row.outlet_id)
-      }
-      const endingOpnameIds = [...outletOfEndingOpname.keys()]
-
-      if (endingOpnameIds.length > 0) {
-        let eItems: any[] = []
-        try {
-          eItems = await fetchAllPages<any>(() =>
-            supabase
-              .from('opname_item')
-              .select('id, opname_id, bahan_baku_id, qty_fisik')
-              .in('opname_id', endingOpnameIds)
-              .order('id')
-          )
-        } catch (e) {
-          console.warn('Gagal memuat item opname penutup konsolidasi:', e)
-        }
-
-        // Disimpan per outlet -- dulu dijumlah per bahan lalu dibandingkan dengan stok
-        // sistem SEMUA outlet, sehingga stok outlet yang tak opname tampil sebagai rugi.
-        for (const item of eItems) {
-          const oId = outletOfEndingOpname.get(item.opname_id)
-          if (!oId) continue
-          fisikPenutupOB.set(
-            kunciOB(oId, item.bahan_baku_id),
-            item.qty_fisik === null || item.qty_fisik === undefined ? null : Number(item.qty_fisik)
+    // Item opname baseline (Saldo Awal) & penutup (Stok Fisik), disimpan per outlet.
+    const peranOpname = new Map<string, { outletId: string; peran: 'awal' | 'penutup' }>()
+    for (const [oId, p] of pilihan) {
+      if (p.awal) peranOpname.set(p.awal.id, { outletId: oId, peran: 'awal' })
+      if (p.penutup) peranOpname.set(p.penutup.id, { outletId: oId, peran: 'penutup' })
+    }
+    const opnameIds = [...peranOpname.keys()]
+    if (opnameIds.length > 0) {
+      let items: any[] = []
+      try {
+        for (let i = 0; i < opnameIds.length; i += 100) {
+          const chunk = opnameIds.slice(i, i + 100)
+          items.push(
+            ...(await fetchAllPages<any>(() =>
+              supabase
+                .from('opname_item')
+                .select('id, opname_id, bahan_baku_id, qty_fisik')
+                .in('opname_id', chunk)
+                .order('id')
+            ))
           )
         }
+      } catch (e) {
+        console.warn('Gagal memuat item opname rentang:', e)
+        items = []
       }
-    } else {
-      // 1. Ambil opname terakhir yang terjadi pada atau sebelum startIso sebagai baseline Saldo Awal
-      const { data: priorOpBeforeStart } = await supabase
-        .from('opname')
-        .select('id, tanggal, tipe, status, notes, created_at, approved_at, outlet_staff!opname_created_by_fkey(name)')
-        .eq('outlet_id', outletId)
-        .eq('status', 'finalized')
-        .lte('created_at', startIso)
-        .order('created_at', { ascending: false })
-        .limit(1)
-
-      if (priorOpBeforeStart && priorOpBeforeStart.length > 0) {
-        const prev = priorOpBeforeStart[0]
-        opnameSebelumnya = {
-          id: prev.id,
-          tanggal: prev.tanggal,
-          tipe: prev.tipe,
-          status: prev.status,
-          notes: prev.notes,
-          created_at: prev.created_at,
-          approved_at: prev.approved_at,
-          created_by_name: (prev as any).outlet_staff?.name || null,
-          item_count: 0,
-          flagged_count: 0,
-        }
-        const { data: pItems } = await supabase
-          .from('opname_item')
-          .select('bahan_baku_id, qty_fisik')
-          .eq('opname_id', prev.id)
-
-        for (const item of pItems || []) {
-          if (item.qty_fisik !== null && item.qty_fisik !== undefined) {
-            prevFisikOB.set(kunciOB(outletId, item.bahan_baku_id), Number(item.qty_fisik))
-          }
-        }
-      }
-
-      // 2. Ambil opname terakhir yang terjadi di dalam rentang tanggal (<= endIso) sebagai hasil hitung Stok Fisik
-      const { data: endingOpInRange } = await supabase
-        .from('opname')
-        .select('id, tanggal, tipe, status, notes, created_at, approved_at, outlet_staff!opname_created_by_fkey(name)')
-        .eq('outlet_id', outletId)
-        .eq('status', 'finalized')
-        .gte('created_at', startIso)
-        .lte('created_at', endIso)
-        .order('created_at', { ascending: false })
-        .limit(1)
-
-      if (endingOpInRange && endingOpInRange.length > 0) {
-        const cur = endingOpInRange[0]
-        opnameTerpilih = {
-          id: cur.id,
-          tanggal: cur.tanggal,
-          tipe: cur.tipe,
-          status: cur.status,
-          notes: cur.notes,
-          created_at: cur.created_at,
-          approved_at: cur.approved_at,
-          created_by_name: (cur as any).outlet_staff?.name || null,
-          item_count: 0,
-          flagged_count: 0,
-        }
-        auditNote = cur.notes
-
-        const { data: eItems } = await supabase
-          .from('opname_item')
-          .select('bahan_baku_id, qty_fisik, qty_system, selisih')
-          .eq('opname_id', cur.id)
-
-        for (const item of eItems || []) {
-          fisikPenutupOB.set(
-            kunciOB(outletId, item.bahan_baku_id),
-            item.qty_fisik === null || item.qty_fisik === undefined ? null : Number(item.qty_fisik)
-          )
+      for (const item of items) {
+        const r = peranOpname.get(item.opname_id)
+        if (!r) continue
+        const k = kunciOB(r.outletId, item.bahan_baku_id)
+        const ada = item.qty_fisik !== null && item.qty_fisik !== undefined
+        if (r.peran === 'awal') {
+          // Bahan tak dihitung di baseline jatuh ke saldo ledger (saldoAwalOutlet), bukan 0.
+          if (ada) prevFisikOB.set(k, Number(item.qty_fisik))
+        } else {
+          // Per outlet -- stok outlet yang tak opname tidak ikut selisih (rekonsiliasiOutlet).
+          fisikPenutupOB.set(k, ada ? Number(item.qty_fisik) : null)
         }
       }
     }
+  }
+
+  // Penerapan jendela per outlet ke kueri. Satu jendela (outlet tunggal / sesi
+  // opname) = filter rentang biasa; beberapa jendela = .or() per outlet, supaya
+  // baris di luar jendela outletnya sendiri tidak ikut terambil.
+  const satuJendela = jendelaOutlet.size === 1
+  const terapkanJendela = (q: any, kolom = 'created_at') => {
+    if (satuJendela) {
+      const [[oId, j]] = [...jendelaOutlet.entries()]
+      return q.eq('outlet_id', oId).gte(kolom, j.start).lte(kolom, j.end)
+    }
+    return q.in('outlet_id', [...jendelaOutlet.keys()]).or(filterOrJendela(jendelaOutlet, kolom))
   }
 
   // 2. Cek Surat Jalan menggantung / in-transit di sekitar cut-off
@@ -1294,16 +1328,14 @@ export async function fetchReconciliationSnapshot(
   let rawLedgerRows: any[]
   try {
     rawLedgerRows = await fetchAllPages<any>(() => {
-      let q = supabase
+      const q = supabase
         .from('ledger_stok')
         .select('id, outlet_id, bahan_baku_id, tipe, qty, catatan, created_at, ref_shipment_id, ref_opname_id, ref_terima_vendor_id, ref_po_id, ref_order_id, ref_waste_id, saldo_sebelum, saldo_sesudah')
-        .gte('created_at', startIso)
-        .lte('created_at', endIso)
         .neq('tipe', 'opname_selisih')
+      // Jendela per outlet (mode Rentang Tanggal Semua Outlet: tiap outlet punya batas opname sendiri).
+      return terapkanJendela(q)
         .order('created_at', { ascending: true })
         .order('id', { ascending: true })
-
-      return isAll ? q.in('outlet_id', targetOutletIds) : q.eq('outlet_id', outletId)
     })
   } catch (e: any) {
     throw new Error(`Gagal memuat mutasi ledger: ${e?.message ?? e}`)
@@ -1324,13 +1356,12 @@ export async function fetchReconciliationSnapshot(
   if (targetOutletIds.length > 0) {
     try {
       const wasteReports = await fetchAllPages<any>(() =>
-        supabase
-          .from('stok_waste_reports')
-          .select('id, outlet_id, bahan_baku_id, qty, status, created_at')
-          .in('outlet_id', targetOutletIds)
-          .eq('status', 'APPROVED')
-          .gte('created_at', startIso)
-          .lte('created_at', endIso)
+        terapkanJendela(
+          supabase
+            .from('stok_waste_reports')
+            .select('id, outlet_id, bahan_baku_id, qty, status, created_at')
+            .eq('status', 'APPROVED')
+        )
           .order('created_at', { ascending: true })
           .order('id', { ascending: true })
       )
@@ -1352,6 +1383,7 @@ export async function fetchReconciliationSnapshot(
   const orderRowsPeriode = ledgerRows.filter((r) => isMutasiOrder(r))
   const orderIdsPeriode = [...new Set(orderRowsPeriode.map((r) => r.ref_order_id as string))]
   const orderRowsLuar: any[] = []
+  const idBarisPeriode = new Set(orderRowsPeriode.map((r) => r.id as string))
   try {
     for (let i = 0; i < orderIdsPeriode.length; i += 200) {
       const chunk = orderIdsPeriode.slice(i, i + 200)
@@ -1361,27 +1393,37 @@ export async function fetchReconciliationSnapshot(
           .select('id, outlet_id, bahan_baku_id, tipe, qty, created_at, ref_order_id')
           .in('ref_order_id', chunk)
           .in('tipe', ['pemakaian', 'adjustment'])
-          .or(`created_at.lt."${startIso}",created_at.gt."${endIso}"`)
-          .order('created_at', { ascending: true })
-          .order('id', { ascending: true })
-
+        // Satu jendela: cukup baris di luarnya. Beberapa jendela (per outlet): ambil
+        // semua baris order itu lalu buang yang sudah ada di periode (dedup id).
+        if (satuJendela) q = q.or(`created_at.lt."${startIso}",created_at.gt."${endIso}"`)
+        q = q.order('created_at', { ascending: true }).order('id', { ascending: true })
         return isAll ? q.in('outlet_id', targetOutletIds) : q.eq('outlet_id', outletId)
       })
-      orderRowsLuar.push(...fetchedChunk.map(normalizeLedgerRow))
+      orderRowsLuar.push(...fetchedChunk.filter((r) => !idBarisPeriode.has(r.id)).map(normalizeLedgerRow))
     }
   } catch (e: any) {
     throw new Error(`Gagal memuat mutasi order di luar periode: ${e?.message ?? e}`)
   }
   // Per (outlet, bahan): kunci bahan diganti kunciOB. Order milik satu outlet, jadi
-  // atribusi per order tidak berubah.
-  const pakaiOrderOB = pemakaianPosPerBahan(
-    [...orderRowsPeriode, ...orderRowsLuar].map((r) => ({
-      ...r,
-      bahan_baku_id: kunciOB(r.outlet_id || outletId, r.bahan_baku_id),
-    })),
-    startIso,
-    endIso
-  )
+  // atribusi per order tidak berubah. Tiap outlet diatribusikan terhadap jendelanya
+  // sendiri (mode Rentang Tanggal: batas opname per outlet).
+  const pakaiOrderOB = new Map<string, number>()
+  {
+    const barisPerOutlet = new Map<string, any[]>()
+    for (const r of [...orderRowsPeriode, ...orderRowsLuar]) {
+      const oId = r.outlet_id || outletId
+      const list = barisPerOutlet.get(oId) || []
+      list.push({ ...r, bahan_baku_id: kunciOB(oId, r.bahan_baku_id) })
+      barisPerOutlet.set(oId, list)
+    }
+    for (const [oId, rows] of barisPerOutlet) {
+      const j = jendelaOutlet.get(oId)
+      if (!j) continue
+      for (const [k, v] of pemakaianPosPerBahan(rows, j.start, j.end)) {
+        pakaiOrderOB.set(k, (pakaiOrderOB.get(k) || 0) + v)
+      }
+    }
+  }
 
   // 5. Ambil harga pengadaan riil dari surat_jalan_item untuk transaksi terima_kiriman dalam periode
   const shipmentIds = [
@@ -1446,7 +1488,8 @@ export async function fetchReconciliationSnapshot(
     for (const [obKey, { rs }] of rowsByOutletBahan) {
       kebutuhanAwal.set(obKey, Math.max(Number(rs[0].saldo_sebelum || 0), 0))
     }
-    const priorByOB = await fetchPriorInflows(supabase, isAll ? targetOutletIds : outletId, startIso, null, {
+    const awalPerOutlet = new Map([...jendelaOutlet].map(([oId, j]) => [oId, j.start] as [string, string]))
+    const priorByOB = await fetchPriorInflows(supabase, isAll ? targetOutletIds : outletId, awalPerOutlet, null, {
       kebutuhan: kebutuhanAwal,
       kunci: (row) => kunciOB(row.outlet_id || outletId, row.bahan_baku_id),
       normalisasi: normalizeLedgerRow,
@@ -1494,16 +1537,14 @@ export async function fetchReconciliationSnapshot(
   let ordersData: any[]
   try {
     ordersData = await fetchAllPages<any>(() => {
-      let q = supabase
+      const q = supabase
         .from('orders')
         .select('id, outlet_id, total_amount, discount_amount, promo_subsidy')
         .eq('status', 'completed')
-        .gte('created_at', startIso)
-        .lte('created_at', endIso)
+      // Omzet ikut jendela per outlet agar sejalan dengan pemakaian.
+      return terapkanJendela(q)
         .order('created_at', { ascending: true })
         .order('id', { ascending: true })
-
-      return isAll ? q.in('outlet_id', targetOutletIds) : q.eq('outlet_id', outletId)
     })
   } catch (e: any) {
     throw new Error(`Gagal memuat penjualan: ${e?.message ?? e}`)
@@ -2195,6 +2236,9 @@ export async function fetchReconciliationSnapshot(
       opname_sebelumnya: opnameSebelumnya,
       start_date: startIso,
       end_date: endIso,
+      tanggal_mulai: tanggalMulai,
+      tanggal_akhir: tanggalAkhir,
+      jendela_outlet: Object.fromEntries(jendelaOutlet),
     },
     pending_surat_jalan_count: pendingSjCount,
     items: reconciliationItems,
@@ -2232,7 +2276,13 @@ export async function fetchItemTransactionLedger(
   outletId: string,
   bahanBakuId: string,
   startDate: string,
-  endDate: string
+  endDate: string,
+  /**
+   * Mode Semua Outlet + Rentang Tanggal: jendela tiap outlet dari snapshot
+   * (period.jendela_outlet). Outlet tunggal cukup startDate/endDate (sudah
+   * persis jendela outlet itu).
+   */
+  jendelaOutlet?: Record<string, JendelaWaktu>
 ): Promise<LedgerTimelineRow[]> {
   const isAll = outletId === 'ALL'
   await requireManagementAuth(isAll ? undefined : outletId)
@@ -2256,6 +2306,18 @@ export async function fetchItemTransactionLedger(
   } else {
     targetOutletIds = [outletId]
   }
+
+  // Jendela per outlet (Semua Outlet, mode Rentang Tanggal); outlet yang tak ada di
+  // peta memakai startDate/endDate. null = satu jendela untuk semua.
+  const jendelaPerOutlet: Map<string, JendelaWaktu> | null =
+    isAll && jendelaOutlet && Object.keys(jendelaOutlet).length > 0
+      ? new Map(
+          targetOutletIds.map((oId) => {
+            const j = jendelaOutlet[oId]
+            return [oId, j ? { start: j.start, end: j.end } : { start: startDate, end: endDate }] as [string, JendelaWaktu]
+          })
+        )
+      : null
 
   // Ambil data bahan baku, harga, dan penanda skala saldo untuk konversi harga & qty per unit
   const [bahanRes, hargaRes, balanceScaleRes] = await Promise.all([
@@ -2319,9 +2381,12 @@ export async function fetchItemTransactionLedger(
       ref_po_id
     `)
       .eq('bahan_baku_id', bahanBakuId)
-      .gte('created_at', startDate)
-      .lte('created_at', endDate)
-    return (isAll ? q.in('outlet_id', targetOutletIds) : q.eq('outlet_id', outletId))
+    const terfilter = jendelaPerOutlet
+      ? q.in('outlet_id', targetOutletIds).or(filterOrJendela(jendelaPerOutlet, 'created_at'))
+      : (isAll ? q.in('outlet_id', targetOutletIds) : q.eq('outlet_id', outletId))
+          .gte('created_at', startDate)
+          .lte('created_at', endDate)
+    return terfilter
       .order('created_at', { ascending: true })
       .order('id', { ascending: true })
   }
@@ -2430,7 +2495,10 @@ export async function fetchItemTransactionLedger(
   let openingBalance = 0
   for (const v of saldoAwalPerOutlet.values()) openingBalance += Math.max(v, 0)
 
-  const priorByBahan = await fetchPriorInflows(supabase, isAll ? targetOutletIds : outletId, startDate, [bahanBakuId], {
+  const awalTimeline = jendelaPerOutlet
+    ? new Map([...jendelaPerOutlet].map(([oId, j]) => [oId, j.start] as [string, string]))
+    : startDate
+  const priorByBahan = await fetchPriorInflows(supabase, isAll ? targetOutletIds : outletId, awalTimeline, [bahanBakuId], {
     kebutuhan: new Map([[bahanBakuId, openingBalance]]),
     kunci: () => bahanBakuId,
     normalisasi: (r: any) =>

@@ -27,6 +27,28 @@ import { useOutletScope } from '@/hooks/useOutletScope'
 import { exportReconciliationToCsv } from '@/lib/export/exportJurnalMutasi'
 import { exportReconciliationToPdf } from '@/lib/export/exportJurnalMutasiPdf'
 import { RekonsiliasiTable } from './RekonsiliasiTable'
+import { cakupanJendela } from '@/lib/stok/jendelaRentangOpname'
+
+/** Batas jendela dihitung dalam WIB, jadi label juga ditampilkan dalam WIB. */
+function formatWaktuWIB(iso: string): string {
+  return `${new Date(iso).toLocaleString('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Jakarta',
+  })} WIB`
+}
+
+function formatTanggalWIB(tanggal: string): string {
+  return new Date(`${tanggal}T00:00:00+07:00`).toLocaleDateString('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Asia/Jakarta',
+  })
+}
 import { AuditNotesModal } from './AuditNotesModal'
 import { Select } from '@suka/design-system'
 
@@ -454,37 +476,58 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
         {/* Periode Cut-Off Badge */}
         {data && (
           <div className="p-3 bg-suka-cream/20 rounded-2xl border border-suka-brown/10 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-suka-brown/60">Periode Audit:</span>
-              <span className="font-black text-suka-brown">
-                {new Date(data.period.start_date).toLocaleString('id-ID', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </span>
-              <ArrowRight className="w-3.5 h-3.5 text-suka-brown/40" />
-              <span className="font-black text-suka-brown">
-                {new Date(data.period.end_date).toLocaleString('id-ID', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </span>
-            </div>
+            {data.outlet.id === 'ALL' && data.period.mode === 'date_range' && data.period.tanggal_mulai ? (
+              // Semua Outlet: tiap outlet punya batas sendiri (waktu tutup opname masing-masing),
+              // jadi yang jujur ditampilkan adalah tanggal pilihan + aturan batasnya.
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-suka-brown/60">Periode Audit:</span>
+                <span className="font-black text-suka-brown">{formatTanggalWIB(data.period.tanggal_mulai)}</span>
+                <ArrowRight className="w-3.5 h-3.5 text-suka-brown/40" />
+                <span className="font-black text-suka-brown">
+                  {formatTanggalWIB(data.period.tanggal_akhir || data.period.tanggal_mulai)}
+                </span>
+                <span className="text-[11px] font-bold text-suka-brown/60">
+                  Batas awal & akhir mengikuti waktu tutup opname tiap outlet
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-suka-brown/60">Periode Audit:</span>
+                <span className="font-black text-suka-brown">{formatWaktuWIB(data.period.start_date)}</span>
+                <ArrowRight className="w-3.5 h-3.5 text-suka-brown/40" />
+                <span className="font-black text-suka-brown">{formatWaktuWIB(data.period.end_date)}</span>
+              </div>
+            )}
             <div className="flex items-center gap-3 flex-wrap">
-              {data.period.opname_sebelumnya && (
+              {data.outlet.id === 'ALL' && data.period.mode === 'date_range' && data.period.jendela_outlet && (() => {
+                const c = cakupanJendela(data.period.jendela_outlet)
+                return (
+                  <span className="text-[11px] font-bold text-suka-brown/60">
+                    {c.denganPenutup} dari {c.total} outlet opname pada tanggal akhir · {c.denganBaseline} punya
+                    opname sebelum tanggal mulai (tanpa opname: batas 00:00 / 23:59 WIB)
+                  </span>
+                )
+              })()}
+              {data.period.opname_sebelumnya ? (
                 <span className="text-[11px] font-bold text-suka-brown/60">
                   Baseline Saldo Awal: Opname {data.period.opname_sebelumnya.tanggal}
                 </span>
+              ) : (
+                data.outlet.id !== 'ALL' &&
+                data.period.mode === 'date_range' && (
+                  <span className="text-[11px] font-bold text-suka-brown/60">
+                    Tanpa opname sebelum tanggal mulai: mulai 00:00 WIB, saldo awal dari saldo sistem
+                  </span>
+                )
               )}
               {data.period.opname_terpilih && data.period.mode === 'date_range' && (
                 <span className="text-[11px] font-bold text-suka-orange bg-suka-orange/10 px-2 py-0.5 rounded-md">
                   Fisik Opname: {data.period.opname_terpilih.tanggal} ({data.period.opname_terpilih.tipe})
+                </span>
+              )}
+              {!data.period.opname_terpilih && data.outlet.id !== 'ALL' && data.period.mode === 'date_range' && (
+                <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">
+                  Tidak ada opname pada tanggal akhir: sampai 23:59 WIB, tanpa stok fisik
                 </span>
               )}
             </div>

@@ -717,9 +717,20 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
                   >
                     {data.totals.bahan_berselisih_count} Bahan Berselisih
                   </span>
+                  {!!data.totals.tukar_bahan_count && (
+                    <span
+                      className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-red-600 text-white"
+                      title="Bahan sejenis (mis. FOIL 5M vs FOIL 7,6M) dengan selisih berlawanan: kemungkinan dihitung di bahan yang salah"
+                    >
+                      ⇄ {data.totals.tukar_bahan_count} Bahan Kemungkinan Tertukar
+                    </span>
+                  )}
                   {data.totals.anomali_skala_count > 0 && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-red-600 text-white animate-pulse">
-                      🚨 {data.totals.anomali_skala_count} Salah Input Skala Satuan
+                    <span
+                      className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-red-100 text-red-800 border border-red-200"
+                      title="Selisih tepat kelipatan isi kemasan (pas 1 tabung, pas 1 Dus): cek salah hitung atau salah pilih bahan"
+                    >
+                      {data.totals.anomali_skala_count} Selisih Pas Kelipatan Kemasan
                     </span>
                   )}
                 </>

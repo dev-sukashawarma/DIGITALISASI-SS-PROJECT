@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   AlertCircle,
   Truck,
+  ArrowLeftRight,
   TrendingDown,
   TrendingUp,
   Search,
@@ -783,6 +784,9 @@ export function RekonsiliasiTable({
                                     }`}
                                     title={diag.message}
                                   >
+                                    {diag.type === 'TUKAR_BAHAN' && (
+                                      <ArrowLeftRight className="w-3 h-3 text-red-600 shrink-0 mt-0.5" />
+                                    )}
                                     {diag.type === 'ANOMALI_SKALA' && (
                                       <AlertCircle className="w-3 h-3 text-red-600 shrink-0 mt-0.5" />
                                     )}

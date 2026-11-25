@@ -3765,6 +3765,8 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 Kolom **HPP + OPEX** di file November **identik sampai desimal** dengan yang sudah live sejak 2 Nov (dari `⛔SS HPP OCT 2026 v2.2.xlsx`) — ke-18 menu cocok. Jadi pekerjaannya hanya **menggeser tanggal mulai 2 Nov → 1 Nov**, menambal satu hari. Dampak 1 Nov: internal +Rp 548.864, mitra (basis) +Rp 672.393. `channel_hpp` (SS Online) tak disentuh. Struktur file: **HPP murni (B) × 1,10 = HPP + OPEX (C)**.
 
 ### 2. 🔴 Markup mitra 10% → **15%**, berlaku 1 Nov, Cileungsi IKUT
+
+> ⛔ **SUDAH DIGANTI 25 Nov 2026: markup mitra mulai 1 Nov 2026 = 12%, bukan 15%.** Angka 15% di bagian ini tidak berlaku di periode mana pun. Lihat "Session 2026-11-25: Markup HPP Mitra 15% → 12%".
 Sel **P3** tab OFFLINE: `MARKUP MITRA (dari HPP + OPEX) = 0,15 FIXED`; kolom I = C × 1,15, kolom M (`PROFIT HPP`) = I − C. **Keputusan owner 11 Nov 2026**, termasuk dua hal yang ditanyakan eksplisit: berlaku **1 Nov** (bukan mundur ke 1 Okt) dan **MITRA CILEUNGSI ikut 15%** (pengecualian ×1,10 miliknya berakhir 31 Okt).
 
 | Periode | HPP mitra |

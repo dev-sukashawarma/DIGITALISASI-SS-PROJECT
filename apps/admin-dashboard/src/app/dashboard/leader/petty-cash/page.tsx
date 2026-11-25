@@ -10,6 +10,7 @@ import {
 import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
 import { toast } from 'sonner'
+import { labelStatusPettyCash, perluKonfirmasiLeader } from '@/lib/pettyCash/tahap'
 
 interface TopupRequest {
   id: string
@@ -243,15 +244,7 @@ export default function LeaderPettyCashPage() {
 
     setIsSubmitting(true)
     try {
-      await supabase
-        .from('outlets')
-        .update({
-          bank_name: bankName.trim(),
-          bank_account_number: bankAccountNumber.trim(),
-          bank_account_name: bankAccountName.trim()
-        })
-        .eq('id', selectedOutletId)
-
+      // Rekening outlet ikut disimpan oleh RPC create_petty_cash_topup.
       const { error } = await supabase.rpc('create_petty_cash_topup', {
         p_outlet_id: selectedOutletId,
         p_amount: parseFloat(amount),
@@ -276,11 +269,11 @@ export default function LeaderPettyCashPage() {
   }
 
   const handleLeaderForwardToCrew = async (id: string) => {
-    if (!confirm('Anda yakin ingin menyerahkan dana ke Crew? Saldo Petty Cash outlet akan bertambah.')) return
+    if (!confirm('Uang sudah masuk laci kasir? Saldo petty cash outlet akan bertambah.')) return
     try {
       const { error } = await supabase.rpc('leader_forward_funds', { p_topup_id: id })
       if (error) throw error
-      toast.success('Dana berhasil diserahkan ke Crew & Saldo Petty Cash Outlet bertambah!')
+      toast.success('Dana dikonfirmasi. Saldo petty cash outlet bertambah.')
       await loadData()
     } catch (err: any) {
       toast.error('Gagal penyerahan dana: ' + err.message)
@@ -289,9 +282,8 @@ export default function LeaderPettyCashPage() {
 
   const filteredRequests = useMemo(() => {
     return requests.filter(r => {
-      if (statusFilter === 'pending' && !(r.status === 'pending' || r.status === 'forwarded_to_area_manager')) return false
-      if (statusFilter === 'finance' && !(r.status === 'forwarded_to_finance' || r.status === 'approved_by_finance' || r.status === 'forwarded_by_finance')) return false
-      if (statusFilter === 'action_needed' && r.status !== 'forwarded_by_area_manager') return false
+      if (statusFilter === 'pending' && r.status !== 'forwarded_to_finance') return false
+      if (statusFilter === 'action_needed' && !perluKonfirmasiLeader(r.status)) return false
       if (statusFilter === 'completed' && !(r.status === 'completed' || r.status === 'forwarded_by_leader')) return false
       if (statusFilter === 'rejected' && r.status !== 'rejected') return false
 
@@ -311,8 +303,8 @@ export default function LeaderPettyCashPage() {
     })
   }, [requests, statusFilter, searchQuery])
 
-  const countPending = requests.filter(r => r.status === 'pending' || r.status === 'forwarded_to_area_manager').length
-  const countActionNeeded = requests.filter(r => r.status === 'forwarded_by_area_manager').length
+  const countPending = requests.filter(r => r.status === 'forwarded_to_finance').length
+  const countActionNeeded = requests.filter(r => perluKonfirmasiLeader(r.status)).length
   const countCompleted = requests.filter(r => r.status === 'completed' || r.status === 'forwarded_by_leader').length
 
   return (
@@ -514,7 +506,7 @@ export default function LeaderPettyCashPage() {
                 : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
             }`}
           >
-            Action Leader ({countActionNeeded})
+            Konfirmasi Dana ({countActionNeeded})
           </button>
         )}
 
@@ -526,7 +518,7 @@ export default function LeaderPettyCashPage() {
               : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
           }`}
         >
-          Menunggu AM ({countPending})
+          Menunggu Finance ({countPending})
         </button>
 
         <button
@@ -567,29 +559,24 @@ export default function LeaderPettyCashPage() {
                 
                 {/* Status Badges */}
                 <div className="flex items-center self-start sm:self-auto">
-                  {(row.status === 'pending' || row.status === 'forwarded_to_area_manager') && (
-                    <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 ring-1 ring-amber-200/50 uppercase tracking-wider">
-                      Menunggu AM
-                    </span>
-                  )}
                   {row.status === 'forwarded_to_finance' && (
                     <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 ring-1 ring-blue-200/50 uppercase tracking-wider">
                       Menunggu Finance
                     </span>
                   )}
-                  {(row.status === 'approved_by_finance' || row.status === 'forwarded_by_finance') && (
-                    <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/50 uppercase tracking-wider">
-                      Acc Finance
+                  {perluKonfirmasiLeader(row.status) && (
+                    <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-suka-orange text-white animate-pulse uppercase tracking-wider shadow-sm">
+                      Sudah Ditransfer
                     </span>
                   )}
-                  {row.status === 'forwarded_by_area_manager' && (
-                    <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-suka-orange text-white animate-pulse uppercase tracking-wider shadow-sm">
-                      Siap Diserahkan
+                  {(row.status === 'forwarded_to_area_manager' || row.status === 'forwarded_by_finance' || row.status === 'forwarded_by_area_manager') && (
+                    <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 ring-1 ring-slate-200/50 uppercase tracking-wider">
+                      {labelStatusPettyCash(row.status)}
                     </span>
                   )}
                   {row.status === 'forwarded_by_leader' && (
                     <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/50 uppercase tracking-wider">
-                      Diserahkan ke Crew
+                      Dana Diterima
                     </span>
                   )}
                   {row.status === 'completed' && (
@@ -630,12 +617,12 @@ export default function LeaderPettyCashPage() {
 
               {/* Actions Footer */}
               <div className="pt-2 flex flex-wrap items-center gap-2">
-                {row.status === 'forwarded_by_area_manager' && (
+                {perluKonfirmasiLeader(row.status) && (
                   <button
                     onClick={() => handleLeaderForwardToCrew(row.id)}
                     className="flex-1 sm:flex-none py-2.5 px-6 bg-suka-orange hover:bg-orange-600 active:scale-95 text-white rounded-xl text-xs font-bold transition-all text-center shadow-sm"
                   >
-                    Terima & Serahkan ke Crew
+                    Dana diterima &amp; masuk laci
                   </button>
                 )}
 

@@ -31,7 +31,7 @@ const LABEL_LANGKAH: Record<Langkah, string> = {
 const GALAT_PER_LANGKAH: Record<Langkah, KunciGalat[]> = {
   jenis: [],
   data: ['nama', 'jamTutup', 'tanggalGrandOpening'],
-  staf: ['amStaffId'],
+  staf: [],
   mitra: ['mitra', 'mitra.akun', 'rab'],
 }
 
@@ -271,9 +271,13 @@ export function WizardPembukaan({
 
         {langkah === 'staf' && (
           <div className="space-y-4">
-            <Isian label="Area Manager (wajib)" galat={galatTampil.amStaffId}>
+            <Isian
+              label="Area Manager (bisa nanti)"
+              galat={galatTampil.amStaffId}
+              bantuan="Boleh dikosongkan dan ditautkan belakangan di HR. Wajib sebelum Go-Live."
+            >
               <select id="wiz-am" className={kelasInput} value={amId} onChange={e => setAmId(e.target.value)}>
-                <option value="">Pilih AM</option>
+                <option value="">Pilih nanti</option>
                 {am.map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
               </select>
             </Isian>

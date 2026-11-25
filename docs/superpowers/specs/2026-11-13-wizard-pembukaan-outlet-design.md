@@ -61,3 +61,5 @@ Revisi owner 13 Nov (sesudah rilis): langkah **Jadwal absensi & checklist harian
 - Semua tulis lewat server action dengan cek role di dalamnya (bukan guard halaman saja).
 - Go-Live mengisi `mitra_investments.tanggal_mulai` dengan tanggal Go-Live.
 - `apps/admin-dashboard/src/data/outlet_system_start_dates.json` yatim, abaikan.
+
+**AM boleh dikosongkan saat outlet dibuat** (revisi owner 25 Nov, migration `20261125150000`): pilihan AM di wizard langkah 3 boleh "Pilih nanti"; langkah papan "AM ditautkan" tetap wajib sebelum Go-Live.

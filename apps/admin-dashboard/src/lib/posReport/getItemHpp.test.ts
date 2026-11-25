@@ -63,13 +63,13 @@ describe('getItemHpp — markup mitra & takeout OPEX mulai Okt 2026', () => {
     expect(getItemHpp(ayamBesar, 'mitra', undefined, undefined, 'pos', undefined, undefined, 'mitra-lain', '2026-09-20')).toBe(Math.round(18310 * 1.1))
   })
 
-  it('Okt 2026 takeout OPEX vs Cileungsi x1,1, lalu Nov 2026 seragam x1,15 tanpa bentrok cache', () => {
+  it('Okt 2026 takeout OPEX vs Cileungsi x1,1, lalu Nov 2026 seragam x1,12 tanpa bentrok cache', () => {
     // Panggil pada objek referensi yang sama untuk menguji isolasi memoKey
     expect(getItemHpp(ayamBesar, 'mitra', undefined, undefined, 'pos', undefined, undefined, 'mitra-jatiasih', '2026-10-15')).toBe(18310)
     expect(getItemHpp(ayamBesar, 'mitra', undefined, undefined, 'pos', undefined, undefined, MITRA_CILEUNGSI_OUTLET_ID, '2026-10-15')).toBe(Math.round(18310 * 1.1))
-    // Mulai 1 Nov 2026: kedua outlet mitra dapat angka yang SAMA (x1,15).
-    expect(getItemHpp(ayamBesar, 'mitra', undefined, undefined, 'pos', undefined, undefined, 'mitra-jatiasih', '2026-11-01')).toBe(Math.round(18310 * 1.15))
-    expect(getItemHpp(ayamBesar, 'mitra', undefined, undefined, 'pos', undefined, undefined, MITRA_CILEUNGSI_OUTLET_ID, '2026-11-02')).toBe(Math.round(18310 * 1.15))
+    // Mulai 1 Nov 2026: kedua outlet mitra dapat angka yang SAMA (x1,12).
+    expect(getItemHpp(ayamBesar, 'mitra', undefined, undefined, 'pos', undefined, undefined, 'mitra-jatiasih', '2026-11-01')).toBe(Math.round(18310 * 1.12))
+    expect(getItemHpp(ayamBesar, 'mitra', undefined, undefined, 'pos', undefined, undefined, MITRA_CILEUNGSI_OUTLET_ID, '2026-11-02')).toBe(Math.round(18310 * 1.12))
     // 31 Okt harus tetap memakai aturan lama (batas bawah cabang November).
     expect(getItemHpp(ayamBesar, 'mitra', undefined, undefined, 'pos', undefined, undefined, 'mitra-jatiasih', '2026-10-31')).toBe(18310)
   })
@@ -98,9 +98,9 @@ describe('getItemHpp — markup mitra & takeout OPEX mulai Okt 2026', () => {
       ],
     }
     // Mulai 1 Nov 2026: aturan takeout OPEX tidak lagi dipakai; paket dikali
-    // 1,15 SEKALI di tingkat paket (bukan per komponen lalu dijumlah).
-    expect(getItemHpp(paketNov, 'mitra', undefined, undefined, 'pos', undefined, undefined, 'mitra-lain', '2026-11-02')).toBe(Math.round((13961 + 1870) * 1.15))
-    expect(getItemHpp(paketNov, 'mitra', undefined, undefined, 'pos', undefined, undefined, MITRA_CILEUNGSI_OUTLET_ID, '2026-11-02')).toBe(Math.round((13961 + 1870) * 1.15))
+    // 1,12 SEKALI di tingkat paket (bukan per komponen lalu dijumlah).
+    expect(getItemHpp(paketNov, 'mitra', undefined, undefined, 'pos', undefined, undefined, 'mitra-lain', '2026-11-02')).toBe(Math.round((13961 + 1870) * 1.12))
+    expect(getItemHpp(paketNov, 'mitra', undefined, undefined, 'pos', undefined, undefined, MITRA_CILEUNGSI_OUTLET_ID, '2026-11-02')).toBe(Math.round((13961 + 1870) * 1.12))
   })
 })
 

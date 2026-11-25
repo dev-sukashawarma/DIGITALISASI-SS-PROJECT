@@ -100,13 +100,13 @@ export const MITRA_OPEX_TAKEOUT_START = '2026-10-01'
 export const MITRA_DRINK_OPEX_DB_START = '2026-11-02'
 export const MITRA_CILEUNGSI_OUTLET_ID = '62a56103-2085-4dd5-9d25-a3c0cffc88ff'
 /**
- * Mulai 1 Nov 2026 HPP mitra = (HPP + OPEX) x 1,15 untuk SEMUA outlet mitra,
- * termasuk MITRA CILEUNGSI. Sumber: "HPP NOVEMBER.xlsx" tab OFFLINE sel P3
- * (MARKUP MITRA = 0,15 "FIXED"). Keputusan owner 11 Nov 2026.
- * Harus sama dengan DB get_mitra_item_hpp (migration 20261111101413).
+ * Mulai 1 Nov 2026 HPP mitra = (HPP + OPEX) x 1,12 untuk SEMUA outlet mitra,
+ * termasuk MITRA CILEUNGSI. Sumber: "SS COGS OCT 2026 v2.2 12 persen.xlsx" tab OFFLINE sel P3
+ * (MARKUP MITRA = 0,12). Keputusan owner 25 Nov 2026 (sebelumnya 0,15 per 11 Nov).
+ * Harus sama dengan DB get_mitra_item_hpp (migration 20261125200000_mitra_markup_12_persen_november).
  */
-export const MITRA_MARKUP_15_START = '2026-11-01'
-export const MITRA_MARKUP_15 = 1.15
+export const MITRA_MARKUP_NOV_START = '2026-11-01'
+export const MITRA_MARKUP_NOV = 1.12
 const PURE_DRINK_IDS_BEFORE_NOV2 = new Set<string>([
   '08a57f8f-f212-4205-a3eb-fb88066ae1b8', // Ice Tea
   'c543b78e-3341-44e0-b3ef-53349e71e3d3', // Orange Juice
@@ -154,13 +154,13 @@ export function getItemHpp(
   const normCh = channel ? channel.toLowerCase() : null
   const isMitra = outletType === 'mitra'
   const effDate = orderDate ? orderDate.slice(0, 10) : tanggalWib(new Date().toISOString())
-  // Cabang 1 Nov 2026 didahulukan supaya Cileungsi ikut markup 15%.
-  const isMarkup15Mitra = !isMitra ? false : effDate >= MITRA_MARKUP_15_START
+  // Cabang 1 Nov 2026 didahulukan supaya Cileungsi ikut markup 12%.
+  const isMarkupNovMitra = !isMitra ? false : effDate >= MITRA_MARKUP_NOV_START
   const isLegacyMitra =
     !isMitra ? false : effDate < MITRA_OPEX_TAKEOUT_START || outletId === MITRA_CILEUNGSI_OUTLET_ID
   const mitraMode = !isMitra
     ? 0
-    : isMarkup15Mitra ? 4 : isLegacyMitra ? 1 : effDate < MITRA_DRINK_OPEX_DB_START ? 2 : 3
+    : isMarkupNovMitra ? 4 : isLegacyMitra ? 1 : effDate < MITRA_DRINK_OPEX_DB_START ? 2 : 3
   const memoKey = `${mitraMode}|${normCh || ''}|${itemObj.hpp_override ?? ''}|${itemObj.hpp_override ? '' : (fallbackName || '')}`
   let objMap = itemHppMemo.get(itemObj)
   if (objMap) {
@@ -239,8 +239,8 @@ export function getItemHpp(
 
   let finalHpp = baseHpp
   if (isMitra && baseHpp > 0) {
-    if (isMarkup15Mitra) {
-      finalHpp = Math.round(baseHpp * MITRA_MARKUP_15)
+    if (isMarkupNovMitra) {
+      finalHpp = Math.round(baseHpp * MITRA_MARKUP_NOV)
     } else if (isLegacyMitra) {
       finalHpp = Math.round(baseHpp * 1.10)
     } else {

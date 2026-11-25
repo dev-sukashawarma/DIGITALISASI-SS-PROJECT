@@ -1279,3 +1279,70 @@ describe('Klasifikasi Gudang SS Online & Gudang Pusat (Non-Cabang Ritel)', () =>
     expect(res.categoryBreakdown.bonus_crew.nominalProrata).toBe(100_000)
   })
 })
+
+describe('opexProrata - periode historis pra-HR (< Sep 2026, mis. Januari 2026)', () => {
+  const novNow = new Date('2026-11-25T07:00:00Z')
+
+  it('tidak menarik estimasi gaji dari master staff_financials aktif untuk Januari 2026 (hanya ikuti tabel expenses)', () => {
+    const excelOpex: ExpenseRow = {
+      id: 'exp-jan-1',
+      outlet_id: 'outlet-empang',
+      outlet_name: 'SUKA SHAWARMA EMPANG',
+      category: 'gas',
+      scope: 'outlet',
+      amount: 120_000,
+      description: 'Gas 6 tabung',
+      expense_date: '2026-01-12',
+      period_month: '2026-01-01',
+      source: 'monthly',
+    }
+
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-01-01', to: '2026-01-31', outletId: 'all', source: 'all' },
+      rawExpenses: [excelOpex],
+      payrollRecords: [],
+      staffFinancials: [
+        { outlet_id: 'outlet-empang', basic_salary: 3_000_000, allowance_position: 500_000, allowance_presence: 200_000, role: 'crew' },
+        { outlet_id: 'outlet-empang', basic_salary: 5_000_000, allowance_position: 0, allowance_presence: 0, role: 'area_manager' },
+      ],
+      crewBonusRecords: [],
+      now: novNow,
+      outlets: [{ id: 'outlet-empang', name: 'SUKA SHAWARMA EMPANG', is_active: true, type: 'internal' }],
+    })
+
+    expect(res.isProrated).toBe(false)
+    expect(res.rows).toEqual([excelOpex])
+    expect(res.categoryBreakdown.gaji_crew_outlet.nominalProrata).toBe(0)
+    expect(res.categoryBreakdown.gaji_crew_outlet.source).toBe('none')
+  })
+
+  it('mempertahankan baris gaji manual dari Excel di Januari 2026 meskipun staff_financials aktif tersedia', () => {
+    const excelSalary: ExpenseRow = {
+      id: 'exp-jan-gaji',
+      outlet_id: 'outlet-empang',
+      outlet_name: 'SUKA SHAWARMA EMPANG',
+      category: 'gaji_crew_outlet',
+      scope: 'outlet',
+      amount: 8_500_000,
+      description: 'Gaji Crew Empang Jan 2026 (Excel)',
+      expense_date: '2026-01-31',
+      period_month: '2026-01-01',
+      source: 'monthly',
+    }
+
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-01-01', to: '2026-01-31', outletId: 'all', source: 'all' },
+      rawExpenses: [excelSalary],
+      payrollRecords: [],
+      staffFinancials: [
+        { outlet_id: 'outlet-empang', basic_salary: 4_000_000, allowance_position: 0, allowance_presence: 0, role: 'crew' },
+      ],
+      crewBonusRecords: [],
+      now: novNow,
+      outlets: [{ id: 'outlet-empang', name: 'SUKA SHAWARMA EMPANG', is_active: true, type: 'internal' }],
+    })
+
+    expect(res.rows).toEqual([excelSalary])
+    expect(res.categoryBreakdown.gaji_crew_outlet.nominalProrata).toBe(0)
+  })
+})

@@ -39,6 +39,15 @@ const OUTLET_TANPA_SEWA_MULAI_NOV_2026 = new Set<string>([
 export const adalahOutletTanpaSewa = (outletId?: string | null, firstDay?: string | null): boolean =>
   Boolean(outletId && OUTLET_TANPA_SEWA_MULAI_NOV_2026.has(outletId) && (firstDay || '').slice(0, 7) >= '2026-11')
 
+/**
+ * Cadangan master gaji staf aktif (`staffFinancials`) pada bulan lampau hanya
+ * berlaku mulai September 2026 (selaras dengan `ringkasanPayrollHr.ts` dan
+ * `GAJI_KANTOR_HR_BERLAKU_SEJAK`). Periode historis sebelum ini (Jan–Agu 2026)
+ * tanpa slip `payroll_records` tidak boleh diestimasi memakai daftar staf aktif
+ * saat ini — murni ikuti data di tabel `expenses` (hasil import Excel / closing).
+ */
+export const STAFF_MASTER_FALLBACK_SEJAK = '2026-09-01'
+
 export const PRORATED_CATEGORIES = [
   'gaji_crew_outlet',
   'sewa_outlet',
@@ -241,7 +250,8 @@ function computeManagerAllocationsForPeriod(
   payrollRecords: NonNullable<CalculateProrataInput['payrollRecords']>,
   staffFinancials: NonNullable<CalculateProrataInput['staffFinancials']>,
   managerAssignments: ManagerAssignment[],
-  operationalOutletIds: string[]
+  operationalOutletIds: string[],
+  allowStaffMasterFallback = true
 ): Map<string, number> {
   const allocationsByOutlet = new Map<string, number>()
 
@@ -280,8 +290,8 @@ function computeManagerAllocationsForPeriod(
         allocationsByOutlet.set(outletId, (allocationsByOutlet.get(outletId) || 0) + amt)
       }
     }
-  } else if (staffFinancials.length > 0) {
-    // 2. Fallback ke staffFinancials (untuk bulan berjalan sebelum ada payroll_records)
+  } else if (allowStaffMasterFallback && staffFinancials.length > 0) {
+    // 2. Fallback ke staffFinancials (untuk bulan berjalan / >= Sep 2026 sebelum ada payroll_records)
     const mgrFinancials = staffFinancials.filter(s =>
       s.role === 'area_manager' || s.role === 'regional_manager'
     )
@@ -384,7 +394,10 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
       },
     }
   }
-  const hasHrData = payrollRecords.length > 0 || staffFinancials.length > 0
+  const anyPeriodAllowsStaffMaster = periods.length > 0
+    ? periods.some(p => p.firstDay >= STAFF_MASTER_FALLBACK_SEJAK)
+    : cur.firstDay >= STAFF_MASTER_FALLBACK_SEJAK
+  const hasHrData = payrollRecords.length > 0 || ((isCurrentMonthProrata || anyPeriodAllowsStaffMaster) && staffFinancials.length > 0)
   const hasBonusData = crewBonusRecords.length > 0
 
   // Jika bukan bulan berjalan dan tidak ada data HR maupun modul bonus sama sekali, kembalikan data riil 100%
@@ -451,9 +464,11 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
     payrollRecords.forEach(p => {
       if (p.outlet_id && !isTestOutlet(p.outlet_id) && !isExcludedOutlet(p.outlet_id)) targetOutletIds.add(p.outlet_id)
     })
-    staffFinancials.forEach(s => {
-      if (s.outlet_id && !isTestOutlet(s.outlet_id) && !isExcludedOutlet(s.outlet_id) && !inactiveOutletIds.has(s.outlet_id)) targetOutletIds.add(s.outlet_id)
-    })
+    if (isCurrentMonthProrata || anyPeriodAllowsStaffMaster) {
+      staffFinancials.forEach(s => {
+        if (s.outlet_id && !isTestOutlet(s.outlet_id) && !isExcludedOutlet(s.outlet_id) && !inactiveOutletIds.has(s.outlet_id)) targetOutletIds.add(s.outlet_id)
+      })
+    }
     lastMonthExpenses.forEach(l => {
       if (l.outlet_id && !isTestOutlet(l.outlet_id) && !isExcludedOutlet(l.outlet_id) && !inactiveOutletIds.has(l.outlet_id)) targetOutletIds.add(l.outlet_id)
     })
@@ -919,17 +934,21 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
   }]
 
   // Outlet-outlet yang memiliki slip gaji atau master staf aktif di HR (kru toko)
+  const outletsWithPayrollRecord = new Set<string>()
   const outletsWithHrSalary = new Set<string>()
   payrollRecords.forEach(p => {
     if (p.outlet_id && (Number(p.total_salary) || 0) > 0 && p.role !== 'area_manager' && p.role !== 'regional_manager') {
+      outletsWithPayrollRecord.add(p.outlet_id)
       outletsWithHrSalary.add(p.outlet_id)
     }
   })
-  staffFinancials.forEach(s => {
-    if (s.outlet_id && s.role !== 'area_manager' && s.role !== 'regional_manager') {
-      outletsWithHrSalary.add(s.outlet_id)
-    }
-  })
+  if (anyPeriodAllowsStaffMaster) {
+    staffFinancials.forEach(s => {
+      if (s.outlet_id && s.role !== 'area_manager' && s.role !== 'regional_manager') {
+        outletsWithHrSalary.add(s.outlet_id)
+      }
+    })
+  }
 
   // Outlet-outlet yang memiliki data di modul bonus crew atau di slip HR
   const outletsWithBonus = new Set<string>()
@@ -950,7 +969,11 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
   const variableExpenses = rawExpenses.filter(r => {
     const rawCat = r.category?.toLowerCase() || ''
     const oid = r.outlet_id || ''
-    if (isSalaryCat(rawCat) && outletsWithHrSalary.has(oid)) return false
+    const tgl = (r.expense_date || r.period_month || '').slice(0, 10)
+    const hrSalaryApplies = tgl >= STAFF_MASTER_FALLBACK_SEJAK
+      ? outletsWithHrSalary.has(oid)
+      : outletsWithPayrollRecord.has(oid)
+    if (isSalaryCat(rawCat) && hrSalaryApplies) return false
     if (isBonusCat(rawCat) && outletsWithBonus.has(oid)) return false
     return true
   })
@@ -973,6 +996,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
   let bonusRmSource = 'none'
 
   for (const p of activePeriods) {
+    const allowStaffMaster = p.firstDay >= STAFF_MASTER_FALLBACK_SEJAK
     const pDurationDesc = p.isFullMonth
       ? `1 Bulan Penuh`
       : (p.overlapDays === 1 ? `Beban 1 Hari · 1/${p.totalDays} bln` : `Beban ${p.overlapDays} Hari · ${p.overlapDays}/${p.totalDays} bln`)
@@ -983,7 +1007,8 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
       payrollRecords,
       staffFinancials,
       input.managerAssignments || [],
-      effectiveOperationalOutletIds
+      effectiveOperationalOutletIds,
+      allowStaffMaster
     )
 
     for (const outletId of targetOutletIds) {
@@ -1017,8 +1042,8 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         oGajiSource = 'payroll_record'
       }
 
-      // Fallback ke staffFinancials (master staf aktif non-manajer)
-      if (gajiMonthly === 0) {
+      // Fallback ke staffFinancials (master staf aktif non-manajer) hanya untuk periode >= Sep 2026
+      if (gajiMonthly === 0 && allowStaffMaster) {
         const sRows = staffFinancials.filter(s =>
           s.outlet_id === outletId &&
           s.role !== 'area_manager' &&

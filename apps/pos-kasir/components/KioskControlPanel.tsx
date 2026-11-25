@@ -20,7 +20,8 @@ import OfflineGuardOverlay from '@/components/OfflineGuardOverlay'
 import { useBrand } from '@/components/BrandContext'
 
 export default function KioskControlPanel() {
-  const { brandLogo } = useBrand()
+  const { brandLogo, userBrandLogo } = useBrand()
+  const customerLogo = userBrandLogo || brandLogo
   const { showConfirm } = useDialogStore()
   const [outletId, setOutletId] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
@@ -389,7 +390,7 @@ export default function KioskControlPanel() {
                       level="H" 
                       includeMargin={false}
                       imageSettings={{
-                        src: brandLogo || "/logo.png",
+                        src: customerLogo || "/logo.png",
                         height: 48,
                         width: 48,
                         excavate: true,

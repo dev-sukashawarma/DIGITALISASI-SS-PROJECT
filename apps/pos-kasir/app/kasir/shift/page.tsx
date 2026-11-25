@@ -1027,8 +1027,8 @@ export default function CashierShiftPage() {
                         const labelStatus: Record<string, string> = {
                           pending: 'Menunggu Review Leader',
                           forwarded_to_area_manager: 'Menunggu Review Area Manager',
-                          forwarded_to_finance: 'Menunggu Pencairan Finance',
-                          approved_by_finance: `Dana dipegang ${outletRegion?.toUpperCase() === 'BOGOR' ? 'Leader' : 'Area Manager'}`,
+                          forwarded_to_finance: 'Menunggu Finance',
+                          approved_by_finance: 'Sudah ditransfer, menunggu konfirmasi leader',
                           forwarded_by_finance: 'Dana dipegang Area Manager',
                           forwarded_by_area_manager: 'Dana dipegang Leader',
                           rejected: 'Ditolak',

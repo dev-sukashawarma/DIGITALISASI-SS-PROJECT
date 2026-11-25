@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useCallback, Suspense } from 'react'
 import { 
   CheckCircle2, Clock, Store, 
-  ArrowRight, Loader2, RefreshCw, 
-  X, Download, User, Check, AlertCircle, FileText,
+  RefreshCw, 
+  X, Download, User, AlertCircle, FileText,
   Calendar, MapPin, ChevronDown
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -13,6 +13,7 @@ import { PengeluaranKasirPanel, usePengeluaranMenunggu } from './PengeluaranKasi
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@suka/auth'
+import { labelStatusPettyCash, sedangBerjalan } from '@/lib/pettyCash/tahap'
 
 function createClient() {
   return createSupabaseBrowserClient()
@@ -245,13 +246,12 @@ function PettyCashContent() {
   const [requests, setRequests] = useState<TopupRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isProcessing, setIsProcessing] = useState<string | null>(null)
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null)
 
   // Status Filters
   const [activeTab, setActiveTab] = useState<'review' | 'pengeluaran' | 'history'>('review')
   const pengeluaran = usePengeluaranMenunggu(globalOutletId)
-  const [reviewFilter, setReviewFilter] = useState<'all' | 'unapproved' | 'ready_handover'>('all')
+  const [reviewFilter, setReviewFilter] = useState<'all' | 'menunggu_finance' | 'menunggu_leader'>('all')
   const [historyFilter, setHistoryFilter] = useState<'all' | 'acc_finance' | 'forwarded_leader' | 'completed' | 'rejected'>('all')
 
   // Additional Filters
@@ -331,59 +331,7 @@ function PettyCashContent() {
     }
   }, [loadRequests, supabase, globalOutletId])
 
-  async function handleApprove(id: string) {
-    if (!confirm('Setujui pengajuan ini?')) return
-    setIsProcessing(id)
-    const prev = [...requests]
-    setRequests(p => p.map(r => r.id === id ? { ...r, status: 'forwarded_to_finance' } : r))
-    try {
-      const { error } = await supabase.rpc('area_manager_process_petty_cash', { p_topup_id: id, p_action: 'approve' })
-      if (error) throw error
-      toast.success('Disetujui!')
-    } catch (err: any) {
-      setRequests(prev)
-      toast.error('Gagal: ' + err.message)
-    } finally {
-      setIsProcessing(null)
-      loadRequests(true)
-    }
-  }
-
-  async function handleReject(id: string) {
-    if (!confirm('Tolak pengajuan ini?')) return
-    setIsProcessing(id)
-    const prev = [...requests]
-    setRequests(p => p.map(r => r.id === id ? { ...r, status: 'rejected' } : r))
-    try {
-      const { error } = await supabase.rpc('area_manager_process_petty_cash', { p_topup_id: id, p_action: 'reject' })
-      if (error) throw error
-      toast.error('Ditolak.')
-    } catch (err: any) {
-      setRequests(prev)
-      toast.error('Gagal menolak: ' + err.message)
-    } finally {
-      setIsProcessing(null)
-      loadRequests(true)
-    }
-  }
-
-  async function handleForwardToLeader(id: string) {
-    if (!confirm('Serahkan dana ke Leader?')) return
-    setIsProcessing(id)
-    const prev = [...requests]
-    setRequests(p => p.map(r => r.id === id ? { ...r, status: 'forwarded_by_area_manager' } : r))
-    try {
-      const { error } = await supabase.rpc('area_manager_forward_funds', { p_topup_id: id })
-      if (error) throw error
-      toast.success('Diserahkan ke Leader!')
-    } catch (err: any) {
-      setRequests(prev)
-      toast.error('Gagal menyerahkan: ' + err.message)
-    } finally {
-      setIsProcessing(null)
-      loadRequests(true)
-    }
-  }
+  // Sejak 25 Nov 2026 Area Manager tidak lagi menyetujui/menyerahkan dana petty cash: daftar ini pantauan.
 
   const dateOptions = [
     { label: 'Semua Tanggal', value: 'all' },
@@ -413,12 +361,12 @@ function PettyCashContent() {
     return true
   }
 
-  const allReview = requests.filter(r => ['pending', 'forwarded_to_area_manager', 'approved_by_finance', 'forwarded_by_finance'].includes(r.status))
-  const allHistory = requests.filter(r => !['pending', 'forwarded_to_area_manager', 'approved_by_finance', 'forwarded_by_finance'].includes(r.status))
+  const allReview = requests.filter(r => sedangBerjalan(r.status))
+  const allHistory = requests.filter(r => !sedangBerjalan(r.status))
 
   const filteredReview = allReview.filter(r => {
-    if (reviewFilter === 'unapproved' && !['pending', 'forwarded_to_area_manager'].includes(r.status)) return false
-    if (reviewFilter === 'ready_handover' && !['approved_by_finance', 'forwarded_by_finance'].includes(r.status)) return false
+    if (reviewFilter === 'menunggu_finance' && r.status !== 'forwarded_to_finance') return false
+    if (reviewFilter === 'menunggu_leader' && r.status !== 'approved_by_finance') return false
     
     if (!isDateInRange(r.created_at, dateFilter)) return false
 
@@ -427,7 +375,6 @@ function PettyCashContent() {
 
   const filteredHistory = allHistory.filter(r => {
     if (historyFilter === 'acc_finance' && r.status !== 'forwarded_to_finance') return false
-    if (historyFilter === 'forwarded_leader' && r.status !== 'forwarded_by_area_manager') return false
     if (historyFilter === 'completed' && !['forwarded_by_leader', 'completed'].includes(r.status)) return false
     if (historyFilter === 'rejected' && r.status !== 'rejected') return false
 
@@ -460,7 +407,7 @@ function PettyCashContent() {
       {/* Segmented Control for Tabs (Startup Aesthetic) */}
       <div className="bg-slate-100/70 p-1 rounded-lg inline-flex w-full sm:w-auto">
         {[
-          { id: 'review', label: 'Butuh Review', count: allReview.length },
+          { id: 'review', label: 'Sedang Berjalan', count: allReview.length },
           { id: 'pengeluaran', label: 'Pengeluaran Kasir', count: pengeluaran.items.length },
           { id: 'history', label: 'Riwayat', count: allHistory.length }
         ].map(tab => {
@@ -505,8 +452,8 @@ function PettyCashContent() {
             <>
               {[
                 { id: 'all', label: 'Semua Status' },
-                { id: 'unapproved', label: 'Belum di-ACC' },
-                { id: 'ready_handover', label: 'Siap Diserahkan' },
+                { id: 'menunggu_finance', label: 'Menunggu Finance' },
+                { id: 'menunggu_leader', label: 'Menunggu Konfirmasi Leader' },
               ].map(f => (
                 <button
                   key={f.id}
@@ -576,7 +523,7 @@ function PettyCashContent() {
                 <div className="inline-flex items-center justify-center w-12 h-12 bg-emerald-50 rounded-full mb-3 text-emerald-600 ring-4 ring-emerald-50/50">
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
-                <h3 className="text-sm font-semibold text-slate-900">Semua Selesai</h3>
+                <h3 className="text-sm font-semibold text-slate-900">Tidak ada pengajuan berjalan</h3>
                 <p className="text-sm text-slate-500 mt-1">Tidak ada data yang sesuai filter saat ini.</p>
               </motion.div>
             )}
@@ -593,8 +540,6 @@ function PettyCashContent() {
             {/* Render Items */}
             {(activeTab === 'review' ? filteredReview : filteredHistory).map((req) => {
               const { mainReason, financeNote } = parseFinanceNote(req.description)
-              const isPending = req.status === 'pending' || req.status === 'forwarded_to_area_manager'
-              const isReady = req.status === 'approved_by_finance' || req.status === 'forwarded_by_finance'
               
               return (
                 <motion.div 
@@ -665,47 +610,12 @@ function PettyCashContent() {
                     
                     <div className="text-left md:text-right">
                       <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
-                        {activeTab === 'review' ? (isPending ? 'Menunggu ACC' : 'Siap Cair') : 'Total Pengajuan'}
+                        {activeTab === 'review' ? labelStatusPettyCash(req.status) : 'Total Pengajuan'}
                       </div>
                       <div className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
                         {formatRupiah(req.amount)}
                       </div>
                     </div>
-
-                    {/* Review Actions */}
-                    {activeTab === 'review' && (
-                      <div className="flex items-center gap-2">
-                        {isPending && (
-                          <>
-                            <button
-                              onClick={() => handleReject(req.id)}
-                              disabled={isProcessing === req.id}
-                              className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                            >
-                              Tolak
-                            </button>
-                            <button
-                              onClick={() => handleApprove(req.id)}
-                              disabled={isProcessing === req.id}
-                              className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-[#4a1c15] text-white rounded-md text-xs font-semibold hover:bg-[#38130e] shadow-sm transition-colors"
-                            >
-                              {isProcessing === req.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                              ACC
-                            </button>
-                          </>
-                        )}
-                        {isReady && (
-                          <button
-                            onClick={() => handleForwardToLeader(req.id)}
-                            disabled={isProcessing === req.id}
-                            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-slate-900 text-white rounded-md text-xs font-semibold hover:bg-slate-800 shadow-sm transition-colors"
-                          >
-                            {isProcessing === req.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Serahkan'}
-                            {!isProcessing && <ArrowRight className="w-3.5 h-3.5" />}
-                          </button>
-                        )}
-                      </div>
-                    )}
 
                     {/* History Actions / Status */}
                     {activeTab === 'history' && (

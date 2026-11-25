@@ -49,6 +49,7 @@ import {
   RegisterCardModal,
   TagTransactionModal,
 } from './EtollModals'
+import { useFinanceRole } from '@/hooks/useFinanceRole'
 
 function hariIniWib(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
@@ -78,6 +79,8 @@ const inputCls =
   'w-full rounded-xl border border-suka-gray-200 bg-white px-3 py-2 text-sm text-suka-brown outline-none focus:border-suka-orange'
 
 export function EtollDashboardView() {
+  const { role } = useFinanceRole()
+  const canRegisterCard = role === 'admin_finance' || role === 'developer'
   const hariIni = hariIniWib()
   const [tab, setTab] = useState<TabKey>('transactions')
 
@@ -249,10 +252,12 @@ export function EtollDashboardView() {
             <FileText className="mr-1.5 h-4 w-4" />
             {exporting === 'pdf' ? 'Mengekspor...' : 'Export PDF'}
           </Button>
-          <Button size="sm" onClick={() => setRegisterOpen(true)}>
-            <Plus className="mr-1.5 h-4 w-4" />
-            Daftarkan Kartu
-          </Button>
+          {canRegisterCard && (
+            <Button size="sm" onClick={() => setRegisterOpen(true)}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Daftarkan Kartu
+            </Button>
+          )}
         </div>
       </div>
 
@@ -444,7 +449,7 @@ export function EtollDashboardView() {
                   </thead>
                   <tbody className="divide-y divide-suka-brown/5">
                     {transactions.map((tx) => {
-                      const isGap = tx.source === 'untracked_gap' && tx.tx_type === 'debit'
+                      const isGap = tx.category === 'untracked_gap' && tx.tx_type === 'debit'
                       return (
                         <tr
                           key={tx.id}
@@ -457,7 +462,7 @@ export function EtollDashboardView() {
                           <td className="whitespace-nowrap py-2.5 pr-3 font-medium text-suka-brown">
                             {tanggalWaktu(tx.occurred_at)}
                             <div className="text-[10px] text-suka-gray-400">
-                              {tx.source === 'chip' ? 'Chip NFC' : 'Selisih Saldo'}
+                              {tx.source === 'chip' ? 'Chip NFC' : 'Perubahan Saldo'}
                             </div>
                           </td>
                           <td className="py-2.5 pr-3">
@@ -884,13 +889,14 @@ export function EtollDashboardView() {
         refData={refQ.data}
       />
       <CardDetailHandoverModal
-        key={selectedCard?.id ?? 'none'}
+        key={`card-${selectedCard?.id ?? 'none'}`}
         card={selectedCard}
         onClose={() => setSelectedCard(null)}
         refData={refQ.data}
+        canEdit={canRegisterCard}
       />
       <TagTransactionModal
-        key={taggingTx?.id ?? 'none'}
+        key={`tx-${taggingTx?.id ?? 'none'}`}
         tx={taggingTx}
         onClose={() => setTaggingTx(null)}
       />

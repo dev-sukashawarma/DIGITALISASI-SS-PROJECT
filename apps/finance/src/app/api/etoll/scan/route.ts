@@ -56,15 +56,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: cardErr.message }, { status: 500 })
     }
     if (!card) {
+      // Hanya tap dari admin_finance / developer yang masuk buffer Live Tap-to-Fill pendaftaran
+      if (actor.canRegisterCard) {
+        await admin.from('etoll_pending_taps').upsert(
+          {
+            card_number: cardNumber,
+            issuer: body.issuer,
+            balance,
+            tapped_by: actor.userId,
+            tapped_at: new Date().toISOString(),
+          },
+          { onConflict: 'card_number' },
+        )
+      }
+
       return NextResponse.json(
         {
           error:
-            'Kartu belum terdaftar sebagai kartu operasional perusahaan. Hubungi tim Finance untuk mendaftarkannya.',
+            'Kartu belum terdaftar sebagai kartu operasional perusahaan. Wajib didaftarkan terlebih dahulu oleh Admin Finance atau Developer.',
           code: 'CARD_NOT_REGISTERED',
           card_number: cardNumber,
           issuer: body.issuer,
           balance,
-          can_register: actor.isFinance,
+          can_register: actor.canRegisterCard,
         },
         { status: 404 },
       )

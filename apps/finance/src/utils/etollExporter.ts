@@ -53,7 +53,7 @@ export async function exportEtollExcel(opts: EtollExportOptions): Promise<void> 
       .filter((t) => t.tx_type === 'topup')
       .reduce((s, t) => s + Number(t.amount || 0), 0)
     const gap = cardTxs
-      .filter((t) => t.tx_type === 'debit' && t.source === 'untracked_gap')
+      .filter((t) => t.tx_type === 'debit' && t.category === 'untracked_gap')
       .reduce((s, t) => s + Number(t.amount || 0), 0)
 
     wsCards.addRow({
@@ -193,7 +193,7 @@ export async function exportEtollPdf(opts: EtollExportOptions): Promise<void> {
     .filter((t) => t.tx_type === 'topup')
     .reduce((s, t) => s + Number(t.amount || 0), 0)
   const totalGap = opts.transactions
-    .filter((t) => t.tx_type === 'debit' && t.source === 'untracked_gap')
+    .filter((t) => t.tx_type === 'debit' && t.category === 'untracked_gap')
     .reduce((s, t) => s + Number(t.amount || 0), 0)
 
   autoTable(doc, {

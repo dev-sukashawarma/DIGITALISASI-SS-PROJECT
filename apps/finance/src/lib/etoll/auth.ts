@@ -3,12 +3,14 @@ import { createServerComponentClient } from '@/lib/supabase-server'
 import { getServiceSupabase } from '@/lib/supabase-service'
 
 const FINANCE_ROLES = new Set(['admin_finance', 'admin', 'owner', 'developer'])
+const CARD_REGISTRAR_ROLES = new Set(['admin_finance', 'developer'])
 
 export interface EtollActor {
   userId: string
   name: string
   role: string
   isFinance: boolean
+  canRegisterCard: boolean
 }
 
 export class EtollAuthError extends Error {
@@ -28,7 +30,7 @@ export class EtollAuthError extends Error {
  */
 export async function requireEtollActor(
   req: Request,
-  options?: { financeOnly?: boolean },
+  options?: { financeOnly?: boolean; cardRegistrarOnly?: boolean },
 ): Promise<EtollActor> {
   const admin = getServiceSupabase()
   let userId: string | null = null
@@ -67,6 +69,13 @@ export async function requireEtollActor(
   }
 
   const isFinance = FINANCE_ROLES.has(staff.role)
+  const canRegisterCard = CARD_REGISTRAR_ROLES.has(staff.role)
+  if (options?.cardRegistrarOnly && !canRegisterCard) {
+    throw new EtollAuthError(
+      'Forbidden: pendaftaran & pengelolaan kartu e-Toll hanya untuk role admin_finance / developer',
+      403,
+    )
+  }
   if (options?.financeOnly && !isFinance) {
     throw new EtollAuthError('Forbidden: aksi ini khusus tim Finance / Admin', 403)
   }
@@ -76,5 +85,6 @@ export async function requireEtollActor(
     name: staff.name,
     role: staff.role,
     isFinance,
+    canRegisterCard,
   }
 }

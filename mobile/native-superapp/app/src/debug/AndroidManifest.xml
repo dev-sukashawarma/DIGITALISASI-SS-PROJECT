@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Khusus build debug agar bisa menembak server lokal HTTP (mis. http://192.168.1.14:3020).
+         Build release tetap ketat HTTPS-only. -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>

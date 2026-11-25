@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { X, CreditCard, ArrowRightLeft, Tag, MapPin, Clock, CheckCircle2 } from 'lucide-react'
+import { X, CreditCard, ArrowRightLeft, Tag, MapPin, Clock, CheckCircle2, Smartphone } from 'lucide-react'
 import { Button, CurrencyInput, Spinner } from '@suka/design-system'
 import {
   ETOLL_CATEGORY_LABELS,
@@ -49,6 +49,60 @@ export function RegisterCardModal({
   const [vehiclePlate, setVehiclePlate] = useState('')
   const [initialBalance, setInitialBalance] = useState(0)
   const [notes, setNotes] = useState('')
+  const [detectedFromNfc, setDetectedFromNfc] = useState<{
+    card_number: string
+    issuer: EtollIssuer
+    balance: number
+    tapped_at: string
+    tapper_name?: string | null
+  } | null>(null)
+  const lastAppliedTapKey = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!open) {
+      lastAppliedTapKey.current = null
+      setDetectedFromNfc(null)
+      return
+    }
+
+    let cancelled = false
+    const checkPendingTap = async () => {
+      try {
+        const res = await fetch('/api/etoll/pending-tap', { cache: 'no-store' })
+        if (!res.ok || cancelled) return
+        const data = await res.json()
+        const tap = data?.tap
+        if (!tap || cancelled) return
+
+        const tapKey = `${tap.card_number}:${tap.tapped_at}`
+        if (lastAppliedTapKey.current === tapKey) return
+
+        lastAppliedTapKey.current = tapKey
+        setIssuer(tap.issuer as EtollIssuer)
+        setCardNumber(formatCardNumber(tap.card_number))
+        setInitialBalance(Number(tap.balance || 0))
+        setDetectedFromNfc({
+          card_number: tap.card_number,
+          issuer: tap.issuer as EtollIssuer,
+          balance: Number(tap.balance || 0),
+          tapped_at: tap.tapped_at,
+          tapper_name: tap.tapper?.name ?? null,
+        })
+        toast.success(
+          `Kartu ${ETOLL_ISSUER_LABELS[tap.issuer as EtollIssuer] ?? tap.issuer} terdeteksi dari HP! Nomor & saldo terisi otomatis.`,
+        )
+      } catch {
+        // Abaikan error polling sementara
+      }
+    }
+
+    checkPendingTap()
+    const timer = setInterval(checkPendingTap, 1500)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [open])
 
   if (!open) return null
 
@@ -96,6 +150,49 @@ export function RegisterCardModal({
         </div>
 
         <div className="max-h-[75vh] space-y-3 overflow-y-auto p-5">
+          {/* Live NFC Tap-to-Fill Banner */}
+          <div
+            className={`flex items-start gap-2.5 rounded-xl border p-3 text-xs ${
+              detectedFromNfc
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                : 'border-orange-200 bg-orange-50/70 text-suka-brown'
+            }`}
+          >
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white shadow-2xs">
+              <Smartphone
+                className={`h-4 w-4 ${detectedFromNfc ? 'text-emerald-600' : 'text-suka-orange'}`}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              {detectedFromNfc ? (
+                <>
+                  <div className="flex items-center gap-1.5 font-extrabold text-emerald-800">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    Kartu Terdeteksi Otomatis dari Scan NFC HP!
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-emerald-800/80">
+                    Bank, Nomor Kartu, &amp; Saldo chip ({rupiah(detectedFromNfc.balance)}) sudah
+                    terisi otomatis
+                    {detectedFromNfc.tapper_name ? ` dari scan ${detectedFromNfc.tapper_name}` : ''}.
+                    Tinggal isi Label Kartu lalu klik <strong>Simpan Kartu</strong>.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1.5 font-extrabold text-suka-brown">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-suka-orange" />
+                    Mode Otomatis Aktif — Tempelkan Kartu di HP SuperApp
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-suka-gray-600">
+                    Tidak perlu ketik 16 digit manual: cukup buka menu <strong>Scan e-Toll</strong>{' '}
+                    di HP Android lalu tempelkan kartu baru. Nomor kartu, bank, &amp; saldo akan
+                    otomatis muncul di form ini dalam 1–2 detik.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="text-xs font-bold text-suka-gray-600">
               Bank Penerbit *
@@ -222,10 +319,12 @@ export function CardDetailHandoverModal({
   card,
   onClose,
   refData,
+  canEdit = false,
 }: {
   card: EtollCard | null
   onClose: () => void
   refData?: RefData
+  canEdit?: boolean
 }) {
   const detail = useEtollCardDetail(card?.id ?? null)
   const updateCard = useUpdateEtollCard()
@@ -283,7 +382,8 @@ export function CardDetailHandoverModal({
         </div>
 
         <div className="max-h-[78vh] space-y-5 overflow-y-auto p-5">
-          {/* Edit & Serah-Terima */}
+          {/* Edit & Serah-Terima (khusus admin_finance / developer) */}
+          {canEdit && (
           <div className="rounded-xl border border-suka-brown/10 bg-suka-cream/40 p-4">
             <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-suka-brown">
               <ArrowRightLeft className="h-4 w-4 text-suka-orange" />
@@ -356,6 +456,7 @@ export function CardDetailHandoverModal({
               </Button>
             </div>
           </div>
+          )}
 
           {detail.isLoading ? (
             <div className="flex justify-center py-6">

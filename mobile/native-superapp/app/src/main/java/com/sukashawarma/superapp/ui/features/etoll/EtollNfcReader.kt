@@ -86,14 +86,24 @@ object EtollNfcReader {
         val balance = parseMandiriBalance(stripSw(balResp)) ?: return null
 
         val txs = mutableListOf<EtollChipTxPayload>()
-        for (rec in 1..10) {
-            val cmd = byteArrayOf(0x00, 0xB2.toByte(), rec.toByte(), 0x04, 0x00)
-            val resp = transceiveSafe(isoDep, cmd) ?: break
-            if (!isSuccessSw(resp)) break
-            val payload = stripSw(resp)
-            if (payload.isEmpty() || payload.all { it == 0.toByte() }) continue
-            diag["mandiri_rec_$rec"] = bytesToHex(payload)
-            parseMandiriHistoryRecord(payload)?.let { txs.add(it) }
+        // Cek cepat 00 B2 (READ RECORD) bila kartu Mandiri seri tertentu membuka log tanpa SAM;
+        // jika mengembalikan 6985 (terkunci SAM Mandiri), lewati tanpa memperlambat tap NFC.
+        val firstRec = transceiveSafe(isoDep, byteArrayOf(0x00, 0xB2.toByte(), 0x01, 0x04, 0x00))
+        if (firstRec != null && isSuccessSw(firstRec)) {
+            val firstPayload = stripSw(firstRec)
+            if (firstPayload.isNotEmpty() && firstPayload.any { it != 0.toByte() }) {
+                diag["mandiri_rec_1"] = bytesToHex(firstPayload)
+                parseMandiriHistoryRecord(firstPayload)?.let { txs.add(it) }
+            }
+            for (rec in 2..10) {
+                val cmd = byteArrayOf(0x00, 0xB2.toByte(), rec.toByte(), 0x04, 0x00)
+                val resp = transceiveSafe(isoDep, cmd) ?: break
+                if (!isSuccessSw(resp)) break
+                val payload = stripSw(resp)
+                if (payload.isEmpty() || payload.all { it == 0.toByte() }) continue
+                diag["mandiri_rec_$rec"] = bytesToHex(payload)
+                parseMandiriHistoryRecord(payload)?.let { txs.add(it) }
+            }
         }
 
         return NfcReadCardResult(

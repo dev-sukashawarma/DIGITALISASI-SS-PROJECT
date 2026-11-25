@@ -80,8 +80,10 @@ export async function GET(req: NextRequest) {
         const amt = Number(r.amount || 0)
         if (r.tx_type === 'debit') {
           acc.totalDebit += amt
-          if (r.source === 'untracked_gap') acc.totalUntrackedGap += amt
-          if (r.category === 'belum_dikategorikan') acc.uncategorizedCount += 1
+          if (r.category === 'untracked_gap') acc.totalUntrackedGap += amt
+          if (r.category === 'belum_dikategorikan' || r.category === 'untracked_gap') {
+            acc.uncategorizedCount += 1
+          }
         } else if (r.tx_type === 'topup') {
           acc.totalTopup += amt
         }

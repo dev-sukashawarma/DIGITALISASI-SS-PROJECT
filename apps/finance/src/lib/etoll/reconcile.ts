@@ -230,8 +230,8 @@ export function computeUntrackedGap(params: {
         tx_type: 'debit',
         amount: gapAmount,
         category: 'untracked_gap',
-        merchant_label: 'Selisih Saldo Tak Terlacak',
-        note: `Saldo turun Rp ${gapAmount.toLocaleString('id-ID')} di luar log chip (kemungkinan >10 transaksi tertimpa atau histori chip terbatas).`,
+        merchant_label: 'Pemakaian Terdeteksi (Perubahan Saldo)',
+        note: `Saldo turun Rp ${gapAmount.toLocaleString('id-ID')} sejak scan sebelumnya — lengkapi kategori & catatan keperluan.`,
       },
     }
   }

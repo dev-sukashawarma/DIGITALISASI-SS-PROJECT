@@ -82,7 +82,7 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> },
 ) {
   try {
-    const actor = await requireEtollActor(req, { financeOnly: true })
+    const actor = await requireEtollActor(req, { cardRegistrarOnly: true })
     const { id } = await context.params
     const body = await req.json()
     const admin = getServiceSupabase()

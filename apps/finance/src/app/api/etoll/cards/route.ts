@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const actor = await requireEtollActor(req, { financeOnly: true })
+    const actor = await requireEtollActor(req, { cardRegistrarOnly: true })
     const body = await req.json()
 
     if (!body.card_number || !isValidCardNumber(body.card_number)) {
@@ -109,6 +109,9 @@ export async function POST(req: NextRequest) {
         assigned_by: actor.userId,
       })
     }
+
+    // Bersihkan buffer pending tap jika kartu ini baru saja didaftarkan dari hasil scan HP
+    await admin.from('etoll_pending_taps').delete().eq('card_number', cardNumber)
 
     return NextResponse.json({ card: created }, { status: 201 })
   } catch (err: any) {

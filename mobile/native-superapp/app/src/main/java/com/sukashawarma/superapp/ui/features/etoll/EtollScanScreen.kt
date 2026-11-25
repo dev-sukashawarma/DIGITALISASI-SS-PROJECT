@@ -48,6 +48,11 @@ private val QUICK_CATEGORIES = listOf(
     "pribadi_anomali" to "Pribadi"
 )
 
+private enum class EtollScanMode {
+    AUDIT_PERUSAHAAN,
+    CEK_SALDO_BIASA
+}
+
 @Composable
 fun EtollScanScreen(
     currentStaff: Staff?,
@@ -60,11 +65,13 @@ fun EtollScanScreen(
     val locationHelper = remember { LocationHelper(context) }
     val nfcAdapter = remember { NfcAdapter.getDefaultAdapter(context) }
 
+    var scanMode by remember { mutableStateOf(EtollScanMode.AUDIT_PERUSAHAAN) }
     var isScanningSync by remember { mutableStateOf(false) }
     var lastNfcRead by remember { mutableStateOf<NfcReadCardResult?>(null) }
     var scanResponse by remember { mutableStateOf<EtollScanResponse?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var infoMessage by remember { mutableStateOf<String?>(null) }
+    val currentScanMode by rememberUpdatedState(scanMode)
 
     // Inline quick-register state (khusus Finance/Admin saat tap kartu baru)
     var regLabel by remember { mutableStateOf("") }
@@ -143,7 +150,13 @@ fun EtollScanScreen(
                     scope.launch {
                         result.onSuccess { read ->
                             lastNfcRead = read
-                            syncReadCard(read)
+                            if (currentScanMode == EtollScanMode.CEK_SALDO_BIASA) {
+                                scanResponse = null
+                                errorMessage = null
+                                infoMessage = "Saldo berhasil dibaca (Mode Cek Saldo Biasa — tidak disimpan ke Dashboard Finance)."
+                            } else {
+                                syncReadCard(read)
+                            }
                         }.onFailure { err ->
                             errorMessage = err.message ?: "Gagal membaca kartu NFC"
                         }
@@ -191,7 +204,57 @@ fun EtollScanScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Switcher 2 Mode: Audit Perusahaan vs Cek Saldo Biasa
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            color = Color.White.copy(alpha = 0.7f),
+            border = BorderStroke(1.dp, Color(0xFFE7E5E4))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                val modes = listOf(
+                    EtollScanMode.AUDIT_PERUSAHAAN to "Kartu Operasional",
+                    EtollScanMode.CEK_SALDO_BIASA to "Cek Saldo"
+                )
+                modes.forEach { (mode, title) ->
+                    val selected = scanMode == mode
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable {
+                                if (scanMode != mode) {
+                                    scanMode = mode
+                                    scanResponse = null
+                                    lastNfcRead = null
+                                    errorMessage = null
+                                    infoMessage = null
+                                }
+                            },
+                        color = if (selected) PortalTheme.Primary else Color.Transparent,
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(
+                            text = title,
+                            color = if (selected) Color.White else PortalTheme.OnSurfaceVariant,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 9.dp, horizontal = 6.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
 
         // NFC Status / Prompt Card
         Surface(
@@ -262,7 +325,8 @@ fun EtollScanScreen(
                     text = when {
                         !nfcSupported -> "Gunakan HP Android yang memiliki fitur NFC untuk memindai kartu e-Toll."
                         !nfcEnabled -> "Aktifkan NFC di pengaturan HP Anda agar kartu bisa terbaca otomatis."
-                        else -> "Tempelkan & tahan kartu di bagian belakang HP selama 1–2 detik hingga saldo muncul."
+                        scanMode == EtollScanMode.CEK_SALDO_BIASA -> "Mode Cek Saldo: tempelkan kartu e-Toll apa saja untuk lihat saldo (tidak tersimpan ke server)."
+                        else -> "Tempelkan kartu e-Toll operasional yang sudah terdaftar selama 1–2 detik."
                     },
                     style = MaterialTheme.typography.bodySmall.copy(color = PortalTheme.OnSurfaceVariant),
                     textAlign = TextAlign.Center
@@ -318,9 +382,73 @@ fun EtollScanScreen(
             }
         }
 
-        // Inline Register Form untuk Finance/Admin jika kartu belum terdaftar
+        // Hasil Mode Cek Saldo Biasa (Lokal / Offline, tidak masuk Dashboard Finance)
+        val localRead = lastNfcRead
+        if (scanMode == EtollScanMode.CEK_SALDO_BIASA && localRead != null) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF0F4C5C)
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = issuerDisplayName(localRead.issuer).uppercase(),
+                            color = Color(0xFF99F6E4),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Surface(color = Color.White.copy(alpha = 0.16f), shape = RoundedCornerShape(8.dp)) {
+                            Text(
+                                text = "CEK SALDO BIASA",
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = formatCardDigits(localRead.cardNumber),
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "SALDO CHIP SAAT INI",
+                        color = Color.White.copy(alpha = 0.65f),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 1.sp
+                    )
+                    Text(
+                        text = formatRupiahId(localRead.balance),
+                        color = Color.White,
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Hanya dibaca lokal di HP · Tidak disimpan ke Dashboard Finance",
+                        color = Color.White.copy(alpha = 0.72f),
+                        fontSize = 11.sp
+                    )
+                }
+            }
+        }
+
+        // Inline Register Form untuk Admin Finance / Developer jika kartu belum terdaftar
         val resp = scanResponse
-        if (resp != null && resp.code == "CARD_NOT_REGISTERED" && resp.canRegister && lastNfcRead != null) {
+        if (scanMode == EtollScanMode.AUDIT_PERUSAHAAN && resp != null && resp.code == "CARD_NOT_REGISTERED" && resp.canRegister && lastNfcRead != null) {
             Spacer(modifier = Modifier.height(14.dp))
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -330,7 +458,7 @@ fun EtollScanScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "Daftarkan Kartu Baru (Finance/Admin)",
+                        "Daftarkan Kartu Baru (Admin Finance / Developer)",
                         fontWeight = FontWeight.Bold,
                         color = PortalTheme.Primary,
                         fontSize = 15.sp
@@ -410,9 +538,9 @@ fun EtollScanScreen(
             }
         }
 
-        // Hasil Scan Berhasil
+        // Hasil Scan Berhasil (Mode Kartu Operasional)
         val card = resp?.card
-        if (resp != null && resp.ok && card != null) {
+        if (scanMode == EtollScanMode.AUDIT_PERUSAHAAN && resp != null && resp.ok && card != null) {
             Spacer(modifier = Modifier.height(16.dp))
 
             // Kartu Ringkasan Saldo

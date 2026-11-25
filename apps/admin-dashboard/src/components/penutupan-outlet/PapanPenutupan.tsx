@@ -30,10 +30,13 @@ export function PapanPenutupan({
   status,
   bolehTulis,
   bolehCentang,
+  pembukaanDibatalkan = false,
 }: {
   status: StatusPenutupan
   bolehTulis: boolean
   bolehCentang: boolean
+  /** Outlet batal dibuka (belum pernah Go-Live): tidak bisa dibuka kembali. */
+  pembukaanDibatalkan?: boolean
 }) {
   const router = useRouter()
   const [dialog, setDialog] = useState<Dialog>(null)
@@ -108,7 +111,14 @@ export function PapanPenutupan({
         </div>
       </Card>
 
-      {!lewatWizard && (
+      {pembukaanDibatalkan && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          Pembukaan outlet ini dibatalkan dan outlet belum pernah Go-Live, jadi tidak bisa dibuka kembali. Untuk
+          membuka outlet di lokasi ini, buat outlet baru lewat <span className="font-semibold">Tambah Outlet</span>.
+        </div>
+      )}
+
+      {!lewatWizard && !pembukaanDibatalkan && (
         <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
           Outlet ini dinonaktifkan sebelum Wizard Penutupan ada, jadi belum punya catatan penutupan. Checklist di bawah
           hanya untuk dibaca; yang bisa dilakukan di sini hanya membuka kembali outlet.
@@ -208,9 +218,11 @@ export function PapanPenutupan({
 
       {bolehTulis && (
         <div className="flex flex-wrap justify-end gap-3">
-          <Button variant="secondary" onClick={() => setDialog('buka')} disabled={proses}>
-            Buka kembali outlet
-          </Button>
+          {!pembukaanDibatalkan && (
+            <Button variant="secondary" onClick={() => setDialog('buka')} disabled={proses}>
+              Buka kembali outlet
+            </Button>
+          )}
           {!selesai && lewatWizard && (
             <Button
               variant={status.siapSelesai ? 'primary' : 'secondary'}

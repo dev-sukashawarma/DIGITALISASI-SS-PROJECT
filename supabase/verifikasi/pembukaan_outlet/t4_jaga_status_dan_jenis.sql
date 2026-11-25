@@ -12,7 +12,6 @@ DECLARE
   v_am uuid;
   v_o  uuid;
   v_i  uuid;
-  v_ok boolean;
 BEGIN
   SELECT id INTO v_am FROM public.outlet_staff WHERE role = 'area_manager' AND status = 'active' LIMIT 1;
   v_o := public.buat_outlet_persiapan(jsonb_build_object('jenis','mitra','nama','UJI WIZARD T4',
@@ -43,13 +42,19 @@ BEGIN
     RAISE EXCEPTION 'ASERSI GAGAL C1d: perubahan alamat ikut tertahan';
   END IF;
 
-  -- I2: mitra → internal ditolak selama ada data mitra
-  v_ok := false;
-  BEGIN
-    UPDATE public.outlets SET type = 'internal' WHERE id = v_o;
-  EXCEPTION WHEN check_violation THEN v_ok := true;
-  END;
-  IF NOT v_ok THEN RAISE EXCEPTION 'ASERSI GAGAL I2: jenis mitra → internal lolos padahal ada investasi'; END IF;
+  -- I2 (diubah 2026-11-25, migration 20261125173000): mitra → internal kini BOLEH
+  -- (keputusan 16 Nov), tapi masa RAB & akses mitra wajib ikut dibersihkan.
+  INSERT INTO public.rab_outlet_otomatis (outlet_id, berlaku_sampai, kategori_kecuali)
+  VALUES (v_o, (now() AT TIME ZONE 'Asia/Jakarta')::date + 30, ARRAY['gas'])
+  ON CONFLICT DO NOTHING;
+  UPDATE public.outlets SET type = 'internal' WHERE id = v_o;
+  IF (SELECT type FROM public.outlets WHERE id = v_o) <> 'internal' THEN RAISE EXCEPTION 'ASERSI GAGAL I2: ganti jenis ditolak'; END IF;
+  IF EXISTS (SELECT 1 FROM public.rab_outlet_otomatis WHERE outlet_id = v_o) THEN
+    RAISE EXCEPTION 'ASERSI GAGAL I2: masa RAB tertinggal di outlet internal';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.mitra_investments WHERE outlet_id = v_o AND is_profit_sharing_active) THEN
+    RAISE EXCEPTION 'ASERSI GAGAL I2: investasi mitra masih aktif';
+  END IF;
 
   -- I2b: outlet internal Persiapan tanpa data mitra boleh diganti jenis
   v_i := public.buat_outlet_persiapan(jsonb_build_object('jenis','internal','nama','UJI WIZARD T4B','am_staff_id',v_am));

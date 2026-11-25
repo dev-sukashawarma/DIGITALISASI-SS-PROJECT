@@ -63,3 +63,5 @@ Revisi owner 13 Nov (sesudah rilis): langkah **Jadwal absensi & checklist harian
 - `apps/admin-dashboard/src/data/outlet_system_start_dates.json` yatim, abaikan.
 
 **AM boleh dikosongkan saat outlet dibuat** (revisi owner 25 Nov, migration `20261125150000`): pilihan AM di wizard langkah 3 boleh "Pilih nanti"; langkah papan "AM ditautkan" tetap wajib sebelum Go-Live.
+
+**Perbaikan bug hunt 25 Nov** (migration `20261125173000`): outlet batal dibuka tidak bisa diaktifkan lewat Buka kembali; order ke outlet Persiapan ditolak database; Mitra → Internal membersihkan masa RAB & akses mitra; Batalkan membersihkan akun & profil mitra lebih dulu sehingga outlet bisa terhapus.

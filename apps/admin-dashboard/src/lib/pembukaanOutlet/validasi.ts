@@ -10,7 +10,7 @@ export function validasiInputWizard(input: InputWizard, hariIni: string): HasilV
   const galat: Partial<Record<KunciGalat, string>> = {}
 
   if (!input.nama.trim()) galat.nama = 'Nama outlet wajib diisi'
-  if (!input.amStaffId) galat.amStaffId = 'Pilih Area Manager'
+  // AM boleh kosong saat outlet dibuat (owner 25 Nov 2026); papan menahan Go-Live sampai AM ditautkan di HR.
   if (input.jamBuka && input.jamTutup && input.jamTutup <= input.jamBuka) {
     galat.jamTutup = 'Jam tutup harus setelah jam buka'
   }

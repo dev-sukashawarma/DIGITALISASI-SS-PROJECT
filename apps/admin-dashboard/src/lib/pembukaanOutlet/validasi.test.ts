@@ -41,9 +41,9 @@ describe('validasiInputWizard', () => {
     if (!r.ok) expect(r.galat.nama).toBeTruthy()
   })
 
-  it('AM wajib dipilih', () => {
+  it('AM boleh dikosongkan saat outlet dibuat (ditautkan belakangan di HR)', () => {
     const r = validasiInputWizard(dasar({ amStaffId: '' }), HARI_INI)
-    expect(r.ok === false && r.galat.amStaffId).toBeTruthy()
+    expect(r.ok).toBe(true)
   })
 
   it('jam tutup harus setelah jam buka', () => {

@@ -29,6 +29,7 @@ export interface InputWizard {
   jamTutup: string
   /** YYYY-MM-DD, boleh kosong saat outlet dibuat; wajib sebelum Go-Live. */
   tanggalGrandOpening: string | null
+  /** Kosong = AM ditautkan belakangan di HR (wajib sebelum Go-Live, lewat papan). */
   amStaffId: string
   leaderStaffId: string | null
   mitra: MitraInput | null

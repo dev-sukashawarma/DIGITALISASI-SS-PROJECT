@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { labelStatusPettyCash, perluKonfirmasiLeader, sedangBerjalan } from './tahap'
+import { STATUS_DANA_DI_LACI, labelStatusPettyCash, perluKonfirmasiLeader, sedangBerjalan } from './tahap'
 
 describe('tahap petty cash tanpa AM', () => {
   it('hanya approved_by_finance yang menunggu konfirmasi leader', () => {
@@ -24,5 +24,11 @@ describe('tahap petty cash tanpa AM', () => {
     expect(labelStatusPettyCash('rejected')).toBe('Ditolak')
     expect(labelStatusPettyCash('forwarded_to_area_manager')).toBe('Menunggu Area Manager (alur lama)')
     expect(labelStatusPettyCash('status_aneh')).toBe('status aneh')
+  })
+
+  it('dana baru dihitung di laci setelah leader konfirmasi, bukan saat Finance transfer', () => {
+    expect(STATUS_DANA_DI_LACI).toContain('forwarded_by_leader')
+    expect(STATUS_DANA_DI_LACI).not.toContain('approved_by_finance')
+    expect(STATUS_DANA_DI_LACI).not.toContain('forwarded_to_finance')
   })
 })

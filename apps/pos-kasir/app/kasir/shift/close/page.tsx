@@ -132,7 +132,8 @@ export default function CloseShiftPage() {
     [activeShift, shiftSalesTotal],
   )
 
-  const SUDAH_DI_LACI = ['forwarded_by_leader', 'approved', 'completed', 'approved_by_finance']
+  // Sama dengan get_petty_cash_snapshot: dana baru di laci setelah leader konfirmasi (approved_by_finance belum).
+  const SUDAH_DI_LACI = ['forwarded_by_leader', 'approved', 'completed']
 
   const approvedTopupsTotal = useMemo(() => {
     if (!activeShift) return 0

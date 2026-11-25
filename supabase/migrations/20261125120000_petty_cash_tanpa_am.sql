@@ -7,12 +7,17 @@
 -- supaya get_petty_cash_snapshot & laporan tidak berubah.
 -- Uji: supabase/verifikasi/petty_cash_tanpa_am/t1_alur.sql
 
--- 1. Pindahkan pengajuan yang sedang di tahap AM (per 25 Nov: 0 baris).
+SET LOCAL lock_timeout = '10s';
+
+-- 1. Pengajuan yang BELUM dicairkan dan masih menunggu AM -> langsung ke Finance.
+--    (Per 25 Nov: 0 baris.) Baris yang sudah dicairkan dan berhenti di tahap AM
+--    (forwarded_by_finance / forwarded_by_area_manager; per 25 Nov: 4 baris, terbaru
+--    16 Sep, termasuk Mitra Cibubur Rp 500.000) SENGAJA tidak dipindah: memindahnya
+--    ke approved_by_finance akan membuat leader bisa menambah saldo POS dari
+--    pengajuan berumur bulanan. Baris itu tetap riwayat, tidak dihitung saldo.
 ALTER TABLE public.petty_cash_topups DISABLE TRIGGER trg_petty_cash_enforce_flow_update;
 UPDATE public.petty_cash_topups SET status = 'forwarded_to_finance'
  WHERE status IN ('forwarded_to_area_manager', 'pending', 'forwarded_to_korlap');
-UPDATE public.petty_cash_topups SET status = 'approved_by_finance'
- WHERE status IN ('forwarded_by_finance', 'forwarded_by_area_manager', 'forwarded_by_korlap');
 ALTER TABLE public.petty_cash_topups ENABLE TRIGGER trg_petty_cash_enforce_flow_update;
 
 -- 2. Mesin status.
@@ -36,6 +41,11 @@ BEGIN
     ('forwarded_by_leader',  'completed')
   ) THEN
     RAISE EXCEPTION 'Transisi status petty cash tidak sah: % -> %. Pengajuan hanya bisa ditolak sebelum dana dicairkan.', OLD.status, NEW.status;
+  END IF;
+
+  -- Satu gerbang untuk semua penulis: tidak ada pencairan tanpa bukti.
+  IF NEW.status = 'approved_by_finance' AND length(btrim(COALESCE(NEW.proof_of_transfer_url, ''))) = 0 THEN
+    RAISE EXCEPTION 'Bukti transfer/serah uang wajib dilampirkan sebelum pengajuan ditandai dicairkan';
   END IF;
 
   RETURN NEW;
@@ -64,6 +74,10 @@ BEGIN
 
   IF v_caller_role IS NULL OR v_caller_role NOT IN ('leader', 'area_manager', 'korlap', 'regional_manager', 'admin', 'admin_finance', 'owner') THEN
     RAISE EXCEPTION 'Hanya Leader ke atas yang boleh mengajukan petty cash (role: %)', COALESCE(v_caller_role, 'tidak aktif/tidak dikenal');
+  END IF;
+
+  IF p_outlet_id IS NULL OR p_outlet_id NOT IN (SELECT public.accessible_outlet_ids()) THEN
+    RAISE EXCEPTION 'Tidak berwenang mengajukan petty cash untuk outlet ini';
   END IF;
 
   IF p_amount IS NULL OR p_amount <= 0 THEN
@@ -152,7 +166,7 @@ BEGIN
     RAISE EXCEPTION 'Saldo Rekening Petty Cash tidak mencukupi';
   END IF;
   UPDATE public.petty_cash_topups
-  SET status = 'approved_by_finance', finance_approved_by = auth.uid(),
+  SET status = 'approved_by_finance', finance_approved_by = auth.uid(), approved_at = now(),
       disbursement_method = p_method, disbursed_from_cash_location_id = p_cash_location_id,
       proof_of_transfer_url = btrim(p_proof_of_transfer_url), amount = v_amount,
       description = COALESCE(p_description, v_topup.description)
@@ -167,7 +181,8 @@ END;
 $function$;
 
 -- 5. Leader konfirmasi "dana diterima & masuk laci": langsung setelah Finance
---    transfer, hanya untuk outlet yang boleh diakses leader itu.
+--    transfer. Hanya leader outlet itu (admin/owner sebagai cadangan tercatat),
+--    tidak boleh orang yang mencairkan, tidak lagi AM/korlap/admin_finance.
 CREATE OR REPLACE FUNCTION public.leader_forward_funds(p_topup_id uuid)
  RETURNS void
  LANGUAGE plpgsql
@@ -176,30 +191,29 @@ CREATE OR REPLACE FUNCTION public.leader_forward_funds(p_topup_id uuid)
 AS $function$
 DECLARE
   v_topup RECORD;
-  v_status TEXT;
   v_caller_role TEXT;
 BEGIN
-  SELECT * INTO v_topup FROM public.petty_cash_topups WHERE id = p_topup_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Pengajuan petty cash tidak ditemukan';
+  SELECT role INTO v_caller_role FROM public.outlet_staff
+  WHERE id = auth.uid() AND status = 'active' AND COALESCE(is_active, true);
+  IF v_caller_role IS NULL OR v_caller_role NOT IN ('leader', 'admin', 'owner') THEN
+    RAISE EXCEPTION 'Tidak berwenang mengonfirmasi penerimaan dana petty cash';
+  END IF;
+
+  SELECT outlet_id INTO v_topup FROM public.petty_cash_topups WHERE id = p_topup_id;
+  IF NOT FOUND OR v_topup.outlet_id NOT IN (SELECT public.accessible_outlet_ids()) THEN
+    RAISE EXCEPTION 'Tidak berwenang mengonfirmasi petty cash outlet ini';
   END IF;
 
   -- Kunci transaksi untuk outlet ini agar serial terhadap open_shift / penyesuaian saldo
   PERFORM pg_advisory_xact_lock(hashtextextended(v_topup.outlet_id::TEXT, 0));
 
-  SELECT status INTO v_status FROM public.petty_cash_topups WHERE id = p_topup_id FOR UPDATE;
-  IF v_status IS DISTINCT FROM 'approved_by_finance' THEN
-    RAISE EXCEPTION 'Dana belum ditransfer Finance atau sudah dikonfirmasi (status: %)', v_status;
+  SELECT status, finance_approved_by INTO v_topup
+  FROM public.petty_cash_topups WHERE id = p_topup_id FOR UPDATE;
+  IF v_topup.status IS DISTINCT FROM 'approved_by_finance' THEN
+    RAISE EXCEPTION 'Dana belum ditransfer Finance atau sudah dikonfirmasi (status: %)', v_topup.status;
   END IF;
-
-  SELECT role INTO v_caller_role FROM public.outlet_staff
-  WHERE id = auth.uid() AND status = 'active' AND COALESCE(is_active, true);
-  IF v_caller_role IS NULL OR v_caller_role NOT IN ('leader', 'area_manager', 'korlap', 'admin', 'admin_finance', 'owner') THEN
-    RAISE EXCEPTION 'Tidak berwenang mengonfirmasi penerimaan dana petty cash';
-  END IF;
-
-  IF v_topup.outlet_id NOT IN (SELECT public.accessible_outlet_ids()) THEN
-    RAISE EXCEPTION 'Tidak berwenang mengonfirmasi petty cash outlet ini';
+  IF v_topup.finance_approved_by = auth.uid() THEN
+    RAISE EXCEPTION 'Tidak berwenang: yang mencairkan dana tidak boleh mengonfirmasi penerimaannya sendiri';
   END IF;
 
   UPDATE public.petty_cash_topups
@@ -362,3 +376,195 @@ BEGIN
   END;
   RETURN NEW;
 END $function$;
+
+-- 9. Saldo POS: dana baru dihitung setelah leader konfirmasi masuk laci.
+--    Disalin dari definisi LIVE (pg_get_functiondef 25 Nov 2026, bukan dari
+--    berkas 2030), satu-satunya perubahan: 'approved_by_finance' dibuang dari
+--    tiga daftar status. Tanpa ini saldo naik saat Finance transfer dan bisa
+--    terhitung dua kali (carry ke opening_balance + leader_forwarded_at).
+CREATE OR REPLACE FUNCTION public.get_petty_cash_snapshot(p_outlet_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_shift public.shifts%ROWTYPE;
+  v_pending public.petty_cash_adjustments%ROWTYPE;
+  v_cutoff TIMESTAMPTZ;
+  v_base NUMERIC := 0;
+  v_topups NUMERIC := 0;
+  v_expenses NUMERIC := 0;
+  v_pending_expenses NUMERIC := 0;
+  v_pending_expenses_count INT := 0;
+  v_adjustments NUMERIC := 0;
+  v_last_adjustment public.petty_cash_adjustments%ROWTYPE;
+  v_carry NUMERIC := 0;
+  v_current NUMERIC := 0;
+BEGIN
+  IF auth.role() IS DISTINCT FROM 'service_role'
+     AND (auth.jwt() ->> 'role') IS DISTINCT FROM 'service_role'
+     AND p_outlet_id NOT IN (SELECT public.accessible_outlet_ids()) THEN
+    RAISE EXCEPTION 'Tidak berwenang melihat saldo outlet ini';
+  END IF;
+
+  SELECT COALESCE(SUM(e.amount), 0), COUNT(*)::INT
+  INTO v_pending_expenses, v_pending_expenses_count
+  FROM public.petty_cash_expenses e
+  WHERE e.outlet_id = p_outlet_id
+    AND e.status = 'pending'
+    AND e.deleted_at IS NULL;
+
+  SELECT * INTO v_shift
+  FROM public.shifts
+  WHERE outlet_id = p_outlet_id AND status = 'open'
+  ORDER BY start_time DESC
+  LIMIT 1;
+
+  IF FOUND THEN
+    v_base := COALESCE(v_shift.admin_petty_cash_balance, v_shift.starting_petty_cash, 0);
+    v_cutoff := COALESCE(v_shift.admin_petty_cash_updated_at, v_shift.start_time);
+
+    SELECT COALESCE(SUM(t.amount), 0)
+    INTO v_topups
+    FROM public.petty_cash_topups t
+    WHERE t.outlet_id = p_outlet_id
+      AND t.status IN ('completed', 'approved', 'forwarded_by_leader')
+      AND CASE
+        WHEN t.status IN ('completed', 'forwarded_by_leader')
+          THEN COALESCE(t.leader_forwarded_at, t.completed_at, t.approved_at, t.created_at)
+        ELSE COALESCE(t.approved_at, t.created_at)
+      END >= v_cutoff;
+
+    SELECT COALESCE(SUM(e.amount), 0)
+    INTO v_expenses
+    FROM public.petty_cash_expenses e
+    WHERE e.outlet_id = p_outlet_id
+      AND COALESCE(e.approved_at, e.created_at) >= v_cutoff
+      AND e.status = 'approved'
+      AND e.deleted_at IS NULL;
+
+    SELECT COALESCE(SUM(a.adjustment_amount), 0)
+    INTO v_adjustments
+    FROM public.petty_cash_adjustments a
+    WHERE a.shift_id = v_shift.id
+      AND a.application_mode = 'active_shift'
+      AND a.status = 'applied';
+
+    SELECT * INTO v_last_adjustment
+    FROM public.petty_cash_adjustments a
+    WHERE a.shift_id = v_shift.id
+      AND a.application_mode = 'active_shift'
+      AND a.status = 'applied'
+    ORDER BY a.applied_at DESC NULLS LAST, a.created_at DESC
+    LIMIT 1;
+
+    v_current := v_base + v_topups - v_expenses + v_adjustments;
+
+    RETURN jsonb_build_object(
+      'outlet_id', p_outlet_id,
+      'shift_id', v_shift.id,
+      'shift_status', 'open',
+      'has_active_shift', TRUE,
+      'starting_balance', COALESCE(v_shift.starting_petty_cash, 0),
+      'carry_balance', COALESCE(v_shift.starting_petty_cash, 0),
+      'topups_total', v_topups,
+      'expenses_total', v_expenses,
+      'pending_expenses_total', v_pending_expenses,
+      'pending_expenses_count', v_pending_expenses_count,
+      'adjustments_total', v_adjustments,
+      'current_balance', GREATEST(v_current, 0),
+      'available_balance', GREATEST(v_current - v_pending_expenses, 0),
+      'opening_balance', NULL,
+      'pending_adjustment_id', NULL,
+      'pending_note', NULL,
+      'last_adjustment_note', v_last_adjustment.note,
+      'last_adjustment_at', v_last_adjustment.applied_at,
+      'calculated_at', NOW()
+    );
+  END IF;
+
+  SELECT * INTO v_shift
+  FROM public.shifts
+  WHERE outlet_id = p_outlet_id AND status = 'closed'
+  ORDER BY end_time DESC NULLS LAST, start_time DESC
+  LIMIT 1;
+
+  IF FOUND THEN
+    v_carry := COALESCE(
+      v_shift.actual_ending_petty_cash,
+      v_shift.expected_ending_petty_cash,
+      v_shift.admin_petty_cash_balance,
+      v_shift.starting_petty_cash,
+      0
+    );
+    v_cutoff := COALESCE(v_shift.end_time, v_shift.updated_at, v_shift.start_time);
+
+    SELECT COALESCE(SUM(t.amount), 0)
+    INTO v_topups
+    FROM public.petty_cash_topups t
+    WHERE t.outlet_id = p_outlet_id
+      AND t.status IN ('completed', 'approved', 'forwarded_by_leader')
+      AND CASE
+        WHEN t.status IN ('completed', 'forwarded_by_leader')
+          THEN COALESCE(t.leader_forwarded_at, t.completed_at, t.approved_at, t.created_at)
+        ELSE COALESCE(t.approved_at, t.created_at)
+      END > v_cutoff;
+
+    SELECT COALESCE(SUM(e.amount), 0)
+    INTO v_expenses
+    FROM public.petty_cash_expenses e
+    WHERE e.outlet_id = p_outlet_id
+      AND COALESCE(e.approved_at, e.created_at) > v_cutoff
+      AND e.status = 'approved'
+      AND e.deleted_at IS NULL;
+
+    v_carry := v_carry + v_topups - v_expenses;
+  ELSE
+    SELECT COALESCE(SUM(t.amount), 0)
+    INTO v_topups
+    FROM public.petty_cash_topups t
+    WHERE t.outlet_id = p_outlet_id
+      AND t.status IN ('completed', 'approved', 'forwarded_by_leader');
+
+    SELECT COALESCE(SUM(e.amount), 0)
+    INTO v_expenses
+    FROM public.petty_cash_expenses e
+    WHERE e.outlet_id = p_outlet_id
+      AND e.status = 'approved'
+      AND e.deleted_at IS NULL;
+
+    v_carry := v_topups - v_expenses;
+  END IF;
+
+  SELECT * INTO v_pending
+  FROM public.petty_cash_adjustments
+  WHERE outlet_id = p_outlet_id AND status = 'pending'
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  v_current := v_carry + COALESCE(v_pending.adjustment_amount, 0);
+
+  RETURN jsonb_build_object(
+    'outlet_id', p_outlet_id,
+    'shift_id', CASE WHEN v_shift.id IS NULL THEN NULL ELSE v_shift.id END,
+    'shift_status', CASE WHEN v_shift.id IS NULL THEN NULL ELSE v_shift.status END,
+    'has_active_shift', FALSE,
+    'starting_balance', CASE WHEN v_shift.id IS NULL THEN 0 ELSE COALESCE(v_shift.starting_petty_cash, 0) END,
+    'carry_balance', GREATEST(v_carry, 0),
+    'topups_total', v_topups,
+    'expenses_total', v_expenses,
+    'pending_expenses_total', v_pending_expenses,
+    'pending_expenses_count', v_pending_expenses_count,
+    'adjustments_total', 0,
+    'current_balance', GREATEST(v_current, 0),
+    'available_balance', GREATEST(v_current - v_pending_expenses, 0),
+    'opening_balance', GREATEST(v_current, 0),
+    'pending_adjustment_id', v_pending.id,
+    'pending_note', v_pending.note,
+    'last_adjustment_note', NULL,
+    'last_adjustment_at', NULL,
+    'calculated_at', NOW()
+  );
+END;
+$function$;

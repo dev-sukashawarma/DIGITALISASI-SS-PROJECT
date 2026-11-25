@@ -122,7 +122,7 @@ export default function ShiftBlockerMount() {
             supabase.from('petty_cash_topups')
               .select('amount')
               .eq('outlet_id', outletId)
-              .in('status', ['forwarded_by_leader', 'approved', 'completed', 'approved_by_finance'])
+              .in('status', ['forwarded_by_leader', 'approved', 'completed'])
               .or(`completed_at.gt.${refTime},leader_forwarded_at.gt.${refTime},approved_at.gt.${refTime},created_at.gt.${refTime}`),
             supabase.from('petty_cash_expenses')
               .select('amount')

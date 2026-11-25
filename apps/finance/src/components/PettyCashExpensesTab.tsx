@@ -11,6 +11,7 @@ import NumberFlow from '@number-flow/react'
 import { TargetCombobox } from '@/components/TargetCombobox'
 import { isExcludedOutlet } from '@/lib/outletFilters'
 import { namaDenganKeteranganTutup, outletTampilDiPeriode } from '@/lib/outletTutup'
+import { STATUS_DANA_DI_LACI } from '@/lib/pettyCash/tahap'
 
 const ITEMS_PER_PAGE = 50
 
@@ -154,7 +155,7 @@ export default function PettyCashExpensesTab() {
           status,
           outlets(name)
         `)
-        .in('status', ['completed', 'approved', 'approved_by_finance', 'forwarded_by_leader'])
+        .in('status', STATUS_DANA_DI_LACI)
         .gte('created_at', fromDateTime)
         .lte('created_at', toDateTime)
 

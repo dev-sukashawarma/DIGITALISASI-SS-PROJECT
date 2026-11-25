@@ -1,6 +1,7 @@
 import React from 'react'
 import { LayoutDashboard, TrendingUp, Package, Banknote, ArrowRight, Store, Receipt, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { STATUS_DANA_DI_LACI } from '@/lib/pettyCash/tahap'
 import { getVerifiedUserId } from '@suka/auth'
 import { formatRupiah } from '@/lib/validations'
 import Link from 'next/link'
@@ -148,7 +149,7 @@ export default async function LeaderDashboardPage() {
         .from('petty_cash_topups')
         .select('amount')
         .eq('outlet_id', primaryOutletId)
-        .in('status', ['completed', 'approved', 'approved_by_finance', 'forwarded_by_leader'])
+        .in('status', STATUS_DANA_DI_LACI)
         .or(`created_at.gte.${shift.start_time},completed_at.gte.${shift.start_time},leader_forwarded_at.gte.${shift.start_time}`)
 
       const { data: expenses } = await supabase

@@ -3950,7 +3950,28 @@ Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawa
 - ⚠️ Role `kitchen` tidak punya akses app finance; RPC mengizinkan kitchen, tapi layarnya baru ada di finance (pengajuan/penerimaan pengganti lewat purchasing). Layar kitchen di app stok = lanjutan.
 - Pemantau: `supabase/verifikasi/retur_vendor/pemantau.sql` (retur menggantung >14 hari, ledger tanpa dokumen, saldo kredit, kredit dicadangkan >7 hari).
 
+## Session 2026-11-25: Pengajuan Petty Cash Langsung ke Finance (tanpa AM)
+
+**Status:** Kode di branch `feat/petty-cash-tanpa-am`. Migration `20261125120000_petty_cash_tanpa_am` **ditulis & diuji di DB live (BEGIN/ROLLBACK, `supabase/verifikasi/petty_cash_tanpa_am/t1_alur.sql`), belum di-apply** — apply & push dilakukan bersamaan (lihat urutan rilis).
+
+**Spec/plan:** `docs/superpowers/specs/2026-11-25-petty-cash-tanpa-am-design.md`, `docs/superpowers/plans/2026-11-25-petty-cash-tanpa-am.md`
+
+- **Alur (keputusan owner):** leader ajukan → `forwarded_to_finance` → Finance transfer di Hub Approval (**bukti wajib**, transfer maupun tunai; ditegakkan modal, server action, dan `finance_process_petty_cash_custom`) → `approved_by_finance` → leader tekan **Dana diterima & masuk laci** (`leader_forward_funds`) → `forwarded_by_leader`, saldo POS naik. AM tidak lagi menyetujui/menyerahkan; halaman AM (admin, manager, finance) jadi pantauan.
+- **Nama status lama sengaja dipertahankan** — `get_petty_cash_snapshot`, laporan, bot CEO membaca nama yang sama.
+- `petty_cash_enforce_flow`: lahir hanya `forwarded_to_finance`; transisi sah `→approved_by_finance→forwarded_by_leader(→completed)`; **tolak hanya dari `forwarded_to_finance`** (dulu dari mana saja).
+- `leader_forward_funds` kini memeriksa akun aktif + `accessible_outlet_ids()` (dulu leader outlet A bisa menambah saldo outlet B).
+- Fungsi `area_manager_process_petty_cash`, `area_manager_forward_funds`, `finance_forward_funds`, `korlap_*`, `review_petty_cash_topup` **tidak di-DROP**; badannya `RAISE 'Tahap Area Manager sudah dihapus…'` agar APK/tab lama dapat pesan jelas.
+- Push: tidak ke AM lagi; saat Finance transfer → push ke pengaju (app leader).
+- Aturan status di `src/lib/pettyCash/tahap.ts` — **salinan identik** di finance, admin-dashboard, manager (belum dijaga tes paritas).
+- Alur **pengeluaran kasir** (`petty_cash_expenses`, disetujui AM) tidak disentuh.
+- 🔴 **Saldo POS ditemukan reviewer:** `get_petty_cash_snapshot` live ikut menghitung `approved_by_finance` (cek awal saya keliru — regex serakah). Migration menulis ulang snapshot dari definisi live tanpa status itu; pembaca app memakai `STATUS_DANA_DI_LACI`. Selalu cek `pg_get_functiondef` dengan hitungan eksplisit, bukan regex bergrup.
+- `create_petty_cash_topup` kini menolak outlet di luar `accessible_outlet_ids()` (dulu leader bisa mengajukan atas nama outlet lain + menimpa rekeningnya). `leader_forward_funds`: hanya leader/admin/owner dan **bukan** yang mencairkan. Trigger menolak `approved_by_finance` tanpa bukti.
+- **Tidak dipindah:** 4 pengajuan lama berstatus `forwarded_by_area_manager` (Mitra Cibubur Rp 500.000 11 Sep + 3 uji outlet tes) — sudah dicairkan, tak dihitung saldo, kini tak bisa bergerak. Perlu keputusan owner.
+- **Belum ada "batal pencairan"** untuk salah transfer — koreksi manual developer.
+- ⚠️ **Utang replay:** `petty_cash_enforce_flow`/`leader_forward_funds` (`20300105000013`), `create_petty_cash_topup` (`20300105000014`), `get_petty_cash_snapshot` (2030-an) terurut sesudah berkas ini; replay dari nol menghidupkan lagi alur AM. Produksi aman setelah terstempel.
+- **Urutan rilis:** apply migration lalu langsung push ke `main` (deploy otomatis). Jeda di antaranya: leader lama tak melihat tombol konfirmasi, Hub lama masih menampilkan "Serahkan ke AM" yang kini galat.
+
 ---
 
-**Last updated:** 2026-11-18  
+**Last updated:** 2026-11-25  
 **Owner:** Dev Suka Shawarma

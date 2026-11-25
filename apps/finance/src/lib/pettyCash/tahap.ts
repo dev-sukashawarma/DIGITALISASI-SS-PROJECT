@@ -7,6 +7,9 @@
 export const STATUS_MENUNGGU_FINANCE = 'forwarded_to_finance'
 export const STATUS_MENUNGGU_KONFIRMASI_LEADER = 'approved_by_finance'
 
+/** Status yang dananya sudah di laci outlet (dihitung di saldo POS). Sama dengan get_petty_cash_snapshot. */
+export const STATUS_DANA_DI_LACI = ['forwarded_by_leader', 'approved', 'completed']
+
 export function perluKonfirmasiLeader(status: string): boolean {
   return status === STATUS_MENUNGGU_KONFIRMASI_LEADER
 }

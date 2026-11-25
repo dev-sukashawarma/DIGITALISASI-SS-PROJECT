@@ -68,8 +68,9 @@ export default function PettyCashView({ initialRequests }: PettyCashViewProps) {
   }, [supabase, router])
 
 
-  const pendingFinanceRequests = requests.filter(r => r.status === 'forwarded_to_finance' || r.status === 'approved_by_finance')
-  const historyRequests = requests.filter(r => r.status !== 'forwarded_to_finance' && r.status !== 'approved_by_finance')
+  // Hanya yang menunggu keputusan Finance; yang sudah dicairkan menunggu konfirmasi leader (masuk riwayat).
+  const pendingFinanceRequests = requests.filter(r => r.status === 'forwarded_to_finance')
+  const historyRequests = requests.filter(r => r.status !== 'forwarded_to_finance')
   const financeUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
     ? 'http://localhost:3020'
     : process.env.NEXT_PUBLIC_APP_URL_FINANCE || 'https://finance.sukashawarma.com'
@@ -105,11 +106,6 @@ export default function PettyCashView({ initialRequests }: PettyCashViewProps) {
                       {req.status === 'forwarded_to_finance' && (
                         <span className="text-xs font-bold px-2.5 py-1 bg-amber-100 text-amber-800 rounded-md">
                           MENUNGGU ACC FINANCE
-                        </span>
-                      )}
-                      {req.status === 'approved_by_finance' && (
-                        <span className="text-xs font-bold px-2.5 py-1 bg-indigo-100 text-indigo-800 rounded-md">
-                          DICAIRKAN (SIAP SERAHKAN KE AM)
                         </span>
                       )}
                       <span className="text-sm font-bold text-gray-900 bg-gray-100 px-2.5 py-1 rounded-md flex items-center gap-1">

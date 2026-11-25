@@ -77,3 +77,18 @@ menyentuh semua pembaca saldo; itu tidak perlu.
 - A. Saldo naik saat Finance transfer — ditolak: saldo mendahului uang fisik.
 - **B. Leader konfirmasi masuk laci — dipilih.**
 - C. Kasir konfirmasi di POS — ditolak: perlu ubah POS web + native + rilis APK.
+
+## Koreksi setelah review akhir (25 Nov 2026)
+- **Premis "saldo POS baru naik di `forwarded_by_leader`" SALAH untuk definisi live.**
+  `get_petty_cash_snapshot` live juga menghitung `approved_by_finance` (dulu status
+  singkat karena Finance segera "serah ke AM"). Migration kini menulis ulang snapshot
+  dari definisi live tanpa `approved_by_finance`; pembaca saldo di POS, dashboard
+  leader, dan laporan finance disamakan (`STATUS_DANA_DI_LACI`).
+- Pengajuan yang **sudah dicairkan** dan berhenti di tahap AM tidak dipindah
+  (per 25 Nov: 4 baris, termasuk Mitra Cibubur Rp 500.000 dari 11 Sep); hanya yang
+  belum dicairkan dipindah ke Finance.
+- `create_petty_cash_topup` menolak outlet di luar `accessible_outlet_ids()`.
+- `leader_forward_funds`: hanya leader/admin/owner, dan bukan orang yang mencairkan.
+- Penjaga status menolak `approved_by_finance` tanpa bukti untuk penulis mana pun.
+- Tidak dibangun: "batal pencairan" (salah transfer) — usulan lanjutan.
+

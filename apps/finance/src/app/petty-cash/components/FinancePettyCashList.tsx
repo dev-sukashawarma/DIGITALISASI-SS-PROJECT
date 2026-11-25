@@ -443,7 +443,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                       </div>
                     </td>
                     <td className="py-4 px-5 text-right whitespace-nowrap">
-                      {(req.status === 'forwarded_to_finance' || req.status === 'approved_by_finance') && activeTab === 'review' && (
+                      {req.status === 'forwarded_to_finance' && activeTab === 'review' && (
                         <Link
                           href="/approval"
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-suka-brown to-suka-ink hover:from-suka-ink hover:to-black text-white rounded-lg font-medium text-[13px] transition-all shadow-sm"

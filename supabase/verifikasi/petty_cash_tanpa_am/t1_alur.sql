@@ -45,11 +45,29 @@ ALTER TABLE petty_cash_topups ENABLE TRIGGER trg_petty_cash_enforce_flow_insert;
 -- (f) baris tahap AM lama sudah dipindah
 DO $$ BEGIN
   IF (SELECT status FROM petty_cash_topups WHERE id = (SELECT v::uuid FROM _t WHERE k = 'f1')) <> 'forwarded_to_finance'
-  OR (SELECT status FROM petty_cash_topups WHERE id = (SELECT v::uuid FROM _t WHERE k = 'f2')) <> 'approved_by_finance'
-  OR (SELECT status FROM petty_cash_topups WHERE id = (SELECT v::uuid FROM _t WHERE k = 'f3')) <> 'approved_by_finance' THEN
-    RAISE EXCEPTION 'ASERSI GAGAL (f): status tahap AM lama tidak dipindah';
+  OR (SELECT status FROM petty_cash_topups WHERE id = (SELECT v::uuid FROM _t WHERE k = 'f2')) <> 'forwarded_by_finance'
+  OR (SELECT status FROM petty_cash_topups WHERE id = (SELECT v::uuid FROM _t WHERE k = 'f3')) <> 'forwarded_by_area_manager' THEN
+    RAISE EXCEPTION 'ASERSI GAGAL (f): hanya pengajuan yang belum dicairkan boleh dipindah ke Finance';
   END IF;
 END $$;
+
+-- (i) leader outlet lain tak bisa mengajukan atas nama outlet A
+SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT v FROM _t WHERE k = 'leaderB'), 'role', 'authenticated')::text, true);
+SET LOCAL ROLE authenticated;
+DO $$ BEGIN
+  BEGIN
+    PERFORM create_petty_cash_topup((SELECT v::uuid FROM _t WHERE k = 'outletA'), 1000, 'uji i', NULL, NULL, NULL);
+    RAISE EXCEPTION 'ASERSI GAGAL (i): leader outlet lain bisa mengajukan untuk outlet A';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'ASERSI GAGAL%' THEN RAISE; END IF;
+    IF SQLERRM NOT ILIKE '%outlet%' THEN RAISE EXCEPTION 'ASERSI GAGAL (i): galat salah: %', SQLERRM; END IF;
+  END;
+END $$;
+RESET ROLE;
+
+-- Snapshot saldo POS outlet A sebelum pengajuan (dibaca sebagai leader A).
+SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT v FROM _t WHERE k = 'leaderA'), 'role', 'authenticated')::text, true);
+INSERT INTO _t SELECT 'snap0', (get_petty_cash_snapshot((SELECT v::uuid FROM _t WHERE k = 'outletA')) ->> 'topups_total');
 
 -- (a) leader mengajukan -> langsung ke Finance
 SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT v FROM _t WHERE k = 'leaderA'), 'role', 'authenticated')::text, true);
@@ -82,6 +100,20 @@ BEGIN
   END LOOP;
 END $$;
 
+-- (c2) penulis langsung (postgres) tak bisa menandai dicairkan tanpa bukti
+RESET ROLE;
+DO $$ BEGIN
+  BEGIN
+    UPDATE petty_cash_topups SET status = 'approved_by_finance' WHERE id = (SELECT v::uuid FROM _t WHERE k = 'a');
+    RAISE EXCEPTION 'ASERSI GAGAL (c2): status dicairkan tanpa bukti lolos lewat UPDATE langsung';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'ASERSI GAGAL%' THEN RAISE; END IF;
+    IF SQLERRM NOT ILIKE '%bukti%' THEN RAISE EXCEPTION 'ASERSI GAGAL (c2): galat salah: %', SQLERRM; END IF;
+  END;
+END $$;
+SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT v FROM _t WHERE k = 'fin'), 'role', 'authenticated')::text, true);
+SET LOCAL ROLE authenticated;
+
 -- (b) Finance approve dengan bukti -> approved_by_finance + 1 transaksi kas keluar
 SELECT finance_process_petty_cash_custom((SELECT v::uuid FROM _t WHERE k = 'a'), 'approve', 'transfer',
   (SELECT v::uuid FROM _t WHERE k = 'bank'), 'https://contoh/bukti.jpg', NULL, NULL);
@@ -97,6 +129,30 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- (h) saldo POS belum naik walau Finance sudah transfer
+SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT v FROM _t WHERE k = 'leaderA'), 'role', 'authenticated')::text, true);
+DO $$ BEGIN
+  IF (get_petty_cash_snapshot((SELECT v::uuid FROM _t WHERE k = 'outletA')) ->> 'topups_total')::numeric
+     <> (SELECT v::numeric FROM _t WHERE k = 'snap0') THEN
+    RAISE EXCEPTION 'ASERSI GAGAL (h): saldo POS naik sebelum leader konfirmasi (sebelum %, sesudah %)',
+      (SELECT v FROM _t WHERE k = 'snap0'), get_petty_cash_snapshot((SELECT v::uuid FROM _t WHERE k = 'outletA')) ->> 'topups_total';
+  END IF;
+END $$;
+
+-- (j) staf Finance yang mencairkan tak bisa mengonfirmasi "dana masuk laci"
+SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT v FROM _t WHERE k = 'fin'), 'role', 'authenticated')::text, true);
+SET LOCAL ROLE authenticated;
+DO $$ BEGIN
+  BEGIN
+    PERFORM leader_forward_funds((SELECT v::uuid FROM _t WHERE k = 'e1'));
+    RAISE EXCEPTION 'ASERSI GAGAL (j): pencair bisa mengonfirmasi sendiri';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'ASERSI GAGAL%' THEN RAISE; END IF;
+    IF SQLERRM NOT ILIKE '%berwenang%' THEN RAISE EXCEPTION 'ASERSI GAGAL (j): galat salah: %', SQLERRM; END IF;
+  END;
+END $$;
+RESET ROLE;
+
 -- (d) leader outlet lain ditolak; leader outlet sendiri berhasil
 SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT v FROM _t WHERE k = 'leaderB'), 'role', 'authenticated')::text, true);
 SET LOCAL ROLE authenticated;
@@ -106,6 +162,7 @@ DO $$ BEGIN
     RAISE EXCEPTION 'ASERSI GAGAL (d): leader outlet lain bisa mengonfirmasi';
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM LIKE 'ASERSI GAGAL%' THEN RAISE; END IF;
+    IF SQLERRM NOT ILIKE '%berwenang%' THEN RAISE EXCEPTION 'ASERSI GAGAL (d): galat salah: %', SQLERRM; END IF;
   END;
 END $$;
 SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT v FROM _t WHERE k = 'leaderA'), 'role', 'authenticated')::text, true);
@@ -114,6 +171,13 @@ RESET ROLE;
 DO $$ BEGIN
   IF (SELECT status FROM petty_cash_topups WHERE id = (SELECT v::uuid FROM _t WHERE k = 'a')) <> 'forwarded_by_leader' THEN
     RAISE EXCEPTION 'ASERSI GAGAL (d): konfirmasi leader outlet sendiri gagal';
+  END IF;
+END $$;
+SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT v FROM _t WHERE k = 'leaderA'), 'role', 'authenticated')::text, true);
+DO $$ BEGIN
+  IF (get_petty_cash_snapshot((SELECT v::uuid FROM _t WHERE k = 'outletA')) ->> 'topups_total')::numeric
+     <> (SELECT v::numeric FROM _t WHERE k = 'snap0') + 1000 THEN
+    RAISE EXCEPTION 'ASERSI GAGAL (h2): saldo POS tidak naik tepat 1000 setelah konfirmasi leader';
   END IF;
 END $$;
 
@@ -127,6 +191,7 @@ BEGIN
       RAISE EXCEPTION 'ASERSI GAGAL (e): baris % bisa ditolak setelah dana cair', v_k;
     EXCEPTION WHEN OTHERS THEN
       IF SQLERRM LIKE 'ASERSI GAGAL%' THEN RAISE; END IF;
+      IF SQLERRM NOT LIKE '%Transisi status petty cash tidak sah%' THEN RAISE EXCEPTION 'ASERSI GAGAL (e): galat salah: %', SQLERRM; END IF;
     END;
   END LOOP;
 END $$;

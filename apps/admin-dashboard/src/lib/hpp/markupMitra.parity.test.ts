@@ -11,14 +11,15 @@ import { describe, it, expect } from 'vitest'
  *
  * Tes ini menggagalkan CI sebelum perbedaan itu sempat di-deploy.
  *
- * Aturan yang dijaga (keputusan owner 11 Nov 2026, sumber "HPP NOVEMBER.xlsx"
- * tab OFFLINE sel P3 = MARKUP MITRA 0,15 "FIXED"):
- *   mulai 1 Nov 2026 HPP mitra = (HPP + OPEX) x 1,15 untuk SEMUA outlet mitra,
+ * Aturan yang dijaga (keputusan owner 25 Nov 2026, sumber
+ * "SS COGS OCT 2026 v2.2 12 persen.xlsx" tab OFFLINE sel P3 = MARKUP MITRA 0,12;
+ * menggantikan 0,15 yang diputuskan 11 Nov 2026):
+ *   mulai 1 Nov 2026 HPP mitra = (HPP + OPEX) x 1,12 untuk SEMUA outlet mitra,
  *   termasuk MITRA CILEUNGSI.
  */
 
 const REPO = resolve(__dirname, '../../../../..')
-const MARKUP = '1.15'
+const MARKUP = '1.12'
 const MULAI = '2026-11-01'
 
 /** Pembawa markup yang SADAR TANGGAL: wajib memuat angka markup + tanggal mulai. */
@@ -28,6 +29,10 @@ const BERBASIS_TANGGAL = [
   'apps/admin-dashboard/src/app/actions/mitraPnl.ts',
   'apps/finance/src/lib/hpp/fetchHpp.ts',
   'apps/finance/src/lib/posReport/compute.ts',
+  'apps/HR/src/lib/posReport/compute.ts',
+  'apps/manager/src/lib/laba-rugi/hpp/fetchHpp.ts',
+  'apps/marcom/src/lib/laba-rugi/hpp/fetchHpp.ts',
+  'apps/marcom/src/lib/penjualan/posReport/compute.ts',
   'apps/manager/src/app/page.tsx',
   'apps/manager/src/app/reports/page.tsx',
   'apps/bot/src/lib/server/telemetriNyata.ts',
@@ -44,7 +49,7 @@ const LAYAR_TANPA_TANGGAL = [
   'apps/manager/src/app/resep/OutletPricingView.tsx',
 ] as const
 
-const MIGRATION_DB = 'supabase/migrations/20261111101413_mitra_markup_15_persen_november.sql'
+const MIGRATION_DB = 'supabase/migrations/20261125200000_mitra_markup_12_persen_november.sql'
 
 const baca = (rel: string) => {
   const p = resolve(REPO, rel)
@@ -53,17 +58,17 @@ const baca = (rel: string) => {
 }
 
 describe('Paritas markup HPP mitra lintas app + DB', () => {
-  it.each([...BERBASIS_TANGGAL])('%s memuat markup 1,15 dan tanggal mulai 1 Nov 2026', (rel) => {
+  it.each([...BERBASIS_TANGGAL])('%s memuat markup 1,12 dan tanggal mulai 1 Nov 2026', (rel) => {
     const src = baca(rel)
     expect(src, `${rel} tidak memuat markup ${MARKUP}`).toContain(MARKUP)
     expect(src, `${rel} tidak memuat tanggal mulai ${MULAI}`).toContain(MULAI)
   })
 
-  it.each([...LAYAR_TANPA_TANGGAL])('%s memuat markup 1,15', (rel) => {
+  it.each([...LAYAR_TANPA_TANGGAL])('%s memuat markup 1,12', (rel) => {
     expect(baca(rel), `${rel} tidak memuat markup ${MARKUP}`).toContain(MARKUP)
   })
 
-  it('migration DB memuat markup 1,15 + tanggal mulai, dan menjaga penjaga owner summary', () => {
+  it('migration DB memuat markup 1,12 + tanggal mulai, dan menjaga penjaga owner summary', () => {
     const sql = baca(MIGRATION_DB)
     expect(sql).toContain(MARKUP)
     expect(sql).toContain(MULAI)
@@ -104,5 +109,11 @@ describe('Paritas markup HPP mitra lintas app + DB', () => {
     expect(norm(baca('apps/finance/src/lib/posReport/compute.ts'))).toBe(
       norm(baca('apps/admin-dashboard/src/lib/posReport/compute.ts')),
     )
+  })
+
+  it('tidak ada pembawa markup yang masih memakai angka lama 1,15', () => {
+    for (const rel of [...BERBASIS_TANGGAL, ...LAYAR_TANPA_TANGGAL]) {
+      expect(/MITRA_MARKUP_\w*\s*=\s*1\.15/.test(baca(rel)), `${rel} masih 1,15`).toBe(false)
+    }
   })
 })

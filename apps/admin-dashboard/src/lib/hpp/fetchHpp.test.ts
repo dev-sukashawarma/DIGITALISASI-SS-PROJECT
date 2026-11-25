@@ -43,7 +43,7 @@ describe('getItemHpp', () => {
     expect(res.markup).toBe(res.hpp - res.baseHpp)
   })
 
-  it('MITRA CILEUNGSI x1,10 sampai 31 Okt 2026, lalu ikut x1,15 mulai 1 Nov 2026', () => {
+  it('MITRA CILEUNGSI x1,10 sampai 31 Okt 2026, lalu ikut x1,12 mulai 1 Nov 2026', () => {
     const sapiOkt = { ...globalSapiSedang, hpp_override: 15168 }
     const okt = getItemHpp(sapiOkt, 'mitra', undefined, undefined, 'pos', MITRA_CILEUNGSI_OUTLET_ID, '2026-10-31')
     expect(okt.baseHpp).toBe(15168)
@@ -54,15 +54,15 @@ describe('getItemHpp', () => {
     const sapiNov = { ...globalSapiSedang, hpp_override: 15168 }
     const nov = getItemHpp(sapiNov, 'mitra', undefined, undefined, 'pos', MITRA_CILEUNGSI_OUTLET_ID, '2026-11-01')
     expect(nov.baseHpp).toBe(15168)
-    expect(nov.hpp).toBe(Math.round(15168 * 1.15))
+    expect(nov.hpp).toBe(Math.round(15168 * 1.12))
     expect(nov.markup).toBe(nov.hpp - nov.baseHpp)
   })
 
-  it('mulai 1 Nov 2026 markup mitra seragam (HPP + OPEX) x 1,15, paket ikut', () => {
+  it('mulai 1 Nov 2026 markup mitra seragam (HPP + OPEX) x 1,12, paket ikut', () => {
     const sapi = { ...globalSapiSedang, hpp_override: 15099.7 }
     const satuan = getItemHpp(sapi, 'mitra', undefined, undefined, 'pos', 'mitra-lain', '2026-11-01')
     expect(satuan.baseHpp).toBe(15099.7)
-    expect(satuan.hpp).toBe(Math.round(15099.7 * 1.15)) // 17365, cocok kolom I Excel (17364,655)
+    expect(satuan.hpp).toBe(Math.round(15099.7 * 1.12)) // 16912
     expect(satuan.markup).toBe(satuan.hpp - satuan.baseHpp)
 
     const aqua = {
@@ -84,9 +84,9 @@ describe('getItemHpp', () => {
       ],
     }
     const res = getItemHpp(paket, 'mitra', undefined, undefined, 'pos', 'mitra-lain', '2026-11-01')
-    // Excel "PAKET BUNDLING AQUA" HPP MITRA = 19.089,655 -> dibulatkan 19.090
+    // paket dikali 1,12 sekali di tingkat paket: 16.599,7 x 1,12 = 18.591,66 -> 18.592
     expect(res.baseHpp).toBe(16599.7)
-    expect(res.hpp).toBe(Math.round(16599.7 * 1.15))
+    expect(res.hpp).toBe(Math.round(16599.7 * 1.12))
     expect(res.markup).toBe(res.hpp - res.baseHpp)
   })
 
@@ -122,11 +122,11 @@ describe('getItemHpp', () => {
     expect(Math.round((comboOctRes.baseHpp + comboOctRes.markup) * 100) / 100).toBe(comboOctRes.hpp)
 
     // Mulai 1 Nov 2026 aturan takeout OPEX tidak lagi dipakai: markup mitra
-    // seragam (HPP + OPEX) x 1,15, jadi Ice Tea 1845 -> round(1845 x 1,15).
+    // seragam (HPP + OPEX) x 1,12, jadi Ice Tea 1845 -> round(1845 x 1,12).
     const iceTeaNov = { ...iceTeaOct, hpp_override: 1845 }
     const drinkNovRes = getItemHpp(iceTeaNov, 'mitra', undefined, undefined, 'pos', 'mitra-lain', '2026-11-02')
     expect(drinkNovRes.baseHpp).toBe(1845)
-    expect(drinkNovRes.hpp).toBe(Math.round(1845 * 1.15))
+    expect(drinkNovRes.hpp).toBe(Math.round(1845 * 1.12))
     expect(drinkNovRes.markup).toBe(drinkNovRes.hpp - drinkNovRes.baseHpp)
   })
 

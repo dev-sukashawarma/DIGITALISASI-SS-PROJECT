@@ -22,14 +22,14 @@ const KUNCI_SS_ONLINE = [
 
 /**
  * Layar ini menampilkan HPP yang berlaku SEKARANG. Sejak 1 Nov 2026 markup mitra
- * seragam (HPP + OPEX) x 1,15 untuk semua outlet mitra, termasuk Cileungsi
+ * seragam (HPP + OPEX) x 1,12 untuk semua outlet mitra, termasuk Cileungsi
  * (pengecualian x1,10 miliknya berakhir 31 Okt 2026). Sumber: "HPP NOVEMBER.xlsx"
- * tab OFFLINE sel P3, keputusan owner 11 Nov 2026. Sama dengan DB
- * get_mitra_item_hpp (migration 20261111101413) dan lib/hpp/fetchHpp.ts.
+ * tab OFFLINE sel P3, keputusan owner 25 Nov 2026 (sebelumnya 0,15 per 11 Nov). Sama dengan DB
+ * get_mitra_item_hpp (migration 20261125200000_mitra_markup_12_persen_november) dan lib/hpp/fetchHpp.ts.
  */
-const MITRA_MARKUP_15 = 1.15
+const MITRA_MARKUP_NOV = 1.12
 const hitungHppMitraUi = (baseHpp: number, _outletId?: string | null) =>
-  Math.round(baseHpp * MITRA_MARKUP_15)
+  Math.round(baseHpp * MITRA_MARKUP_NOV)
 
 interface HppMenuItem {
   id: string

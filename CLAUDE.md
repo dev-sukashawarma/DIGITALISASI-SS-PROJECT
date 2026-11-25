@@ -3976,6 +3976,16 @@ Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawa
 - ⚠️ **Utang replay:** `petty_cash_enforce_flow`/`leader_forward_funds` (`20300105000013`), `create_petty_cash_topup` (`20300105000014`), `get_petty_cash_snapshot` (2030-an) terurut sesudah berkas ini; replay dari nol menghidupkan lagi alur AM. Produksi aman setelah terstempel.
 - **Urutan rilis:** apply migration lalu langsung push ke `main` (deploy otomatis). Jeda di antaranya: leader lama tak melihat tombol konfirmasi, Hub lama masih menampilkan "Serahkan ke AM" yang kini galat.
 
+## Session 2026-11-25: Markup HPP Mitra 15% → 12% (DB + 6 app)
+
+**Status:** DB **LIVE** — `20261125200000_mitra_markup_12_persen_november` applied (patch terarah via `pg_get_functiondef`, SET `search_path`/`plan_cache_mode` terjaga) & terstempel. Kode di branch `feat/markup-mitra-12-persen`.
+
+- **Keputusan owner 25 Nov 2026**, sumber `⛔SS COGS OCT 2026 v2.2 12 persen.xlsx` tab OFFLINE sel P3 = 0,12. **Berlaku 1 Nov 2026** (seluruh November), semua mitra **termasuk Cileungsi**. Menggantikan 0,15 (keputusan 11 Nov). HPP internal (kolom C) = angka live, tidak disentuh.
+- Riwayat markup: < 1 Okt ×1,10 · Okt ×1,00 (Cileungsi ×1,10) · **mulai 1 Nov ×1,12**.
+- Konstanta diganti nama `MITRA_MARKUP_15*` → `MITRA_MARKUP_NOV*` (= 1.12). Ditemukan **app marcom juga punya salinan** (`lib/laba-rugi/hpp/fetchHpp.ts`, `lib/penjualan/posReport/compute.ts`) plus finance `fetchHpp.ts`, manager `lib/laba-rugi/hpp/fetchHpp.ts`, HR `compute.ts` — semuanya kini dijaga `markupMitra.parity.test.ts` (+ tes "tak ada lagi 1,15"; kontrol negatif terbukti gagal).
+- Verifikasi: Oktober COGS mitra & Ringkasan Bisnis **identik**; 1–25 Nov COGS owner 854,9 → 841,2 jt (−13,7 jt), markup 68,6 → 54,9 jt. Per menu cocok Excel kolom I. Baseline: `SS COGS SET/BASELINE-sebelum-markup-mitra-12-persen-2026-11-25.txt`.
+- ⚠️ DB sudah 12% sementara app yang ter-deploy masih 15% sampai branch di-merge & push ke `main` (Dashboard Kemitraan/Rangkuman Penjualan vs Ringkasan Bisnis beda angka selama jeda).
+
 ---
 
 **Last updated:** 2026-11-25  

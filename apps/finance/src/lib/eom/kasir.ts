@@ -18,7 +18,7 @@ type Penerap = { untuk(tgl: string): any }
 export const MITRA_SUFFIX = ' · Mitra'
 // Pemisahan baris Cileungsi dipertahankan karena masih bermakna untuk periode
 // SEBELUM 1 Nov 2026 (saat HPP-nya memang x1,1 sementara mitra lain x1,0).
-// Sejak 1 Nov 2026 markup seragam x1,15, jadi label tidak lagi menyebut angka.
+// Sejak 1 Nov 2026 markup seragam x1,12, jadi label tidak lagi menyebut angka.
 export const MITRA_CILEUNGSI_SUFFIX = ' · Mitra Cileungsi'
 const MITRA_CILEUNGSI_OUTLET_ID = '62a56103-2085-4dd5-9d25-a3c0cffc88ff'
 type OutletLite = { id: string; name: string; type?: string | null }

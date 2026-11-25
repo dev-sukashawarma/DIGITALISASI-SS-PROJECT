@@ -1,0 +1,23 @@
+BASELINE sebelum markup mitra 15% -> 12% (diukur 2026-11-25, berlaku 1 Nov 2026)
+
+A) COGS mitra langsung = SUM(get_mitra_item_hpp(menu, orders.channel, tgl WIB, outlet) x qty),
+   orders completed, outlets.type='mitra' tanpa ss-backup, menu_item_id NOT NULL.
+bulan     porsi   cogs_mitra    base (HPP+OPEX)
+2026-10   30020   597.824.308   586.151.442,64
+2026-11   22878   525.800.935   457.217.450,30   (1-25 Nov)
+
+B) get_owner_dashboard_summary (claims Admin Dev 6440a568-...):
+periode            total_cogs          total_mitra_markup
+Okt 2026           1.156.181.916,23    54.352.227,27
+1-25 Nov 2026        854.907.343,60    68.593.572,30
+
+WAJIB NOL BERGESER: Oktober (A & B).
+Harapan November: cogs_mitra ~ base x 1,12 (~512 jt), markup ~ 54,9 jt.
+
+SESUDAH (migration 20261125200000 diterapkan & terstempel 2026-11-25):
+A) 2026-10   597.824.308   (IDENTIK)
+   2026-11   512.101.592   (base 457.235.588,2 x 1,12; +1 porsi masuk setelah baseline)
+B) Okt 2026  total_cogs 1.156.181.916,23 / markup 54.352.227,27   (IDENTIK)
+   1-25 Nov  total_cogs   841.185.667,60 / markup 54.871.896,30   (-13.721.676)
+Contoh vs Excel kolom I: Ayam Sedang 17.419 (17.419,248), Mix Jumbo 32.607 (32.607,344),
+Ice Tea 5.914 (5.913,6), Sapi Sedang + Aqua 19.023 (19.022,864). Cileungsi 31 Okt 16.216 -> 1 Nov 17.419.

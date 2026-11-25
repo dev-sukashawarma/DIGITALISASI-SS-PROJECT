@@ -121,13 +121,14 @@ function previewHtml(tab: TabKey, layout: PrintLayout, forPrint: boolean, logoUr
 export default function PrinterSettingsView() {
   const { device, isConnecting, error } = usePrinterState()
   const [brandLogo, setBrandLogo] = useState<string | null>(null)
-  // Logo untuk preview: brand_logo tersimpan → pakai itu; jika belum ada, fallback ke
-  // aset statis /logo.png (sama seperti yang dicetak struk asli). URL harus absolut
-  // karena iframe srcDoc tak me-resolve path relatif.
-  const previewLogo =
-    brandLogo || (typeof window !== 'undefined' ? `${window.location.origin}/logo.png` : null)
+  const [userBrandLogo, setUserBrandLogo] = useState<string | null>(null)
   const [layout, setLayout] = useState<PrintLayout>(DEFAULT_PRINT_LAYOUT)
   const [tab, setTab] = useState<TabKey>('struk_customer')
+  // Struk customer memakai logo aplikasi user (fallback ke logo internal / aset bawaan),
+  // sedangkan struk dapur & QR surat jalan memakai logo aplikasi internal.
+  const activeLogo = tab === 'struk_customer' ? (userBrandLogo || brandLogo) : brandLogo
+  const previewLogo =
+    activeLogo || (typeof window !== 'undefined' ? `${window.location.origin}/logo.png` : null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -143,12 +144,14 @@ export default function PrinterSettingsView() {
         const { data } = await supabase
           .from('global_settings')
           .select('key, value')
-          .in('key', [PRINT_LAYOUT_KEY, 'brand_logo'])
+          .in('key', [PRINT_LAYOUT_KEY, 'brand_logo', 'user_brand_logo'])
         const rows = (data as { key: string; value: unknown }[] | null) ?? []
         const layoutRow = rows.find((r) => r.key === PRINT_LAYOUT_KEY)
         const logoRow = rows.find((r) => r.key === 'brand_logo')
+        const userLogoRow = rows.find((r) => r.key === 'user_brand_logo')
         setLayout(mergePrintLayout(layoutRow?.value))
-        setBrandLogo(typeof logoRow?.value === 'string' ? logoRow.value : null)
+        setBrandLogo(typeof logoRow?.value === 'string' && logoRow.value !== 'null' ? logoRow.value.replace(/^"|"$/g, '') : null)
+        setUserBrandLogo(typeof userLogoRow?.value === 'string' && userLogoRow.value !== 'null' ? userLogoRow.value.replace(/^"|"$/g, '') : null)
       } catch { setLayout(DEFAULT_PRINT_LAYOUT) }
       finally { setLoading(false) }
     })()

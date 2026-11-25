@@ -6,6 +6,16 @@ import { FinanceApprovalModal } from './FinanceApprovalModal'
 
 vi.mock('@/hooks/useCashData', () => ({ useCashOverview: vi.fn() }))
 
+URL.createObjectURL = vi.fn(() => 'blob:bukti')
+URL.revokeObjectURL = vi.fn()
+
+function lampirkanBukti() {
+  const input = document.getElementById('proof-photo-upload') as HTMLInputElement
+  const file = new File(['x'], 'bukti.jpg', { type: 'image/jpeg' })
+  fireEvent.change(input, { target: { files: [file] } })
+  return file
+}
+
 const request = {
   id: 'request',
   amount: 100_000,
@@ -35,9 +45,10 @@ it('mewajibkan sumber Office sesuai metode dan mengirim lokasi yang ditampilkan'
   expect(screen.getByText(/Saldo Rekening Petty Cash tidak mencukupi/)).toBeVisible()
 
   fireEvent.click(screen.getByRole('radio', { name: /Beri Tunai/ }))
+  const bukti = lampirkanBukti()
   expect(cairkan).toBeEnabled()
   await act(async () => { fireEvent.click(cairkan) })
-  expect(onApprove).toHaveBeenCalledWith('tunai', 'tunai', null, 100_000, '')
+  expect(onApprove).toHaveBeenCalledWith('tunai', 'tunai', bukti, 100_000, '')
 })
 
 it('memblokir pencairan tanpa lokasi Office aktif dan tetap mengizinkan penolakan', async () => {
@@ -50,4 +61,27 @@ it('memblokir pencairan tanpa lokasi Office aktif dan tetap mengizinkan penolaka
   expect(onApprove).not.toHaveBeenCalled()
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Tolak' })) })
   expect(onReject).toHaveBeenCalledOnce()
+})
+
+const lokasiCukup = [
+  { id: 'bank', label: 'Rekening Petty Cash', grup: 'petty_cash', kind: 'bank', is_active: true, saldo: 1_000_000 },
+  { id: 'tunai', label: 'Rekening Petty Cash Tunai', grup: 'petty_cash', kind: 'cash', is_active: true, saldo: 1_000_000 },
+] as const
+
+it('tombol cairkan terkunci sampai bukti transfer dilampirkan', () => {
+  showModal([...lokasiCukup])
+  const cairkan = screen.getByRole('button', { name: 'Acc & Cairkan' })
+  expect(cairkan).toBeDisabled()
+  expect(screen.getByText('Bukti transfer (wajib)')).toBeVisible()
+  lampirkanBukti()
+  expect(cairkan).toBeEnabled()
+})
+
+it('bukti tetap terkirim untuk metode tunai', async () => {
+  const { onApprove } = showModal([...lokasiCukup])
+  const bukti = lampirkanBukti()
+  fireEvent.click(screen.getByRole('radio', { name: /Beri Tunai/ }))
+  expect(screen.getByText('Foto bukti serah uang (wajib)')).toBeVisible()
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Acc & Cairkan' })) })
+  expect(onApprove).toHaveBeenCalledWith('tunai', 'tunai', bukti, 100_000, '')
 })

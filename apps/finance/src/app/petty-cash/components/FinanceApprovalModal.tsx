@@ -78,7 +78,8 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
   const selectedLocation = availableLocations.find(loc => loc.id === cashLocationId) ?? availableLocations[0]
   const amountIsValid = Number.isFinite(approvedAmount) && approvedAmount > 0 && approvedAmount <= request.amount
   const hasEnoughBalance = selectedLocation && selectedLocation.saldo >= approvedAmount
-  const canApprove = !isCashLoading && !cashError && amountIsValid && hasEnoughBalance
+  const labelBukti = method === 'transfer' ? 'Bukti transfer (wajib)' : 'Foto bukti serah uang (wajib)'
+  const canApprove = !isCashLoading && !cashError && amountIsValid && hasEnoughBalance && !!proofFile
     && (approvedAmount === request.amount || approvalNote.trim().length > 0)
 
   if (!isOpen) return null
@@ -115,7 +116,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
     setActionType(type)
     try {
       if (type === 'approve' && selectedLocation) {
-        await onApprove(method, selectedLocation.id, method === 'transfer' ? proofFile : null, approvedAmount, approvalNote)
+        await onApprove(method, selectedLocation.id, proofFile, approvedAmount, approvalNote)
       } else {
         await onReject()
       }
@@ -388,11 +389,11 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
             )}
           </div>
 
-          {/* Photo File Upload Input (FOR TRANSFER BUKTI) */}
-          {method === 'transfer' && (
+          {/* Bukti wajib untuk transfer maupun tunai (DB juga menolak tanpa bukti). */}
+          {(
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">
-                Upload Foto Bukti Transfer (Opsional)
+                {labelBukti}
               </label>
               
               <input 
@@ -413,7 +414,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
                     <Camera className="w-5 h-5" />
                   </div>
                   <span className="text-sm font-bold text-slate-700 group-hover:text-amber-600 transition-colors">
-                    Klik untuk Pilih Foto Bukti Transfer
+                    {method === 'transfer' ? 'Klik untuk Pilih Foto Bukti Transfer' : 'Klik untuk Pilih Foto Bukti Serah Uang'}
                   </span>
                   <span className="text-xs text-slate-400 mt-1">Format: JPG, PNG, WEBP (Maksimal 5MB)</span>
                 </label>

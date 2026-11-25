@@ -60,6 +60,7 @@ export async function processPettyCashFinanceCustomAmount(formData: FormData) {
     if (action === 'approve') {
       if (!cashLocationId) throw new Error('Pilih sumber dana Rekening Petty Cash')
       if (method !== 'transfer' && method !== 'tunai') throw new Error('Metode pencairan tidak valid')
+      if (!proofUrlMentah) throw new Error('Bukti transfer/serah uang wajib dilampirkan')
     }
 
     const supabase = await getSupabaseClient()

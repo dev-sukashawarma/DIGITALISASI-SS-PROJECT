@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { requireRole } from '@/lib/authz'
-import { ambilStatusPenutupan } from '../actions'
+import { ambilStatusPenutupan, apakahPembukaanDibatalkan } from '../actions'
 import { PapanPenutupan } from '@/components/penutupan-outlet/PapanPenutupan'
 
 export const dynamic = 'force-dynamic'
@@ -11,12 +11,13 @@ export default async function PapanPenutupanPage({ params }: { params: Promise<{
   const bolehTulis = role === 'admin' || role === 'developer'
 
   let status
+  let pembukaanDibatalkan
   try {
-    status = await ambilStatusPenutupan(id)
+    ;[status, pembukaanDibatalkan] = await Promise.all([ambilStatusPenutupan(id), apakahPembukaanDibatalkan(id)])
   } catch {
     notFound()
   }
 
   // Semua yang bisa membuka papan (admin/owner/developer) boleh mencentang.
-  return <PapanPenutupan status={status} bolehTulis={bolehTulis} bolehCentang />
+  return <PapanPenutupan status={status} bolehTulis={bolehTulis} bolehCentang pembukaanDibatalkan={pembukaanDibatalkan} />
 }

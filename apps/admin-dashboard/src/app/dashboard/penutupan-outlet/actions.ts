@@ -46,6 +46,18 @@ export async function ambilStatusPenutupan(outletId: string): Promise<StatusPenu
 }
 
 /**
+ * Outlet yang pembukaannya dibatalkan (belum pernah Go-Live). Database menolak
+ * "Buka kembali" untuk outlet ini; papan memakai penanda ini untuk menyembunyikan tombolnya.
+ */
+export async function apakahPembukaanDibatalkan(outletId: string): Promise<boolean> {
+  await requireRole(PERAN_BACA)
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('pembukaan_outlet_dibatalkan', { p_outlet_id: outletId })
+  if (error) throw new Error(error.message)
+  return data === true
+}
+
+/**
  * Outlet yang ditutup tapi pembersihannya belum ditandai selesai.
  * Outlet yang sudah dihapus (deleted_at) tidak ikut — sama dengan halaman Outlet,
  * supaya angka tab Penutupan di kedua halaman selalu sama.

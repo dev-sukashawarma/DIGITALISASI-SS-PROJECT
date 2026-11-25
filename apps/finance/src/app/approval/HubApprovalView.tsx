@@ -7,7 +7,7 @@ import { Inbox } from 'lucide-react'
 import { PageHeader } from '@/components/ui'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { useHubApproval } from '@/hooks/useHubApproval'
-import { useProcessPettyCashFinance, useForwardPettyCashFinance } from '@/hooks/usePettyCash'
+import { useProcessPettyCashFinance } from '@/hooks/usePettyCash'
 import {
   useReviewPettyCashExpense,
   type PendingPettyCashExpense,
@@ -63,7 +63,6 @@ export function HubApprovalView() {
   const { locations } = useCashOverview()
 
   const processTopup = useProcessPettyCashFinance()
-  const forwardTopup = useForwardPettyCashFinance()
   const reviewPettyExpense = useReviewPettyCashExpense()
   const rejectPo = useRejectPo()
   const tolakBayar = useTolakBayarPo()
@@ -94,16 +93,6 @@ export function HubApprovalView() {
         return
       case 'kasbon':
         setKasbonAcc(i.data)
-        return
-      case 'serah_am':
-        if (!confirm('Konfirmasi penyerahan dana dari Finance ke Area Manager?')) return
-        try {
-          await forwardTopup.mutateAsync({ id: i.data.id })
-          toast.success('Dana berhasil diserahkan ke Area Manager!')
-        } catch (err) {
-          toast.error(pesan(err, 'Gagal meneruskan dana'))
-          segarkan()
-        }
         return
       case 'po':
         setPoAcc(i.data)
@@ -163,8 +152,6 @@ export function HubApprovalView() {
           await putuskanRetur.mutateAsync({ id: i.data.id, setuju: false, alasan })
           toast.success(`Retur ${i.data.nomor} ditolak.`)
           break
-        case 'serah_am':
-          return
       }
       setTolakItem(null)
     } catch (err) {

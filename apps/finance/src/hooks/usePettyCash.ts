@@ -7,7 +7,6 @@ import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
 import { unggahLangsung } from '@suka/auth'
 import {
   processPettyCashFinanceCustomAmount,
-  forwardPettyCashFinance,
   mintaLinkUnggahBuktiPencairanAction,
 } from '@/app/actions/pettyCash'
 
@@ -69,7 +68,7 @@ export function usePettyCashMenunggu(enabled = true) {
           outlet_staff!petty_cash_topups_created_by_fkey(name),
           outlets!petty_cash_topups_outlet_id_fkey!inner(name, region)
         `)
-        .in('status', ['forwarded_to_finance', 'approved_by_finance'])
+        .eq('status', 'forwarded_to_finance')
         .order('created_at', { ascending: true })
       if (error) throw error
       return (data as any[]).map(row => ({
@@ -136,42 +135,6 @@ export function useCreatePettyCashTopup() {
   })
 }
 
-export function useProcessPettyCashLeader() {
-  const supabase = useMemo(() => createClient(), [])
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ id, action }: { id: string; action: 'approve' | 'reject' }) => {
-      const { error } = await supabase.rpc('review_petty_cash_topup', {
-        p_topup_id: id,
-        p_action: action
-      })
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })
-    }
-  })
-}
-
-export function useProcessPettyCashAreaManager() {
-  const supabase = useMemo(() => createClient(), [])
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ id, action }: { id: string; action: 'approve' | 'reject' }) => {
-      const { error } = await supabase.rpc('area_manager_process_petty_cash', {
-        p_topup_id: id,
-        p_action: action
-      })
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })
-    }
-  })
-}
-
 export function useProcessPettyCashFinance() {
   const queryClient = useQueryClient()
 
@@ -226,39 +189,6 @@ export function useProcessPettyCashFinance() {
   })
 }
 
-export function useForwardPettyCashFinance() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ id }: { id: string }) => {
-      const result = await forwardPettyCashFinance({ id })
-      if (!result.success) {
-        throw new Error(result.error || 'Gagal meneruskan dana')
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })
-    }
-  })
-}
-
-export function useForwardPettyCashAreaManager() {
-  const supabase = useMemo(() => createClient(), [])
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ id }: { id: string }) => {
-      const { error } = await supabase.rpc('area_manager_forward_funds', {
-        p_topup_id: id
-      })
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })
-    }
-  })
-}
-
 export function useForwardPettyCashLeader() {
   const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()
@@ -266,23 +196,6 @@ export function useForwardPettyCashLeader() {
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
       const { error } = await supabase.rpc('leader_forward_funds', {
-        p_topup_id: id
-      })
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })
-    }
-  })
-}
-
-export function useReceivePettyCashCrew() {
-  const supabase = useMemo(() => createClient(), [])
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ id }: { id: string }) => {
-      const { error } = await supabase.rpc('crew_receive_funds', {
         p_topup_id: id
       })
       if (error) throw error

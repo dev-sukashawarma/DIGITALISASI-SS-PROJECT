@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { usePettyCashRequests } from '@/hooks/usePettyCash'
 import { tanggalWaktu } from '@/lib/format'
 import type { PettyCashTopup } from '@/lib/types'
+import { labelStatusPettyCash, sedangBerjalan } from '@/lib/pettyCash/tahap'
 import { exportPettyCashCSV, exportPettyCashPDF } from '@/lib/exportPettyCash'
 
 const formatRupiah = (val: number) => `Rp ${val.toLocaleString('id-ID')}`
@@ -98,7 +99,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
   const { data: allRequests, isLoading } = usePettyCashRequests(undefined, initialRequests)
   
   const [activeTab, setActiveTab] = useState<'review' | 'history'>('review')
-  const [reviewFilter, setReviewFilter] = useState<'all' | 'waiting_am' | 'unprocessed' | 'ready_handover'>('all')
+  const [reviewFilter, setReviewFilter] = useState<'all' | 'unprocessed' | 'ready_handover'>('all')
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null)
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -113,19 +114,11 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
   }, [activeTab, reviewFilter, selectedOutletFilter, searchQuery])
 
   const allReviewRequests = React.useMemo(() => {
-    return allRequests?.filter(r => 
-      r.status === 'forwarded_to_area_manager' ||
-      r.status === 'forwarded_to_finance' || 
-      r.status === 'approved_by_finance'
-    ) || []
+    return allRequests?.filter(r => sedangBerjalan(r.status)) || []
   }, [allRequests])
 
   const allHistoryRequests = React.useMemo(() => {
-    return allRequests?.filter(r => 
-      r.status !== 'forwarded_to_area_manager' &&
-      r.status !== 'forwarded_to_finance' && 
-      r.status !== 'approved_by_finance'
-    ) || []
+    return allRequests?.filter(r => !sedangBerjalan(r.status)) || []
   }, [allRequests])
   
   const uniqueOutlets = React.useMemo(() => {
@@ -143,7 +136,6 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
 
     // Filter by Review Status
     if (activeTab === 'review') {
-      if (reviewFilter === 'waiting_am') source = source.filter(r => r.status === 'forwarded_to_area_manager')
       if (reviewFilter === 'unprocessed') source = source.filter(r => r.status === 'forwarded_to_finance')
       if (reviewFilter === 'ready_handover') source = source.filter(r => r.status === 'approved_by_finance')
     }
@@ -186,7 +178,6 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
     )
   }
 
-  const waitingAMCount = allReviewRequests.filter(r => r.status === 'forwarded_to_area_manager').length
   const unprocessedCount = allReviewRequests.filter(r => r.status === 'forwarded_to_finance').length
   const readyHandoverCount = allReviewRequests.filter(r => r.status === 'approved_by_finance').length
 
@@ -251,17 +242,6 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                 Semua ({allReviewRequests.length})
               </button>
               <button
-                onClick={() => setReviewFilter('waiting_am')}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all border cursor-pointer ${
-                  reviewFilter === 'waiting_am'
-                    ? 'bg-amber-500 text-white border-amber-500 shadow-2xs'
-                    : 'bg-amber-50 text-amber-800 border-amber-200/80 hover:bg-amber-100'
-                }`}
-              >
-                <Clock className="w-3.5 h-3.5" />
-                Menunggu Acc AM ({waitingAMCount})
-              </button>
-              <button
                 onClick={() => setReviewFilter('unprocessed')}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all border cursor-pointer ${
                   reviewFilter === 'unprocessed'
@@ -281,7 +261,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                 }`}
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                Sudah Dicairkan ({readyHandoverCount})
+                Menunggu Konfirmasi Leader ({readyHandoverCount})
               </button>
               <div className="w-px h-6 bg-suka-brown/10 mx-1 hidden sm:block"></div>
             </>
@@ -358,7 +338,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
             </h3>
             <p className="text-xs text-suka-gray-400 font-medium mt-1 leading-relaxed">
               {activeTab === 'review' 
-                ? 'Belum ada pengajuan petty cash baru yang diteruskan oleh Area Manager.' 
+                ? 'Belum ada pengajuan petty cash baru dari leader.' 
                 : 'Seluruh riwayat pencairan petty cash akan tercatat di sini.'}
             </p>
           </div>
@@ -420,11 +400,6 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                     </td>
                     <td className="py-4 px-5">
                       <div className="flex flex-wrap items-start gap-1.5">
-                        {req.status === 'forwarded_to_area_manager' && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 font-medium text-xs rounded-lg border border-amber-200/80">
-                            <Clock className="w-3.5 h-3.5 text-amber-600" /> Menunggu Acc AM
-                          </span>
-                        )}
                         {req.status === 'forwarded_to_finance' && (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 font-medium text-xs rounded-lg border border-amber-200/80">
                             <Clock className="w-3.5 h-3.5 text-amber-600" /> Menunggu Acc Finance
@@ -432,22 +407,17 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                         )}
                         {req.status === 'approved_by_finance' && (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 font-medium text-xs rounded-lg border border-emerald-200/80">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Dicairkan (Teruskan ke AM)
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Dicairkan, menunggu konfirmasi leader
                           </span>
                         )}
-                        {req.status === 'forwarded_by_finance' && (
+                        {(req.status === 'forwarded_by_finance' || req.status === 'forwarded_by_area_manager') && (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-800 font-medium text-xs rounded-lg border border-blue-200/80">
-                            <ArrowRight className="w-3.5 h-3.5 text-blue-600" /> Diserahkan ke AM
-                          </span>
-                        )}
-                        {req.status === 'forwarded_by_area_manager' && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-800 font-medium text-xs rounded-lg border border-indigo-200/80">
-                            <ArrowRight className="w-3.5 h-3.5 text-indigo-600" /> Diserahkan ke Leader
+                            <ArrowRight className="w-3.5 h-3.5 text-blue-600" /> {labelStatusPettyCash(req.status)}
                           </span>
                         )}
                         {req.status === 'forwarded_by_leader' && (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-800 font-medium text-xs rounded-lg border border-purple-200/80">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-purple-600" /> Diserahkan ke Crew
+                            <CheckCircle2 className="w-3.5 h-3.5 text-purple-600" /> Dana diterima leader
                           </span>
                         )}
                         {req.status === 'completed' && (

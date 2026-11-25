@@ -3,9 +3,9 @@
 import React, { useState, useMemo } from 'react'
 import { Spinner, EmptyState } from '@suka/design-system'
 import { Camera, X, Download, Search, Calendar, Store, Building2, Clock, CheckCircle2, Send, XCircle, Plus, FileSpreadsheet, FileText } from 'lucide-react'
-import { ApprovalModal } from '@/components/petty-cash/ApprovalModal'
 import { CreateTopupModal } from './CreateTopupModal'
-import { usePettyCashRequests, useProcessPettyCashLeader, useForwardPettyCashLeader } from '@/hooks/usePettyCash'
+import { usePettyCashRequests, useForwardPettyCashLeader } from '@/hooks/usePettyCash'
+import { labelStatusPettyCash, perluKonfirmasiLeader, sedangBerjalan } from '@/lib/pettyCash/tahap'
 import { relativeTime } from '@/lib/format'
 import type { PettyCashTopup } from '@/lib/types'
 import { exportPettyCashCSV, exportPettyCashPDF } from '@/lib/exportPettyCash'
@@ -67,27 +67,15 @@ function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; on
 
 export function PettyCashList({ initialRequests }: { initialRequests?: PettyCashTopup[] }) {
   const { data: allRequests, isLoading } = usePettyCashRequests(undefined, initialRequests)
-  const processTopup = useProcessPettyCashLeader()
   const forwardTopup = useForwardPettyCashLeader()
   
   const [activeTab, setActiveTab] = useState<'review' | 'history'>('review')
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedRequest, setSelectedRequest] = useState<PettyCashTopup | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null)
 
-  const reviewRequests = allRequests?.filter(r => 
-    r.status === 'pending' || 
-    r.status === 'forwarded_to_area_manager' || 
-    r.status === 'forwarded_by_area_manager'
-  ) || []
-  
-  const historyRequests = allRequests?.filter(r => 
-    r.status !== 'pending' && 
-    r.status !== 'forwarded_to_area_manager' && 
-    r.status !== 'forwarded_by_area_manager'
-  ) || []
+  const reviewRequests = allRequests?.filter(r => sedangBerjalan(r.status)) || []
+  const historyRequests = allRequests?.filter(r => !sedangBerjalan(r.status)) || []
   
   const baseRequests = activeTab === 'review' ? reviewRequests : historyRequests
 
@@ -104,28 +92,8 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
     })
   }, [baseRequests, searchQuery])
 
-  const handleOpenModal = (req: PettyCashTopup) => {
-    setSelectedRequest(req)
-    setIsModalOpen(true)
-  }
-
-  // suppress TS6133 if unused in current view mode
-  void handleOpenModal;
-
-  const handleApprove = async () => {
-    if (!selectedRequest) return
-    await processTopup.mutateAsync({ id: selectedRequest.id, action: 'approve' })
-    setIsModalOpen(false)
-  }
-
-  const handleReject = async () => {
-    if (!selectedRequest) return
-    await processTopup.mutateAsync({ id: selectedRequest.id, action: 'reject' })
-    setIsModalOpen(false)
-  }
-
   const handleForward = async (req: PettyCashTopup) => {
-    if (confirm('Anda yakin ingin menyerahkan dana ini ke Crew? Saldo Petty Cash Outlet akan bertambah.')) {
+    if (confirm('Uang sudah masuk laci kasir? Saldo petty cash outlet akan bertambah.')) {
       await forwardTopup.mutateAsync({ id: req.id })
     }
   }
@@ -294,34 +262,22 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
                     {/* Status Hirarki */}
                     <td className="py-4 px-5">
                       <div className="flex flex-col items-start gap-1">
-                        {(req.status === 'pending' || req.status === 'forwarded_to_area_manager') && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-extrabold bg-amber-50 text-amber-800 border border-amber-200">
-                            <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                            <span>Menunggu Area Manager</span>
-                          </span>
-                        )}
                         {req.status === 'forwarded_to_finance' && (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-extrabold bg-blue-50 text-blue-800 border border-blue-200">
                             <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                            <span>Menunggu Finance</span>
+                            <span>{labelStatusPettyCash(req.status)}</span>
                           </span>
                         )}
-                        {(req.status === 'approved_by_finance' || req.status === 'forwarded_by_finance') && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-extrabold bg-suka-orange/10 text-suka-orange border border-suka-orange/20">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-suka-orange shrink-0" />
-                            <span>Disetujui Finance (Pencairan)</span>
-                          </span>
-                        )}
-                        {req.status === 'forwarded_by_area_manager' && (
+                        {perluKonfirmasiLeader(req.status) && (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-black bg-emerald-600 text-white animate-pulse">
                             <Send className="w-3.5 h-3.5 shrink-0" />
-                            <span>Siap Serahkan ke Crew</span>
+                            <span>{labelStatusPettyCash(req.status)}</span>
                           </span>
                         )}
                         {req.status === 'forwarded_by_leader' && (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                            <span>Diserahkan ke Crew (Saldo +)</span>
+                            <span>{labelStatusPettyCash(req.status)}</span>
                           </span>
                         )}
                         {req.status === 'completed' && (
@@ -341,12 +297,12 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
 
                     {/* Bukti / Aksi */}
                     <td className="py-4 px-5 text-right whitespace-nowrap space-y-1">
-                      {req.status === 'forwarded_by_area_manager' && activeTab === 'review' && (
+                      {perluKonfirmasiLeader(req.status) && activeTab === 'review' && (
                         <button
                           onClick={() => handleForward(req)}
                           className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-sm cursor-pointer transition-all"
                         >
-                          <Send className="w-3.5 h-3.5" /> Serahkan ke Crew
+                          <Send className="w-3.5 h-3.5" /> Dana diterima &amp; masuk laci
                         </button>
                       )}
 
@@ -380,13 +336,13 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
                     <span className="font-extrabold text-suka-brown text-sm">{req.outlet?.name || '-'}</span>
                   </div>
                   <div>
-                    {req.status === 'forwarded_by_area_manager' ? (
+                    {perluKonfirmasiLeader(req.status) ? (
                       <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-black bg-emerald-600 text-white animate-pulse">
-                        Siap Serahkan
+                        Konfirmasi dana
                       </span>
                     ) : (
                       <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-suka-gray-100 text-suka-gray-700 border border-suka-gray-200">
-                        {req.status.replace(/_/g, ' ')}
+                        {labelStatusPettyCash(req.status)}
                       </span>
                     )}
                   </div>
@@ -423,12 +379,12 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
                       </button>
                     )}
 
-                    {req.status === 'forwarded_by_area_manager' && activeTab === 'review' && (
+                    {perluKonfirmasiLeader(req.status) && activeTab === 'review' && (
                       <button
                         onClick={() => handleForward(req)}
                         className="px-3 py-1.5 bg-emerald-600 text-white font-black text-[11px] rounded-xl shadow-xs"
                       >
-                        Serahkan ke Crew
+                        Dana diterima
                       </button>
                     )}
                   </div>
@@ -438,16 +394,6 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
           </div>
 
         </div>
-      )}
-
-      {selectedRequest && (
-        <ApprovalModal 
-          isOpen={isModalOpen} 
-          onClose={() => setIsModalOpen(false)} 
-          request={selectedRequest}
-          onApprove={handleApprove}
-          onReject={handleReject}
-        />
       )}
 
       <CreateTopupModal

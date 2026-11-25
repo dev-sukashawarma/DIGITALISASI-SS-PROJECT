@@ -1,59 +1,20 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Card, Badge, Button, Spinner, EmptyState } from '@suka/design-system'
-import { ApprovalModal } from '@/components/petty-cash/ApprovalModal'
-import { usePettyCashRequests, useProcessPettyCashAreaManager, useForwardPettyCashAreaManager } from '@/hooks/usePettyCash'
+import { Card, Badge, Spinner, EmptyState } from '@suka/design-system'
+import { usePettyCashRequests } from '@/hooks/usePettyCash'
+import { labelStatusPettyCash, sedangBerjalan } from '@/lib/pettyCash/tahap'
 import { tanggalWaktu, relativeTime } from '@/lib/format'
 import type { PettyCashTopup } from '@/lib/types'
 
 export function PettyCashList({ initialRequests }: { initialRequests?: PettyCashTopup[] }) {
+  // Sejak 25 Nov 2026 Area Manager tidak lagi menyetujui/menyerahkan dana: halaman ini hanya pantauan.
   const { data: allRequests, isLoading } = usePettyCashRequests(undefined, initialRequests, 'BOGOR')
-  const processTopup = useProcessPettyCashAreaManager()
-  const forwardTopup = useForwardPettyCashAreaManager()
-  
   const [activeTab, setActiveTab] = useState<'review' | 'history'>('review')
-  const [selectedRequest, setSelectedRequest] = useState<PettyCashTopup | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
 
-  const reviewRequests = allRequests?.filter(r => 
-    r.status === 'pending' ||
-    r.status === 'forwarded_to_area_manager' || 
-    r.status === 'approved_by_finance' || 
-    r.status === 'forwarded_by_finance'
-  ) || []
-
-  const historyRequests = allRequests?.filter(r => 
-    r.status !== 'pending' &&
-    r.status !== 'forwarded_to_area_manager' && 
-    r.status !== 'approved_by_finance' && 
-    r.status !== 'forwarded_by_finance'
-  ) || []
-  
+  const reviewRequests = allRequests?.filter(r => sedangBerjalan(r.status)) || []
+  const historyRequests = allRequests?.filter(r => !sedangBerjalan(r.status)) || []
   const requests = activeTab === 'review' ? reviewRequests : historyRequests
-
-  const handleOpenModal = (req: PettyCashTopup) => {
-    setSelectedRequest(req)
-    setIsModalOpen(true)
-  }
-
-  const handleApprove = async () => {
-    if (!selectedRequest) return
-    await processTopup.mutateAsync({ id: selectedRequest.id, action: 'approve' })
-    setIsModalOpen(false)
-  }
-
-  const handleReject = async () => {
-    if (!selectedRequest) return
-    await processTopup.mutateAsync({ id: selectedRequest.id, action: 'reject' })
-    setIsModalOpen(false)
-  }
-
-  const handleForward = async (req: PettyCashTopup) => {
-    if (confirm('Anda yakin ingin meneruskan dana ini ke Leader Outlet?')) {
-      await forwardTopup.mutateAsync({ id: req.id })
-    }
-  }
 
   if (isLoading) {
     return <div className="p-8 flex justify-center"><Spinner /></div>
@@ -66,14 +27,7 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
           className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'review' ? 'border-suka-brown text-suka-brown' : 'border-transparent text-suka-gray-500 hover:text-suka-gray-700'}`}
           onClick={() => setActiveTab('review')}
         >
-          <span>Butuh Tindakan</span>
-          {reviewRequests.length > 0 ? (
-            <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-black rounded-full min-w-[20px] h-5 px-1.5 shadow-sm">
-              {reviewRequests.length}
-            </span>
-          ) : (
-            <span>(0)</span>
-          )}
+          <span>Sedang Berjalan ({reviewRequests.length})</span>
         </button>
         <button
           className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${activeTab === 'history' ? 'border-suka-brown text-suka-brown' : 'border-transparent text-suka-gray-500 hover:text-suka-gray-700'}`}
@@ -85,8 +39,8 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
 
       {!requests || requests.length === 0 ? (
         <EmptyState
-          title={activeTab === 'review' ? "Tidak ada pengajuan" : "Tidak ada riwayat"}
-          description={activeTab === 'review' ? "Belum ada pengajuan petty cash yang butuh persetujuan atau penerusan Area Manager." : "Belum ada riwayat petty cash."}
+          title={activeTab === 'review' ? "Tidak ada pengajuan berjalan" : "Tidak ada riwayat"}
+          description={activeTab === 'review' ? "Pengajuan petty cash kini langsung diproses Finance; halaman ini hanya untuk memantau." : "Belum ada riwayat petty cash."}
         />
       ) : (
         <Card className="overflow-x-auto">
@@ -99,7 +53,6 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
                 <th className="py-3 px-4 text-xs font-semibold text-suka-gray-500 uppercase">Nominal</th>
                 <th className="py-3 px-4 text-xs font-semibold text-suka-gray-500 uppercase">Alasan</th>
                 <th className="py-3 px-4 text-xs font-semibold text-suka-gray-500 uppercase">Status</th>
-                <th className="py-3 px-4 text-xs font-semibold text-suka-gray-500 uppercase text-right">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -125,27 +78,9 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
                   </td>
                   <td className="py-3 px-4 text-sm text-suka-gray-600">{req.reason || req.description}</td>
                   <td className="py-3 px-4 whitespace-nowrap">
-                    {req.status === 'forwarded_to_area_manager' && <Badge variant="warning">Menunggu Acc Area Manager</Badge>}
-                    {req.status === 'forwarded_to_finance' && <Badge variant="info">Menunggu Finance</Badge>}
-                    {(req.status === 'approved_by_finance' || req.status === 'forwarded_by_finance') && (
-                      <Badge variant="info">Disetujui Finance (Teruskan ke Leader)</Badge>
-                    )}
-                    {req.status === 'forwarded_by_area_manager' && <Badge variant="success">Diserahkan ke Leader</Badge>}
-                    {req.status === 'forwarded_by_leader' && <Badge variant="success">Diserahkan ke Crew</Badge>}
-                    {req.status === 'completed' && <Badge variant="success">Selesai</Badge>}
-                    {req.status === 'rejected' && <Badge variant="error">Ditolak</Badge>}
-                  </td>
-                  <td className="py-3 px-4 text-right whitespace-nowrap">
-                    {req.status === 'forwarded_to_area_manager' && activeTab === 'review' && (
-                      <Button variant="secondary" size="sm" onClick={() => handleOpenModal(req)}>
-                        Review / Acc
-                      </Button>
-                    )}
-                    {(req.status === 'approved_by_finance' || req.status === 'forwarded_by_finance') && activeTab === 'review' && (
-                      <Button variant="primary" size="sm" onClick={() => handleForward(req)}>
-                        Serahkan ke Leader
-                      </Button>
-                    )}
+                    <Badge variant={req.status === 'rejected' ? 'error' : sedangBerjalan(req.status) ? 'info' : 'success'}>
+                      {labelStatusPettyCash(req.status)}
+                    </Badge>
                   </td>
                 </tr>
               ))}
@@ -154,15 +89,6 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
         </Card>
       )}
 
-      {selectedRequest && (
-        <ApprovalModal 
-          isOpen={isModalOpen} 
-          onClose={() => setIsModalOpen(false)} 
-          request={selectedRequest}
-          onApprove={handleApprove}
-          onReject={handleReject}
-        />
-      )}
     </div>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Building2, Check, ClipboardCheck, Coins, Copy, ExternalLink, Landmark, PackageX, Receipt, Send, Truck, Wallet, type LucideIcon } from 'lucide-react'
+import { Building2, Check, ClipboardCheck, Coins, Copy, ExternalLink, Landmark, PackageX, Receipt, Truck, Wallet, type LucideIcon } from 'lucide-react'
 import { rupiah, relativeTime, tanggalWaktu } from '@/lib/format'
 import { isLama, JENIS_LABEL, type HubItem, type HubJenis } from '@/lib/approval/hub'
 
@@ -15,7 +15,6 @@ export const IKON_JENIS_HUB: Record<HubJenis, LucideIcon> = {
   petty_cash: Coins,
   pengeluaran_petty_cash: Receipt,
   kasbon: Wallet,
-  serah_am: Send,
   po: ClipboardCheck,
   bayar_vendor: Truck,
   dana_kantor: Building2,
@@ -26,7 +25,6 @@ const LABEL_SETUJUI: Record<HubJenis, string> = {
   petty_cash: 'Setujui',
   pengeluaran_petty_cash: 'Setujui',
   kasbon: 'Cairkan',
-  serah_am: 'Serahkan ke AM',
   po: 'Setujui',
   bayar_vendor: 'Setujui',
   dana_kantor: 'Verifikasi',
@@ -48,7 +46,6 @@ export function BarisHub({
 }) {
   const [salin, setSalin] = useState(false)
   const lama = isLama(item.menungguSejak, now)
-  const bisaTolak = item.jenis !== 'serah_am'
   const Ikon = IKON_JENIS_HUB[item.jenis]
 
   const salinRekening = () => {
@@ -173,16 +170,14 @@ export function BarisHub({
           {rupiah(item.nominal)}
         </span>
         <div className="flex shrink-0 gap-2">
-          {bisaTolak && (
-            <button
-              type="button"
-              onClick={() => onTolak(item)}
-              disabled={!bolehPutuskan}
-              className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-400 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Tolak
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => onTolak(item)}
+            disabled={!bolehPutuskan}
+            className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-400 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Tolak
+          </button>
           <button
             type="button"
             onClick={() => onSetujui(item)}

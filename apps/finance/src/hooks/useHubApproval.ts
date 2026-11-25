@@ -46,7 +46,7 @@ export function useHubApproval(enabled: boolean): {
   return useMemo(() => {
     const hasil = gabungSumber([
       {
-        jenis: ['petty_cash', 'serah_am'],
+        jenis: ['petty_cash'],
         items: tanpaNull((petty.data ?? []).map(itemDariPettyCash)),
         isLoading: petty.isLoading,
         error: petty.error,
@@ -92,7 +92,6 @@ export function useHubApproval(enabled: boolean): {
 /** Angka badge menu Hub Approval — kueri hitung dengan filter yang sama dengan daftarnya. */
 export function useHubApprovalCount(enabled: boolean): { total: number; adaGalat: boolean } {
   const pettyAcc = usePettyCashCount('forwarded_to_finance', enabled)
-  const pettySerah = usePettyCashCount('approved_by_finance', enabled)
   const kasbon = useKasbonMenungguCount(enabled)
   const po = usePendingPoCount(enabled)
   const vendor = useBayarVendorPendingCount(enabled)
@@ -102,14 +101,13 @@ export function useHubApprovalCount(enabled: boolean): { total: number; adaGalat
   const danaKantor = voucher.vouchers.filter((v) => v.status === 'waiting_verification').length
   const total =
     (pettyAcc.data ?? 0) +
-    (pettySerah.data ?? 0) +
     (kasbon.data ?? 0) +
     (po.data ?? 0) +
     (vendor.data ?? 0) +
     danaKantor +
     (retur.data?.length ?? 0)
   const adaGalat = Boolean(
-    pettyAcc.error || pettySerah.error || kasbon.error || po.error || vendor.error || voucher.error || retur.error,
+    pettyAcc.error || kasbon.error || po.error || vendor.error || voucher.error || retur.error,
   )
   return { total, adaGalat }
 }

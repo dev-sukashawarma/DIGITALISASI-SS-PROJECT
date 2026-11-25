@@ -13,7 +13,6 @@ export type HubJenis =
   | 'petty_cash'
   | 'pengeluaran_petty_cash'
   | 'kasbon'
-  | 'serah_am'
   | 'po'
   | 'bayar_vendor'
   | 'dana_kantor'
@@ -23,7 +22,6 @@ export const URUTAN_JENIS: HubJenis[] = [
   'petty_cash',
   'pengeluaran_petty_cash',
   'kasbon',
-  'serah_am',
   'po',
   'bayar_vendor',
   'dana_kantor',
@@ -34,7 +32,6 @@ export const JENIS_LABEL: Record<HubJenis, string> = {
   petty_cash: 'Petty cash',
   pengeluaran_petty_cash: 'Pengeluaran PC',
   kasbon: 'Kasbon',
-  serah_am: 'Serahkan ke AM',
   po: 'Approval PO',
   bayar_vendor: 'Bayar vendor',
   dana_kantor: 'Dana kantor',
@@ -64,7 +61,7 @@ type Dasar = {
 
 export type HubItem = Dasar &
   (
-    | { jenis: 'petty_cash' | 'serah_am'; data: PettyCashTopup }
+    | { jenis: 'petty_cash'; data: PettyCashTopup }
     | { jenis: 'pengeluaran_petty_cash'; data: PendingPettyCashExpense }
     | { jenis: 'kasbon'; data: KasbonMenunggu }
     | { jenis: 'po'; data: PendingPo }
@@ -96,10 +93,10 @@ export function buatRekeningTujuan(
   }
 }
 
+/** Hanya pengajuan yang menunggu Finance. Sesudah dicairkan, giliran leader mengonfirmasi. */
 export function itemDariPettyCash(t: PettyCashTopup): HubItem | null {
-  const jenis =
-    t.status === 'forwarded_to_finance' ? 'petty_cash' : t.status === 'approved_by_finance' ? 'serah_am' : null
-  if (!jenis) return null
+  if (t.status !== 'forwarded_to_finance') return null
+  const jenis = 'petty_cash' as const
   return {
     key: `${jenis}:${t.id}`,
     id: t.id,

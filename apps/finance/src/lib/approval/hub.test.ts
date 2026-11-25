@@ -6,6 +6,7 @@ import type { PayablePo, TxBayarPo } from '@/hooks/useSupplierSettlement'
 import type { OfficeVoucher } from '@/lib/officeVoucher'
 import {
   itemDariPettyCash,
+  URUTAN_JENIS,
   itemDariPengeluaranPettyCash,
   itemDariKasbon,
   itemDariPo,
@@ -83,12 +84,18 @@ const po: PendingPo = {
   updated_at: '2026-11-06T06:00:00Z',
 }
 
+describe('URUTAN_JENIS', () => {
+  it('tidak ada lagi tahap Serahkan ke AM', () => {
+    expect(URUTAN_JENIS as string[]).not.toContain('serah_am')
+  })
+})
+
 describe('itemDariPettyCash', () => {
   it('forwarded_to_finance jadi petty_cash', () => {
     expect(itemDariPettyCash(topup('forwarded_to_finance'))?.jenis).toBe('petty_cash')
   })
-  it('approved_by_finance jadi serah_am', () => {
-    expect(itemDariPettyCash(topup('approved_by_finance'))?.jenis).toBe('serah_am')
+  it('approved_by_finance tidak masuk hub (menunggu konfirmasi leader, bukan Finance)', () => {
+    expect(itemDariPettyCash(topup('approved_by_finance'))).toBeNull()
   })
   it('status lain tidak masuk hub', () => {
     for (const s of ['rejected', 'forwarded_by_finance', 'completed']) {
@@ -204,14 +211,12 @@ describe('hitungPerJenis', () => {
         item('petty_cash', '1', t),
         item('petty_cash', '2', t),
         item('pengeluaran_petty_cash', '5', t),
-        item('serah_am', '3', t),
         item('bayar_vendor', '4', t),
       ]),
     ).toEqual({
       petty_cash: 2,
       pengeluaran_petty_cash: 1,
       kasbon: 0,
-      serah_am: 1,
       po: 0,
       bayar_vendor: 1,
       dana_kantor: 0,
@@ -234,7 +239,7 @@ describe('gabungSumber', () => {
   it('sumber galat masuk daftar galat, sumber lain tetap tampil terurut', () => {
     const hasil = gabungSumber([
       { jenis: ['po'], items: [item('po', 'x', '2026-11-06T08:00:00Z')], isLoading: false, error: null },
-      { jenis: ['petty_cash', 'serah_am'], items: [item('petty_cash', 'y', '2026-11-04T08:00:00Z')], isLoading: false, error: null },
+      { jenis: ['petty_cash'], items: [item('petty_cash', 'y', '2026-11-04T08:00:00Z')], isLoading: false, error: null },
       { jenis: ['dana_kantor'], items: [item('dana_kantor', 'z', '2026-11-01T08:00:00Z')], isLoading: false, error: new Error('Forbidden') },
     ])
     expect(hasil.galat).toEqual(['dana_kantor'])
@@ -280,7 +285,6 @@ describe('totalPerJenis', () => {
       petty_cash: 0,
       pengeluaran_petty_cash: 0,
       kasbon: 0,
-      serah_am: 0,
       po: 1500,
       bayar_vendor: 0,
       dana_kantor: 0,
@@ -290,7 +294,7 @@ describe('totalPerJenis', () => {
 })
 
 describe('rekeningTujuan', () => {
-  it('petty cash dan serah_am memuat rekening tujuan bila nomor rekening ada', () => {
+  it('petty cash memuat rekening tujuan bila nomor rekening ada', () => {
     const t = topup('forwarded_to_finance', {
       bank_name: 'BCA',
       bank_account_number: '1234567890',

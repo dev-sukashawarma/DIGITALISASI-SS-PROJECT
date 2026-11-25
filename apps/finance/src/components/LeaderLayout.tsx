@@ -5,17 +5,14 @@ import type { ReactNode } from 'react'
 import { RoleLayout, type NavGroup } from './RoleLayout'
 import { usePettyCashRequests } from '@/hooks/usePettyCash'
 import { useMemo } from 'react'
+import { perluKonfirmasiLeader } from '@/lib/pettyCash/tahap'
 
 export function LeaderLayout({ children }: { children: ReactNode }) {
   const { data: allRequests } = usePettyCashRequests()
 
   const reviewCount = useMemo(() => {
     if (!allRequests) return 0
-    return allRequests.filter(r => 
-      r.status === 'pending' || 
-      r.status === 'forwarded_to_area_manager' || 
-      r.status === 'forwarded_by_area_manager'
-    ).length
+    return allRequests.filter(r => perluKonfirmasiLeader(r.status)).length
   }, [allRequests])
 
   const NAV_GROUPS: NavGroup[] = [

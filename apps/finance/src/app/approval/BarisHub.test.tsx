@@ -27,13 +27,6 @@ function pasang(i: HubItem, bolehPutuskan = true) {
 }
 
 describe('BarisHub', () => {
-  it('serah ke AM hanya punya tombol Serahkan ke AM, tanpa Tolak', () => {
-    const { onSetujui } = pasang(item('serah_am', '2026-11-06T10:00:00Z'))
-    expect(screen.queryByRole('button', { name: 'Tolak' })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Serahkan ke AM' }))
-    expect(onSetujui).toHaveBeenCalledTimes(1)
-  })
-
   it('dana kantor memakai tombol Verifikasi dan Tolak', () => {
     const { onTolak } = pasang(item('dana_kantor', '2026-11-06T10:00:00Z'))
     expect(screen.getByRole('button', { name: 'Verifikasi' })).toBeInTheDocument()

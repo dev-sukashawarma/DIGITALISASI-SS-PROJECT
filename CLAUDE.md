@@ -3952,7 +3952,7 @@ Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawa
 
 ## Session 2026-11-25: Pengajuan Petty Cash Langsung ke Finance (tanpa AM)
 
-**Status:** Kode di branch `feat/petty-cash-tanpa-am`. Migration `20261125120000_petty_cash_tanpa_am` **ditulis & diuji di DB live (BEGIN/ROLLBACK, `supabase/verifikasi/petty_cash_tanpa_am/t1_alur.sql`), belum di-apply** — apply & push dilakukan bersamaan (lihat urutan rilis).
+**Status:** ✅ LIVE 25 Nov 2026 — migration `20261125120000_petty_cash_tanpa_am` applied & terstempel, uji `supabase/verifikasi/petty_cash_tanpa_am/t1_alur.sql` lulus sebelum & sesudah apply; kode di `main`. ⚠️ Aplikasi native belum diperbarui (lihat handoff).
 
 **Spec/plan:** `docs/superpowers/specs/2026-11-25-petty-cash-tanpa-am-design.md`, `docs/superpowers/plans/2026-11-25-petty-cash-tanpa-am.md`
 
@@ -3966,7 +3966,9 @@ Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawa
 - Alur **pengeluaran kasir** (`petty_cash_expenses`, disetujui AM) tidak disentuh.
 - 🔴 **Saldo POS ditemukan reviewer:** `get_petty_cash_snapshot` live ikut menghitung `approved_by_finance` (cek awal saya keliru — regex serakah). Migration menulis ulang snapshot dari definisi live tanpa status itu; pembaca app memakai `STATUS_DANA_DI_LACI`. Selalu cek `pg_get_functiondef` dengan hitungan eksplisit, bukan regex bergrup.
 - `create_petty_cash_topup` kini menolak outlet di luar `accessible_outlet_ids()` (dulu leader bisa mengajukan atas nama outlet lain + menimpa rekeningnya). `leader_forward_funds`: hanya leader/admin/owner dan **bukan** yang mencairkan. Trigger menolak `approved_by_finance` tanpa bukti.
-- **Tidak dipindah:** 4 pengajuan lama berstatus `forwarded_by_area_manager` (Mitra Cibubur Rp 500.000 11 Sep + 3 uji outlet tes) — sudah dicairkan, tak dihitung saldo, kini tak bisa bergerak. Perlu keputusan owner.
+- **Tidak dipindah:** 4 pengajuan lama berstatus `forwarded_by_area_manager`. **Mitra Cibubur Rp 500.000 (11 Sep) ditandai selesai 25 Nov atas konfirmasi owner** (`forwarded_by_leader`, `leader_forwarded_at` = 12 Sep agar saldo POS tidak bertambah; diverifikasi saldo sebelum = sesudah). Sisa 3 baris uji outlet tes.
+- 🔴 **Aplikasi native superapp (repo Rendy) belum ikut:** modul leader hanya menampilkan tombol konfirmasi di `forwarded_by_area_manager` → leader di HP tak bisa konfirmasi sampai APK baru; pakai web dulu. Handoff: `docs/HANDOFF-2026-11-25-APP-NATIVE-PETTY-CASH-TANPA-AM.md`.
+- **Status sekarang:** migration applied + terstempel, kode di `main` (push `35c1395a9`), uji ulang pasca-apply lulus.
 - **Belum ada "batal pencairan"** untuk salah transfer — koreksi manual developer.
 - ⚠️ **Utang replay:** `petty_cash_enforce_flow`/`leader_forward_funds` (`20300105000013`), `create_petty_cash_topup` (`20300105000014`), `get_petty_cash_snapshot` (2030-an) terurut sesudah berkas ini; replay dari nol menghidupkan lagi alur AM. Produksi aman setelah terstempel.
 - **Urutan rilis:** apply migration lalu langsung push ke `main` (deploy otomatis). Jeda di antaranya: leader lama tak melihat tombol konfirmasi, Hub lama masih menampilkan "Serahkan ke AM" yang kini galat.

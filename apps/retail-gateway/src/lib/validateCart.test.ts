@@ -81,4 +81,22 @@ describe('periksaKeranjang', () => {
     expect(masalah[0].jenis).toBe('habis')
     expect(masalah[1].jenis).toBe('harga_berubah')
   })
+
+  it('mendeduplikasi masalah untuk menu_item_id dan jenis yang sama', () => {
+    const masalah = periksaKeranjang(
+      [
+        keranjang({ menu_item_id: 'top-keju', name: 'Extra Keju', unit_price: 5000 }),
+        keranjang({ menu_item_id: 'top-keju', name: 'Extra Keju', unit_price: 5000 }),
+      ],
+      [menu({ id: 'top-keju', name: 'Extra Keju', price: 6000 })]
+    )
+    expect(masalah).toEqual([
+      {
+        menu_item_id: 'top-keju',
+        name: 'Extra Keju',
+        jenis: 'harga_berubah',
+        harga_baru: 6000,
+      },
+    ])
+  })
 })

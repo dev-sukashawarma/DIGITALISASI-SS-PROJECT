@@ -1,6 +1,10 @@
 package com.sukashawarma.customer.data
 
 import android.content.Context
+import android.util.Log
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -66,22 +70,54 @@ interface CartPersistence {
  * SharedPreferences, yang memang dirancang untuk data sekecil ini dan sudah
  * sinkron sejak awal. Keranjang tetap bertahan lintas proses, sesuai §5.4.
  */
+/** Cuplikan reaktif keranjang agar tampilan selalu sinkron tanpa `segarkan()` manual. */
+data class CartSnapshot(
+    val outletId: String? = null,
+    val baris: List<CartLine> = emptyList(),
+    val voucher: PilihanVoucher? = null,
+    val subtotal: Long = 0L,
+    val porsi: Int = 0
+)
+
 class CartStore internal constructor(private val penyimpan: CartPersistence?) {
 
     private val json = Json { ignoreUnknownKeys = true }
     private var isi: IsiKeranjang = muatAwal()
+    private val _snapshot = MutableStateFlow(buatSnapshot(isi))
+    val snapshot: StateFlow<CartSnapshot> = _snapshot.asStateFlow()
+
+    private fun buatSnapshot(cur: IsiKeranjang): CartSnapshot = CartSnapshot(
+        outletId = cur.outletId,
+        baris = cur.baris,
+        voucher = cur.voucher,
+        subtotal = cur.baris.sumOf { line ->
+            (line.hargaSatuan + line.toppings.sumOf { it.hargaSatuan }) * line.jumlah
+        },
+        porsi = cur.baris.sumOf { it.jumlah }
+    )
 
     private fun muatAwal(): IsiKeranjang {
         val mentah = penyimpan?.muat() ?: return IsiKeranjang()
         // Keranjang rusak tidak boleh mematikan aplikasi saat dibuka. Lebih
         // baik keranjang kosong daripada layar yang tidak pernah muncul.
         return runCatching { json.decodeFromString<IsiKeranjang>(mentah) }
-            .getOrElse { IsiKeranjang() }
+            .getOrElse { e ->
+                runCatching { Log.w("SukaCart", "Keranjang tersimpan rusak, direset: ${e.message}") }
+                IsiKeranjang()
+            }
     }
 
     private fun tulis() {
+        _snapshot.value = buatSnapshot(isi)
         penyimpan?.simpan(json.encodeToString(isi))
     }
+
+    /**
+     * Sidik jari deterministik isi keranjang saat ini (outlet + semua item/topping/catatan + voucher).
+     * Dipakai [OrderAttemptStore] untuk mendeteksi apakah keranjang berubah sejak
+     * QRIS sebelumnya dibuat — mencegah app diam-diam melanjutkan tagihan lama.
+     */
+    fun sidikJari(): String = json.encodeToString(isi)
 
     fun outletId(): String? = isi.outletId
 

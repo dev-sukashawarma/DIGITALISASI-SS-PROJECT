@@ -14,6 +14,7 @@ struct AppShell: View {
     @State private var tab: TabUtama = .beranda
     @State private var jalur: [Rute] = []
     @State private var tampilPilihOutlet = false
+    @State private var konfirmasiOutletOtomatis = false
     @State private var catalog: CatalogViewModel?
     @State private var popupDilihat: Set<String> = []
     /// `GET /config`. nil = belum/gagal dimuat -> bawaan dipakai, tak memaksa update.
@@ -47,7 +48,8 @@ struct AppShell: View {
             // mulai di layar Masuk — gerbang itu dipasang di Fase 3 (login).
             guard catalog == nil else { return }
             let vm = CatalogViewModel(repository: container.repository,
-                                      outletStore: container.outletStore, cart: container.cartStore)
+                                      outletStore: container.outletStore, cart: container.cartStore,
+                                      lokasi: container.lokasiPelanggan)
             catalog = vm
             // Titik di lonceng Beranda: hanya bila ada sesi (sama dengan Android).
             if container.sesiBerlaku(), case .sukses(let n) = await container.repository.ambilNotifikasi() {
@@ -95,21 +97,33 @@ struct AppShell: View {
         .animation(.easeOut(duration: 0.25), value: jalur.isEmpty)
         .animation(.easeOut(duration: 0.24), value: container.cartStore.jumlahPorsi() > 0)
         .fullScreenCover(isPresented: $tampilPilihOutlet) {
-            OutletPickerView(vm: OutletPickerViewModel(repository: container.repository)) { o in
+            OutletPickerView(vm: OutletPickerViewModel(repository: container.repository,
+                                                       lokasi: container.lokasiPelanggan)) { o in
                 tampilPilihOutlet = false
                 Task { await catalog.pilihOutlet(o) }
             } onTutup: {
                 tampilPilihOutlet = false
             }
         }
+        .alert("Konfirmasi Outlet Ambil", isPresented: $konfirmasiOutletOtomatis) {
+            Button("Benar, Lanjut") {
+                catalog.konfirmasiOutletSaatIni()
+                jalur.append(container.sesiBerlaku() ? .checkout : .masuk(tujuan: .checkout))
+            }
+            Button("Ganti Outlet", role: .cancel) {
+                tampilPilihOutlet = true
+            }
+        } message: {
+            Text("Pesanan ini akan disiapkan untuk diambil di \(namaOutletKeranjang() ?? catalog.outlet?.name ?? "outlet ini"). Pastikan lokasinya sesuai sebelum lanjut membayar.")
+        }
     }
 
     /// Popup tampil di Beranda saja, sekali per banner per pelanggan (K3),
-    /// dan hanya setelah katalog outlet berhasil dimuat.
+    /// dan hanya setelah katalog outlet aktif berhasil dimuat.
     private func popupAktif(_ catalog: CatalogViewModel) -> BannerDto? {
         guard tab == .beranda, jalur.isEmpty, !tampilPilihOutlet,
               let p = catalog.bannerPopup, popupBolehTampil(popupId: p.id, sudahDilihat: popupDilihat),
-              catalog.outlet != nil, !catalog.memuat, catalog.galat == nil else { return nil }
+              catalog.outlet?.isActive == true, !catalog.memuat, catalog.galat == nil else { return nil }
         return p
     }
 
@@ -164,8 +178,7 @@ struct AppShell: View {
                 container.sessionStore.hapus()
                 container.cartStore.kosongkan()
                 container.orderAttemptStore.selesai()
-                container.notificationStore.setUnreadCount(0)
-                // Android membawa ke layar Masuk; di iOS layar itu belum ada (Fase 3).
+                container.notificationStore.bersihkan()
                 jalur = []
                 tab = .beranda
             }
@@ -180,10 +193,13 @@ struct AppShell: View {
             if let item = catalog.semuaItem.first(where: { $0.id == id }) {
                 ItemDetailView(item: item, toppingTersedia: toppingUntuk(item, semua: catalog.semuaItem),
                                cart: container.cartStore,
+                               outletBolehPesan: catalog.outlet?.bolehPesan != false,
+                               labelOutletTutup: labelOutletTutup(catalog.outlet),
                                adalahTerlaris: termasukMenuTerlaris(item.id, semua: catalog.semuaItem,
                                                                     kurasiIds: (config ?? ConfigDto()).menuTerlarisIds),
                                onLihatKeranjang: { jalur.append(.keranjang) },
                                onKembali: kembali)
+                .task { await catalog.segarkanStatusOutlet() }
             } else {
                 VStack(spacing: 0) {
                     PageBrandHeader(judul: "Detail Menu", onKembali: kembali)
@@ -196,10 +212,11 @@ struct AppShell: View {
             }
         case .keranjang:
             CartView(cart: container.cartStore, onKembali: kembali, onLanjutBayar: {
-                // Login diminta DI SINI, di titik bayar — bukan di pintu masuk.
-                // Pelanggan boleh menyusun keranjang tanpa akun; `checkout/validate`
-                // yang menuntut sesi.
-                jalur.append(container.sesiBerlaku() ? .checkout : .masuk(tujuan: .checkout))
+                if catalog.outletOtomatis {
+                    konfirmasiOutletOtomatis = true
+                } else {
+                    jalur.append(container.sesiBerlaku() ? .checkout : .masuk(tujuan: .checkout))
+                }
             }, namaOutlet: namaOutletKeranjang(),
                outletBolehPesan: catalog.outlet?.bolehPesan != false,
                labelOutletTutup: labelOutletTutup(catalog.outlet))
@@ -259,9 +276,9 @@ struct AppShell: View {
                                   container.sessionStore.hapus()
                                   container.cartStore.kosongkan()
                                   container.orderAttemptStore.selesai()
-                                  container.notificationStore.setUnreadCount(0)
+                                  container.notificationStore.bersihkan()
                                   tab = .beranda
-                                  jalur = [.masuk(tujuan: .katalog)]
+                                  jalur = []
                               })
         case .notifikasi:
             NotificationView(vm: NotificationViewModel(repository: container.repository, store: container.notificationStore),
@@ -287,8 +304,10 @@ struct AppShell: View {
     /// keranjang -- lebih baik tidak menyebut nama daripada menyebut nama yang
     /// salah di titik bayar.
     private func namaOutletKeranjang() -> String? {
-        guard let id = container.cartStore.outletId(), container.outletStore.idTerpilih() == id else { return nil }
-        return container.outletStore.namaTerpilih()
+        guard let id = container.cartStore.outletId() else { return nil }
+        if catalog?.outlet?.id == id { return catalog?.outlet?.name }
+        if container.outletStore.idTerpilih() == id { return container.outletStore.namaTerpilih() }
+        return nil
     }
 }
 

@@ -51,4 +51,15 @@ class OutletPickerLogicTest {
         val semua = listOf(outlet("a", "Empang"), outlet("b", "Cibubur"))
         assertEquals(2, saringOutlet(semua, "   ").size)
     }
+
+    @Test
+    fun `outlet bisa_pesan true diurutkan di atas outlet isActive true tetapi tutup sementara`() {
+        val hasil = urutkanOutlet(
+            listOf(
+                OutletDto(id = "tutup", name = "Antapani", isActive = true, bisaPesan = false),
+                OutletDto(id = "buka", name = "Cibubur", isActive = true, bisaPesan = true),
+            )
+        )
+        assertEquals(listOf("buka", "tutup"), hasil.map { it.id })
+    }
 }

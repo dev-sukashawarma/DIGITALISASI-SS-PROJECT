@@ -1,6 +1,8 @@
 package com.sukashawarma.customer.data
 
 import android.content.Context
+import android.graphics.BitmapFactory
+import android.util.Log
 import java.io.File
 
 /** Lama splash bawaan bila belum pernah menerima pengaturan dari admin. */
@@ -67,6 +69,18 @@ class SplashStore(context: Context) {
     }
 
     fun simpanGambar(url: String, byte: ByteArray) {
+        // Pastikan byte benar-benar gambar bitmap yang bisa didekode sebelum disimpan,
+        // supaya payload rusak / SVG tidak pernah memicu kegagalan di startup berikutnya.
+        val opsi = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        val sah = runCatching {
+            BitmapFactory.decodeByteArray(byte, 0, byte.size, opsi)
+            opsi.outWidth > 0 && opsi.outHeight > 0
+        }.getOrElse { false }
+        if (!sah) {
+            Log.w("SukaSplash", "Gambar splash dari server tidak valid, diabaikan.")
+            return
+        }
+
         val sementara = File(berkas.parentFile, "$NAMA_BERKAS.tmp")
         sementara.writeBytes(byte)
         if (!sementara.renameTo(berkas)) {
@@ -76,11 +90,11 @@ class SplashStore(context: Context) {
                 return
             }
         }
-        prefs.edit().putString(KEY_URL, url).commit()
+        prefs.edit().putString(KEY_URL, url).apply()
     }
 
     fun hapusGambar() {
-        prefs.edit().remove(KEY_URL).commit()
+        prefs.edit().remove(KEY_URL).apply()
         berkas.delete()
     }
 

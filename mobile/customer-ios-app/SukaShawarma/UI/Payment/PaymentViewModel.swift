@@ -46,6 +46,7 @@ final class PaymentViewModel {
     @ObservationIgnored private let percobaan: OrderAttemptStore
     @ObservationIgnored private let jadwal: JadwalTanya
     @ObservationIgnored private var tugasTanya: Task<Void, Never>?
+    @ObservationIgnored private var sudahMulai = false
 
     init(repository: Repository, cart: CartStore, percobaan: OrderAttemptStore, jadwal: JadwalTanya = .init()) {
         self.repository = repository
@@ -64,7 +65,18 @@ final class PaymentViewModel {
     /// Titik masuk layar. Percobaan tertinggal DIPERIKSA dulu, tidak langsung
     /// dipantau; galat jaringan saat memeriksa TIDAK memulai pesanan baru.
     func mulai() async {
+        guard !sudahMulai else { return }
+        sudahMulai = true
         guard let id = percobaan.orderId() else {
+            await bayar()
+            return
+        }
+        // Keranjang/voucher/outlet berubah sejak QRIS lama dibuat -> batalkan draft lama & buat baru.
+        let sidikSekarang = cart.sidikJari()
+        if let sidikLama = percobaan.sidikJari(), sidikLama != sidikSekarang {
+            let repo = self.repository
+            Task { _ = await repo.batalkanPesanan(orderId: id) }
+            percobaan.selesai()
             await bayar()
             return
         }
@@ -108,16 +120,19 @@ final class PaymentViewModel {
 
     /// Membuat pesanan (atau mengulang dengan id yang SAMA — idempoten).
     func bayar() async {
+        guard !memuat else { return }
         let isi = cart.isi()
         guard !isi.isEmpty, let outletId = cart.outletId() else {
             pesanGalat = "Keranjang sudah kosong."
             return
         }
+        let sidikSekarang = cart.sidikJari()
         let clientOrderId = percobaan.clientOrderId() ?? {
             let baru = idPesananBaru()
             percobaan.simpanClientOrderId(baru)  // SEBELUM permintaan dikirim.
             return baru
         }()
+        percobaan.simpanSidikJari(sidikSekarang)
 
         memuat = true
         pesanGalat = nil
@@ -142,7 +157,11 @@ final class PaymentViewModel {
             tanyaSampaiPasti(r.orderId)
         case .gagal(let g):
             let idBerikut = idBerikutnya(clientOrderId, galat: g)
-            if idBerikut != clientOrderId { percobaan.simpanClientOrderId(idBerikut) }
+            if idBerikut != clientOrderId {
+                percobaan.selesai()
+                percobaan.simpanClientOrderId(idBerikut)
+                percobaan.simpanSidikJari(sidikSekarang)
+            }
             memuat = false
             pesanGalat = pesanBayar(g)
         }
@@ -171,10 +190,16 @@ final class PaymentViewModel {
             let mulai = jam.now
             while jam.now - mulai < jadwal.batas {
                 guard let self, !Task.isCancelled else { return }
-                // Galat saat menanya BUKAN alasan berhenti: sinyal bisa putus
-                // sebentar sementara pembayarannya sudah masuk.
-                if case .sukses(let d) = await self.repository.statusPesanan(orderId: id),
-                   self.terapkanStatus(d) { return }
+                switch await self.repository.statusPesanan(orderId: id) {
+                case .sukses(let d):
+                    if self.terapkanStatus(d) { return }
+                case .gagal(.sesiTidakSah):
+                    self.menungguKonfirmasi = false
+                    self.pesanGalat = pesanBayar(.sesiTidakSah)
+                    return
+                case .gagal:
+                    break
+                }
                 let terlewat = jam.now - mulai
                 try? await Task.sleep(for: terlewat < jadwal.ambang ? jadwal.jedaAwal : jadwal.jedaLanjut)
             }
@@ -191,30 +216,29 @@ final class PaymentViewModel {
     /// Mengembalikan true bila status sudah pasti (penanyaan boleh berhenti).
     @discardableResult
     private func terapkanStatus(_ d: OrderDetailDto) -> Bool {
-        // Angka nyata muncul begitu diketahui — termasuk saat status masih menunggu.
         totalTagihan = bulatkanRupiah(d.totalAmount)
-        switch d.status {
-        case "dibayar":
+        if let exp = d.expiresAt { expiresAt = exp }
+        if qrString == nil, let qr = d.qrString { qrString = qr }
+        if urlBayarTersimpan == nil, let url = d.paymentUrl { urlBayarTersimpan = url }
+        switch nasibPercobaan(status: d.status, expiresAt: d.expiresAt, sekarang: sekarangMilidetik()) {
+        case .dibayar:
             selesaiDibayar(nomor: d.posOrderNumber)
             return true
-        case "gagal":
-            // Tagihan ini sudah mati di gateway: "Coba Bayar Lagi" WAJIB memakai
-            // id baru, kalau tidak gateway membalas duplikat untuk draft yang gagal.
+        case .gagal:
             tugasTanya?.cancel()
-            percobaan.simpanClientOrderId(idPesananBaru())
+            percobaan.selesai()
             menungguKonfirmasi = false
             gagalBayar = true
             buangTagihan()
             return true
-        case "kadaluarsa":
-            // Draft hangus: percobaan berikutnya WAJIB memakai id baru.
+        case .mulaiBaru:
             tugasTanya?.cancel()
-            percobaan.simpanClientOrderId(idPesananBaru())
+            percobaan.selesai()
             menungguKonfirmasi = false
             kadaluarsa = true
             buangTagihan()
             return true
-        default:
+        case .lanjutkan:
             return false
         }
     }

@@ -5,6 +5,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.input.pointer.pointerInput
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,12 +72,14 @@ fun SplashAplikasiScreen(
         mulaiHitung = true
     }
 
-    // Didekode sekali, sinkron. Berkasnya sudah dikecilkan admin saat unggah
-    // (ratusan KB), jadi cepat; memuatnya asinkron justru membuat gambar
-    // bawaan sempat berkedip sebelum digantikan.
-    val gambar: ImageBitmap? = remember(berkasGambar) {
-        berkasGambar?.let { f ->
-            runCatching { BitmapFactory.decodeFile(f.absolutePath)?.asImageBitmap() }.getOrNull()
+    // Dekode di Dispatchers.IO dengan batas dimensi (maks 1600px) agar gambar resolusi
+    // tinggi dari admin tidak pernah memicu jank Main Thread atau crash Canvas OOM.
+    var gambar by remember(berkasGambar) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(berkasGambar) {
+        gambar = berkasGambar?.let { f ->
+            withContext(Dispatchers.IO) {
+                runCatching { decodeTerbatas(f, maksSisiPx = 1600)?.asImageBitmap() }.getOrNull()
+            }
         }
     }
 
@@ -88,11 +93,21 @@ fun SplashAplikasiScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(SukaBrown)
+            // Tahan seluruh sentuhan selama splash agar tap tidak tembus ke layar di bawahnya.
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val ev = awaitPointerEvent()
+                        ev.changes.forEach { it.consume() }
+                    }
+                }
+            }
             .semantics { contentDescription = "Suka Shawarma" },
     ) {
-        if (gambar != null) {
+        val bmp = gambar
+        if (bmp != null) {
             Image(
-                bitmap = gambar,
+                bitmap = bmp,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -106,4 +121,18 @@ fun SplashAplikasiScreen(
             )
         }
     }
+}
+
+private fun decodeTerbatas(berkas: File, maksSisiPx: Int): android.graphics.Bitmap? {
+    val batas = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(berkas.absolutePath, batas)
+    if (batas.outWidth <= 0 || batas.outHeight <= 0) return null
+    var sample = 1
+    while (batas.outWidth / sample > maksSisiPx || batas.outHeight / sample > maksSisiPx) {
+        sample *= 2
+    }
+    return BitmapFactory.decodeFile(
+        berkas.absolutePath,
+        BitmapFactory.Options().apply { inSampleSize = sample }
+    )
 }

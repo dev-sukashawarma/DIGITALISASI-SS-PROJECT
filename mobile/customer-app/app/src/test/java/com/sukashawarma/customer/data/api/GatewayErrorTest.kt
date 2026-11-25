@@ -40,5 +40,6 @@ class GatewayErrorTest {
     fun `body kosong atau bukan JSON tidak membuat aplikasi crash`() {
         assertTrue(petakanGalat(500, null) is GatewayError.Server)
         assertTrue(petakanGalat(500, "<html>gateway timeout</html>") is GatewayError.Server)
+        assertTrue(petakanGalat(400, """{"error":{"nested":true}}""") is GatewayError.Server)
     }
 }

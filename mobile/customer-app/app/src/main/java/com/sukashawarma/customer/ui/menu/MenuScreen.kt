@@ -101,7 +101,9 @@ fun MenuScreen(
             if (state.kategori.isEmpty()) return@derivedStateOf 0
             val layoutInfo = listState.layoutInfo
             val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            if (layoutInfo.totalItemsCount > 0 && lastVisible == layoutInfo.totalItemsCount - 1 && !listState.canScrollForward) {
+            if (layoutInfo.totalItemsCount > 0 && lastVisible == layoutInfo.totalItemsCount - 1 &&
+                !listState.canScrollForward && listState.canScrollBackward
+            ) {
                 return@derivedStateOf state.kategori.size - 1
             }
             val firstVisible = listState.firstVisibleItemIndex
@@ -131,14 +133,15 @@ fun MenuScreen(
         containerColor = SukaCream,
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
+        val tampilHeaderMenu = state.outlet?.isActive == true && !state.tidakAdaOutlet && !state.perluPilihOutlet
         Column(
             modifier = Modifier
                 .padding(padding)
-                .then(if (state.outlet != null) Modifier else Modifier.statusBarsPadding())
+                .then(if (tampilHeaderMenu) Modifier else Modifier.statusBarsPadding())
                 .fillMaxSize()
         ) {
-            // Header Brand Menu, Search Box & Kategori Terintegrasi (Menyatu dalam Header)
-            state.outlet?.let {
+            // Header Brand Menu, Search Box & Kategori Terintegrasi (hanya saat outlet aktif)
+            if (tampilHeaderMenu) state.outlet?.let {
                 MenuBrandHeader(
                     namaOutlet = it.name,
                     buka = it.bolehPesan(),
@@ -186,6 +189,7 @@ fun MenuScreen(
 
                 state.outlet != null && !state.outlet!!.isActive -> OutletClosedScreen(
                     namaOutlet = state.outlet!!.name,
+                    pesanStatus = state.outlet!!.pesanStatus,
                     onGantiOutlet = onGantiOutlet
                 )
 

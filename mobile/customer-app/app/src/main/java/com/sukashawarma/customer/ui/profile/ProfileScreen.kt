@@ -26,19 +26,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -91,6 +93,7 @@ fun ProfileScreen(
     onLihatRiwayat: () -> Unit,
     onBukaInfoAkun: () -> Unit,
     onKembali: () -> Unit,
+    onMasuk: () -> Unit = {},
     onBukaVoucher: () -> Unit = {},
     statusPesananAktif: Boolean = true,
     promoAktif: Boolean = true,
@@ -102,6 +105,48 @@ fun ProfileScreen(
     val config = LocalConfigApp.current
     var tampilkanDialogNotifikasi by remember { mutableStateOf(false) }
     var tampilkanDialogFaq by remember { mutableStateOf(false) }
+    var konfirmasiKeluar by remember { mutableStateOf(false) }
+
+    if (konfirmasiKeluar) {
+        AlertDialog(
+            onDismissRequest = { konfirmasiKeluar = false },
+            containerColor = Color.White,
+            title = {
+                Text(
+                    text = "Keluar dari Akun?",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        color = SukaBrown
+                    )
+                )
+            },
+            text = {
+                Text(
+                    text = "Keranjang yang belum dibayar akan dikosongkan. Kamu tetap bisa melihat menu dan masuk lagi kapan saja.",
+                    style = MaterialTheme.typography.bodySmall.copy(color = SukaInk, lineHeight = 18.sp)
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        konfirmasiKeluar = false
+                        onKeluar()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFDC2626),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text("Keluar", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { konfirmasiKeluar = false }) {
+                    Text("Batal", color = SukaMuted, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
 
     if (tampilkanDialogNotifikasi) {
         NotificationSettingsDialog(
@@ -196,8 +241,27 @@ fun ProfileScreen(
                         }
                     }
 
-                    // Phone / WhatsApp Status
-                    if (!sesi?.telepon.isNullOrBlank()) {
+                    if (sesi == null) {
+                        Text(
+                            text = "Masuk untuk melihat riwayat pesanan, klaim voucher, dan mempercepat pembayaran.",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = SukaInk,
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp
+                            )
+                        )
+                        Button(
+                            onClick = onMasuk,
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = SukaOrange,
+                                contentColor = SukaInk
+                            )
+                        ) {
+                            Text("Masuk dengan Google", fontWeight = FontWeight.ExtraBold)
+                        }
+                    } else if (!sesi.telepon.isNullOrBlank()) {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
@@ -220,7 +284,7 @@ fun ProfileScreen(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Text(
-                                        text = sesi!!.telepon!!,
+                                        text = sesi.telepon,
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = Color(0xFF15803D),
@@ -253,52 +317,54 @@ fun ProfileScreen(
                 }
             }
 
-            // 2. Pengaturan Akun
-            Text(
-                text = "PENGATURAN AKUN",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontWeight = FontWeight.Black,
-                    color = SukaMuted,
-                    fontSize = 10.sp,
-                    letterSpacing = 0.5.sp
-                ),
-                modifier = Modifier.padding(horizontal = 4.dp)
-            )
+            // 2. Pengaturan Akun (hanya saat sudah masuk)
+            if (sesi != null) {
+                Text(
+                    text = "PENGATURAN AKUN",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Black,
+                        color = SukaMuted,
+                        fontSize = 10.sp,
+                        letterSpacing = 0.5.sp
+                    ),
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
 
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                color = Color.White,
-                border = BorderStroke(1.dp, SukaBorder)
-            ) {
-                Column {
-                    ProfileMenuItem(
-                        icon = Icons.Filled.ReceiptLong,
-                        title = "Riwayat Pesanan",
-                        subtitle = "Pantau status & pesanan sebelumnya",
-                        onClick = onLihatRiwayat
-                    )
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
-                    ProfileMenuItem(
-                        icon = Icons.Filled.LocalOffer,
-                        title = "Voucher Saya",
-                        subtitle = "Promo yang bisa kamu pakai",
-                        onClick = onBukaVoucher
-                    )
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
-                    ProfileMenuItem(
-                        icon = Icons.Filled.Person,
-                        title = "Informasi Akun",
-                        subtitle = sesi?.email ?: "Akun Pelanggan",
-                        onClick = onBukaInfoAkun
-                    )
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
-                    ProfileMenuItem(
-                        icon = Icons.Filled.Notifications,
-                        title = "Pengaturan Notifikasi",
-                        subtitle = "Preferensi status pesanan & promo",
-                        onClick = { tampilkanDialogNotifikasi = true }
-                    )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, SukaBorder)
+                ) {
+                    Column {
+                        ProfileMenuItem(
+                            icon = Icons.AutoMirrored.Filled.ReceiptLong,
+                            title = "Riwayat Pesanan",
+                            subtitle = "Pantau status & pesanan sebelumnya",
+                            onClick = onLihatRiwayat
+                        )
+                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
+                        ProfileMenuItem(
+                            icon = Icons.Filled.LocalOffer,
+                            title = "Voucher Saya",
+                            subtitle = "Promo yang bisa kamu pakai",
+                            onClick = onBukaVoucher
+                        )
+                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
+                        ProfileMenuItem(
+                            icon = Icons.Filled.Person,
+                            title = "Informasi Akun",
+                            subtitle = sesi.email ?: "Akun Pelanggan",
+                            onClick = onBukaInfoAkun
+                        )
+                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
+                        ProfileMenuItem(
+                            icon = Icons.Filled.Notifications,
+                            title = "Pengaturan Notifikasi",
+                            subtitle = "Preferensi status pesanan & promo",
+                            onClick = { tampilkanDialogNotifikasi = true }
+                        )
+                    }
                 }
             }
 
@@ -326,7 +392,7 @@ fun ProfileScreen(
             ) {
                 Column {
                     ProfileMenuItem(
-                        icon = Icons.Filled.HelpOutline,
+                        icon = Icons.AutoMirrored.Filled.HelpOutline,
                         title = "Pusat Bantuan & FAQ",
                         subtitle = "Pertanyaan seputar order & ambil pesanan",
                         onClick = { tampilkanDialogFaq = true }
@@ -378,35 +444,37 @@ fun ProfileScreen(
                 }
             }
 
-            // 4. Logout Button
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .bounceClick(scaleDown = 0.98f) { onKeluar() },
-                shape = RoundedCornerShape(18.dp),
-                color = Color.White,
-                border = BorderStroke(1.dp, Color(0xFFFCA5A5))
-            ) {
-                Row(
-                    modifier = Modifier.padding(vertical = 14.dp, horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+            // 4. Logout Button (hanya saat sudah masuk)
+            if (sesi != null) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .bounceClick(scaleDown = 0.98f) { konfirmasiKeluar = true },
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFFCA5A5))
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Logout,
-                        contentDescription = null,
-                        tint = Color(0xFFDC2626),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Keluar dari Akun",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFDC2626),
-                            fontSize = 14.sp
+                    Row(
+                        modifier = Modifier.padding(vertical = 14.dp, horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
+                            contentDescription = null,
+                            tint = Color(0xFFDC2626),
+                            modifier = Modifier.size(18.dp)
                         )
-                    )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Keluar dari Akun",
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFDC2626),
+                                fontSize = 14.sp
+                            )
+                        )
+                    }
                 }
             }
 

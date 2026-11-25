@@ -2,6 +2,7 @@ package com.sukashawarma.customer.data
 
 import android.content.Context
 import android.util.Log
+import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
@@ -81,5 +82,18 @@ suspend fun ambilIdTokenGoogle(context: Context, serverClientId: String): HasilI
         // pesan asli pengecualiannya.
         Log.e(TAG, "Gagal mengambil ID token Google: ${e.javaClass.simpleName} -- ${e.message}", e)
         HasilIdToken.Gagal(e)
+    }
+}
+
+/**
+ * Membersihkan state Credential Manager saat keluar / hapus akun agar
+ * `setAutoSelectEnabled(true)` tidak otomatis memilih ulang akun lama (atau akun
+ * yang baru saja dihapus) tanpa memberi kesempatan memilih akun lain.
+ */
+suspend fun bersihkanKredensialGoogle(context: Context) {
+    runCatching {
+        CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
+    }.onFailure { e ->
+        Log.w(TAG, "Gagal membersihkan state Credential Manager: ${e.message}")
     }
 }

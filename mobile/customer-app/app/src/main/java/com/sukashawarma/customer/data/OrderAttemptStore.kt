@@ -2,67 +2,80 @@ package com.sukashawarma.customer.data
 
 import android.content.Context
 
+/** Penyimpanan pasangan kunci-nilai sederhana untuk [OrderAttemptStore]; dipisah agar bisa diuji di JVM. */
+interface AttemptPersistence {
+    fun baca(kunci: String): String?
+    fun tulis(kunci: String, nilai: String)
+    fun hapusSemua(kunci: List<String>)
+}
+
 /**
  * Percobaan pemesanan yang sedang berjalan.
  *
- * **Kenapa ini harus bertahan lintas proses.** Pembayaran membawa pelanggan
- * keluar aplikasi -- ke Custom Tabs, lalu ke aplikasi e-wallet. Android boleh
- * mematikan proses aplikasi selama itu. Kalau `client_order_id` hanya hidup di
- * memori, percobaan berikutnya memakai id baru, dan pelanggan mendapat
- * **tagihan kedua** untuk keranjang yang sama.
- *
- * Karena itu id disimpan sebelum permintaan pertama dikirim, bukan setelah
- * balasannya datang.
+ * Menyimpan `client_order_id`, `order_id`, `payment_url`, dan `cart_fingerprint`
+ * lintas proses. Sidik jari keranjang memastikan perubahan keranjang/voucher/outlet
+ * tidak diam-diam melanjutkan QRIS pesanan lama.
  */
-class OrderAttemptStore(context: Context) {
+class OrderAttemptStore internal constructor(private val penyimpan: AttemptPersistence) {
 
-    private val prefs = context.applicationContext
-        .getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+    constructor(context: Context) : this(PrefsAttemptPersistence(context.applicationContext))
 
-    fun clientOrderId(): String? = prefs.getString(KEY_CLIENT_ORDER_ID, null)
+    fun clientOrderId(): String? = penyimpan.baca(KEY_CLIENT_ORDER_ID)
 
-    fun orderId(): String? = prefs.getString(KEY_ORDER_ID, null)
+    fun orderId(): String? = penyimpan.baca(KEY_ORDER_ID)
+
+    fun paymentUrl(): String? = penyimpan.baca(KEY_PAYMENT_URL)
+
+    fun sidikJari(): String? = penyimpan.baca(KEY_FINGERPRINT)
 
     fun simpanClientOrderId(id: String) {
-        prefs.edit().putString(KEY_CLIENT_ORDER_ID, id).apply()
+        penyimpan.tulis(KEY_CLIENT_ORDER_ID, id)
     }
 
     fun simpanOrderId(id: String) {
-        prefs.edit().putString(KEY_ORDER_ID, id).apply()
+        penyimpan.tulis(KEY_ORDER_ID, id)
     }
-
-    /**
-     * URL halaman pembayaran percobaan ini.
-     *
-     * Disimpan supaya pelanggan bisa MEMBUKANYA LAGI setelah kembali ke
-     * aplikasi. Tanpa ini, percobaan yang masih hidup hanya bisa dipantau --
-     * pelanggan menatap pemuat tanpa satu pun cara membayar, sementara
-     * tagihannya masih berlaku dan pesanan kedua ditolak demi mencegah
-     * tagihan ganda. Jalan buntu yang sempurna.
-     */
-    fun paymentUrl(): String? = prefs.getString(KEY_PAYMENT_URL, null)
 
     fun simpanPaymentUrl(url: String) {
-        prefs.edit().putString(KEY_PAYMENT_URL, url).apply()
+        penyimpan.tulis(KEY_PAYMENT_URL, url)
+    }
+
+    fun simpanSidikJari(sidikJari: String) {
+        penyimpan.tulis(KEY_FINGERPRINT, sidikJari)
     }
 
     /**
-     * Menutup percobaan. Dipanggil hanya setelah pesanan benar-benar selesai
-     * (dibayar, atau dibatalkan pelanggan) -- bukan saat galat, karena galat
-     * justru keadaan di mana id lama harus dipertahankan.
+     * Menutup percobaan (dibayar, dibatalkan, gagal, kedaluwarsa, atau keranjang berubah).
      */
     fun selesai() {
-        prefs.edit()
-            .remove(KEY_CLIENT_ORDER_ID)
-            .remove(KEY_ORDER_ID)
-            .remove(KEY_PAYMENT_URL)
-            .apply()
+        penyimpan.hapusSemua(listOf(KEY_CLIENT_ORDER_ID, KEY_ORDER_ID, KEY_PAYMENT_URL, KEY_FINGERPRINT))
     }
 
-    private companion object {
-        const val FILE_NAME = "suka_customer_order_attempt"
-        const val KEY_CLIENT_ORDER_ID = "client_order_id"
-        const val KEY_ORDER_ID = "order_id"
-        const val KEY_PAYMENT_URL = "payment_url"
+    companion object {
+        private const val FILE_NAME = "suka_customer_order_attempt"
+        private const val KEY_CLIENT_ORDER_ID = "client_order_id"
+        private const val KEY_ORDER_ID = "order_id"
+        private const val KEY_PAYMENT_URL = "payment_url"
+        private const val KEY_FINGERPRINT = "cart_fingerprint"
+
+        fun diMemori(): OrderAttemptStore = OrderAttemptStore(MemoriAttemptPersistence())
+    }
+
+    private class PrefsAttemptPersistence(context: Context) : AttemptPersistence {
+        private val prefs = context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+        override fun baca(kunci: String): String? = prefs.getString(kunci, null)
+        override fun tulis(kunci: String, nilai: String) {
+            prefs.edit().putString(kunci, nilai).apply()
+        }
+        override fun hapusSemua(kunci: List<String>) {
+            prefs.edit().apply { kunci.forEach { remove(it) } }.apply()
+        }
+    }
+
+    private class MemoriAttemptPersistence : AttemptPersistence {
+        private val data = mutableMapOf<String, String>()
+        override fun baca(kunci: String): String? = data[kunci]
+        override fun tulis(kunci: String, nilai: String) { data[kunci] = nilai }
+        override fun hapusSemua(kunci: List<String>) { kunci.forEach { data.remove(it) } }
     }
 }

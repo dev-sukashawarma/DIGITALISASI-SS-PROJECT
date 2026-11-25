@@ -55,6 +55,25 @@ struct HomeView: View {
                                     unreadCount: unreadCount, inisial: inisial,
                                     onGantiOutlet: onGantiOutlet, onBukaProfil: onBukaProfil,
                                     onBukaNotifikasi: onBukaNotifikasi)
+                    if vm.outletOtomatis {
+                        Button(action: onGantiOutlet) {
+                            HStack(spacing: 8) {
+                                Text("Menampilkan menu \(outlet.name). Pilih outlet terdekatmu")
+                                    .font(SukaFont.jakarta(12, weight: .medium))
+                                    .foregroundStyle(Color.sukaInk)
+                                    .multilineTextAlignment(.leading)
+                                Spacer(minLength: 4)
+                                Text("Ganti →")
+                                    .font(SukaFont.jakarta(12, weight: .bold))
+                                    .foregroundStyle(Color.sukaBrown)
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 10)
+                            .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.sukaOrange.opacity(0.45), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 16).padding(.top, 4)
+                    }
                 }
                 // Tidak dirender sama sekali saat kosong: Beranda tanpa banner
                 // aktif langsung ke menu tanpa ruang kosong.

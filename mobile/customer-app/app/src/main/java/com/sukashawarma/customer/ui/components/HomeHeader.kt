@@ -556,14 +556,20 @@ fun MenuBrandHeader(
                         )
 
                         if (kueriPencarian.isNotEmpty()) {
-                            Icon(
-                                imageVector = Icons.Filled.Close,
-                                contentDescription = "Hapus",
-                                tint = SukaMuted,
+                            Box(
                                 modifier = Modifier
-                                    .size(18.dp)
-                                    .clickable { onUbahKueri("") }
-                            )
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .clickable { onUbahKueri("") },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Hapus",
+                                    tint = SukaMuted,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -626,7 +632,7 @@ fun PageBrandHeader(
                 if (onKembali != null) {
                     Box(
                         modifier = Modifier
-                            .size(34.dp)
+                            .size(44.dp)
                             .clip(CircleShape)
                             .background(Color.White.copy(alpha = 0.15f))
                             .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)), CircleShape)

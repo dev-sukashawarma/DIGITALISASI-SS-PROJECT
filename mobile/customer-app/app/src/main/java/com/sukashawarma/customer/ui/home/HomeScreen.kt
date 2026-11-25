@@ -121,7 +121,8 @@ fun HomeScreen(
     // sekali per banner per pelanggan (keputusan owner K3).
     val popup = state.bannerPopup
     if (popupBolehTampil(popup?.id, sudahDilihat) && popup != null &&
-        state.outlet != null && !state.memuat && state.galat == null
+        state.outlet?.isActive == true && !state.memuat && state.galat == null &&
+        !state.perluPilihOutlet && !state.tidakAdaOutlet
     ) {
         PromoPopupDialog(
             imageUrl = popup.gambarUrl,
@@ -176,6 +177,7 @@ fun HomeScreen(
 
                 state.outlet != null && !state.outlet!!.isActive -> OutletClosedScreen(
                     namaOutlet = state.outlet!!.name,
+                    pesanStatus = state.outlet!!.pesanStatus,
                     onGantiOutlet = onGantiOutlet
                 )
 
@@ -187,6 +189,9 @@ fun HomeScreen(
 
                     HomeContentList(
                         outlet = state.outlet,
+                        outletOtomatis = state.outletOtomatis,
+                        keranjangDikosongkan = state.keranjangDikosongkan,
+                        onTutupSpandukKeranjang = viewModel::akuiKeranjangDikosongkan,
                         bannerCarousel = state.bannerCarousel,
                         bestSellerItems = bestSellerItems,
                         onGantiOutlet = onGantiOutlet,
@@ -208,6 +213,9 @@ fun HomeScreen(
 @Composable
 private fun HomeContentList(
     outlet: OutletDto?,
+    outletOtomatis: Boolean,
+    keranjangDikosongkan: Boolean,
+    onTutupSpandukKeranjang: () -> Unit,
     bannerCarousel: List<BannerDto>,
     bestSellerItems: List<MenuItemDto>,
     onGantiOutlet: () -> Unit,
@@ -239,6 +247,81 @@ private fun HomeContentList(
                     inisial = inisial,
                     keteranganTutup = if (!it.bolehPesan()) labelStatusOutlet(it) else null
                 )
+            }
+        }
+
+        // 0b. Strip pengingat ringan bila outlet dipilih otomatis (onboarding tanpa cegat)
+        if (outletOtomatis && outlet != null) {
+            item(key = "home-auto-outlet-hint") {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .bounceClick(onClick = onGantiOutlet),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, SukaOrange.copy(alpha = 0.45f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Menampilkan menu ${outlet.name}. Pilih outlet terdekatmu",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = SukaInk,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Ganti →",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = SukaBrown,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 12.sp
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        if (keranjangDikosongkan) {
+            item(key = "home-cart-cleared") {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = SukaTint,
+                    border = BorderStroke(1.dp, SukaBorder)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Keranjang dikosongkan karena kamu berpindah outlet.",
+                            style = MaterialTheme.typography.bodySmall.copy(color = SukaInk, fontSize = 12.sp),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = "Tutup",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = SukaBrown,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            modifier = Modifier
+                                .clickable(onClick = onTutupSpandukKeranjang)
+                                .padding(horizontal = 8.dp, vertical = 6.dp)
+                        )
+                    }
+                }
             }
         }
         // 1. Multi-Slide Promo Media Carousel -- tidak dirender sama sekali
@@ -345,27 +428,28 @@ private fun HomeContentList(
                                 text = "Lihat Semua",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = SukaOrange,
+                                    color = SukaBrown,
                                     fontSize = 11.sp
                                 )
                             )
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = null,
-                                tint = SukaOrange,
+                                tint = SukaBrown,
                                 modifier = Modifier.size(12.dp)
                             )
                         }
                     }
 
                     // 2-Column Grid Best Seller Cards
+                    val tampilTerlaris = bestSellerItems.take(2)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        bestSellerItems.take(2).forEachIndexed { index, item ->
+                        tampilTerlaris.forEachIndexed { index, item ->
                             val rank = index + 1
                             Box(modifier = Modifier.weight(1f)) {
                                 BestSellerCard(
@@ -374,6 +458,9 @@ private fun HomeContentList(
                                     onKlik = onPilihItem
                                 )
                             }
+                        }
+                        if (tampilTerlaris.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
                 }
@@ -408,9 +495,7 @@ private fun BestSellerCard(
 ) {
     Surface(
         onClick = { onKlik(item) },
-        modifier = modifier
-            .fillMaxWidth()
-            .bounceClick(scaleDown = 0.97f),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = Color.White,
         shadowElevation = 3.dp,

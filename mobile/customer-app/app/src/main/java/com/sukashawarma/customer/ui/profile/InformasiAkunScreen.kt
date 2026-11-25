@@ -1,5 +1,6 @@
 package com.sukashawarma.customer.ui.profile
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -90,6 +91,8 @@ fun InformasiAkunScreen(
     val inisial = remember(state.namaTersimpan) { InformasiAkun.inisial(state.namaTersimpan) }
     var konfirmasiHapus by remember { mutableStateOf(false) }
 
+    BackHandler(enabled = state.menghapus) {}
+
     LaunchedEffect(state.akunDihapus) {
         if (state.akunDihapus) onAkunDihapus()
     }
@@ -146,7 +149,7 @@ fun InformasiAkunScreen(
             PageBrandHeader(
                 judul = "Informasi Akun",
                 subjudul = "Data akun pelangganmu",
-                onKembali = onKembali,
+                onKembali = if (state.menghapus) null else onKembali,
             )
         },
     ) { padding ->

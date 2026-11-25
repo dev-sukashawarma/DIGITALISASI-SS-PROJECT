@@ -76,6 +76,16 @@ final class CartStore {
         penyimpan.simpan(teks)
     }
 
+    /// Sidik jari deterministik isi keranjang (outlet + item/topping/catatan + voucher)
+    /// untuk mendeteksi perubahan keranjang sejak QRIS sebelumnya dibuat.
+    func sidikJari() -> String {
+        let enc = JSONEncoder()
+        enc.outputFormatting = [.sortedKeys]
+        guard let data = try? enc.encode(keadaan),
+              let teks = String(data: data, encoding: .utf8) else { return "" }
+        return teks
+    }
+
     func outletId() -> String? { keadaan.outletId }
 
     /// Berpindah outlet MENGOSONGKAN keranjang dan mengembalikan `true` bila

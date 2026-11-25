@@ -9,9 +9,9 @@ import com.sukashawarma.customer.data.api.ConfigDto
 import com.sukashawarma.customer.data.api.CreateOrderRequest
 import com.sukashawarma.customer.data.api.CreateOrderResponse
 import com.sukashawarma.customer.data.api.GatewayClient
-import com.sukashawarma.customer.data.api.OrderDetailDto
 import com.sukashawarma.customer.data.api.GatewayResult
 import com.sukashawarma.customer.data.api.MenuItemDto
+import com.sukashawarma.customer.data.api.OrderDetailDto
 import com.sukashawarma.customer.data.api.OutletDto
 import com.sukashawarma.customer.data.api.SplashDto
 import com.sukashawarma.customer.data.api.VoucherDto
@@ -21,57 +21,39 @@ import com.sukashawarma.customer.data.api.VouchersRequest
  * Satu-satunya pintu data aplikasi. Semua layar lewat sini, dan sini hanya
  * bicara ke [GatewayClient] — tidak ada jalur lain ke database.
  *
- * Membungkus [GatewayResult] apa adanya, tidak menelan galat jadi daftar
- * kosong: layar wajib bisa membedakan "menu memang belum ada" dari "gagal
- * memuat menu", karena tindakan pelanggan untuk keduanya berbeda.
+ * `open` agar ViewModel dapat diuji di unit test JVM dengan subclass palsu.
  */
-class Repository(private val gateway: GatewayClient) {
+open class Repository(private val gateway: GatewayClient?) {
 
-    /**
-     * Menukar ID token Google dengan sesi gateway.
-     *
-     * Aplikasi tidak pernah memvalidasi token itu sendiri dan tidak pernah
-     * menyentuh Supabase: gateway yang memverifikasinya ke Google, lalu
-     * menerbitkan token sesinya sendiri.
-     */
-    suspend fun loginGoogle(idToken: String): GatewayResult<AuthResponse> =
-        gateway.loginGoogle(idToken)
+    open suspend fun loginGoogle(idToken: String): GatewayResult<AuthResponse> =
+        gateway!!.loginGoogle(idToken)
 
-    suspend fun outlets(): GatewayResult<List<OutletDto>> =
-        when (val hasil = gateway.outlets()) {
+    open suspend fun outlets(): GatewayResult<List<OutletDto>> =
+        when (val hasil = gateway!!.outlets()) {
             is GatewayResult.Sukses -> GatewayResult.Sukses(hasil.data.outlets)
             is GatewayResult.Gagal -> hasil
         }
 
-    suspend fun banners(): GatewayResult<BannersResponse> = gateway.banners()
+    open suspend fun banners(): GatewayResult<BannersResponse> = gateway!!.banners()
 
-    suspend fun splash(): GatewayResult<SplashDto> = gateway.splash()
+    open suspend fun splash(): GatewayResult<SplashDto> = gateway!!.splash()
 
-    suspend fun config(): GatewayResult<ConfigDto> = gateway.config()
+    open suspend fun config(): GatewayResult<ConfigDto> = gateway!!.config()
 
-    suspend fun unduhGambarSplash(url: String): ByteArray? = gateway.unduhGambarSplash(url)
+    open suspend fun unduhGambarSplash(url: String): ByteArray? = gateway!!.unduhGambarSplash(url)
 
-    suspend fun katalog(outletId: String): GatewayResult<List<MenuItemDto>> =
-        when (val hasil = gateway.catalog(outletId)) {
+    open suspend fun katalog(outletId: String): GatewayResult<List<MenuItemDto>> =
+        when (val hasil = gateway!!.catalog(outletId)) {
             is GatewayResult.Sukses -> GatewayResult.Sukses(hasil.data.items)
             is GatewayResult.Gagal -> hasil
         }
 
-    /**
-     * Validasi pra-bayar.
-     *
-     * PENTING: penolakan bisnis datang sebagai HTTP **200** dengan
-     * `ok: false` -- bukan sebagai galat. Jadi `GatewayResult.Sukses` di sini
-     * TIDAK berarti pesanan boleh lanjut; pemanggil wajib memeriksa
-     * `response.ok`. Memperlakukan 200 sebagai lampu hijau adalah cara paling
-     * mudah mengirim pelanggan ke pembayaran untuk pesanan yang sudah ditolak.
-     */
-    suspend fun validasiCheckout(
+    open suspend fun validasiCheckout(
         outletId: String,
         items: List<CartItemPayload>,
         voucher: PilihanVoucher? = null
     ): GatewayResult<CheckoutValidateResponse> =
-        gateway.checkoutValidate(
+        gateway!!.checkoutValidate(
             CheckoutValidateRequest(
                 outletId = outletId,
                 items = items,
@@ -80,21 +62,14 @@ class Repository(private val gateway: GatewayClient) {
             )
         )
 
-    /**
-     * Membuat pesanan dan tagihannya.
-     *
-     * `clientOrderId` adalah kunci idempotensi sekali pakai. Pemanggil WAJIB
-     * memakai ulang id yang sama untuk percobaan ulang -- lihat `idBerikutnya`
-     * di layar pembayaran untuk satu-satunya kondisi yang boleh menggantinya.
-     */
-    suspend fun buatPesanan(
+    open suspend fun buatPesanan(
         clientOrderId: String,
         outletId: String,
         items: List<CartItemPayload>,
         telepon: String? = null,
         voucher: PilihanVoucher? = null
     ): GatewayResult<CreateOrderResponse> =
-        gateway.createOrder(
+        gateway!!.createOrder(
             CreateOrderRequest(
                 clientOrderId = clientOrderId,
                 outletId = outletId,
@@ -105,61 +80,60 @@ class Repository(private val gateway: GatewayClient) {
             )
         )
 
-    /** Daftar voucher yang berlaku (atau tidak, dengan alasan) untuk keranjang saat ini. */
-    suspend fun vouchers(
+    open suspend fun vouchers(
         outletId: String? = null,
         items: List<CartItemPayload>? = null
     ): GatewayResult<List<VoucherDto>> =
-        when (val hasil = gateway.vouchers(VouchersRequest(outletId = outletId, items = items))) {
+        when (val hasil = gateway!!.vouchers(VouchersRequest(outletId = outletId, items = items))) {
             is GatewayResult.Sukses -> GatewayResult.Sukses(hasil.data.vouchers)
             is GatewayResult.Gagal -> hasil
         }
 
-    suspend fun statusPesanan(orderId: String): GatewayResult<OrderDetailDto> =
-        gateway.orderDetail(orderId)
+    open suspend fun statusPesanan(orderId: String): GatewayResult<OrderDetailDto> =
+        gateway!!.orderDetail(orderId)
 
-    suspend fun batalkanPesanan(orderId: String): GatewayResult<Unit> =
-        gateway.cancelOrder(orderId)
+    open suspend fun batalkanPesanan(orderId: String): GatewayResult<Unit> =
+        gateway!!.cancelOrder(orderId)
 
-    suspend fun riwayat(): GatewayResult<List<OrderDetailDto>> =
-        when (val hasil = gateway.ordersList()) {
+    open suspend fun riwayat(): GatewayResult<List<OrderDetailDto>> =
+        when (val hasil = gateway!!.ordersList()) {
             is GatewayResult.Sukses -> GatewayResult.Sukses(hasil.data.orders)
             is GatewayResult.Gagal -> hasil
         }
 
-    suspend fun ambilNotifikasi(kategori: String? = null): GatewayResult<com.sukashawarma.customer.data.api.NotificationListResponse> =
-        gateway.getNotifications(kategori)
+    open suspend fun ambilNotifikasi(kategori: String? = null): GatewayResult<com.sukashawarma.customer.data.api.NotificationListResponse> =
+        gateway!!.getNotifications(kategori)
 
-    suspend fun tandaiNotifikasiDibaca(notificationId: String? = null, tandaiSemua: Boolean = false): GatewayResult<Unit> =
-        gateway.markNotificationRead(notificationId, tandaiSemua)
+    open suspend fun tandaiNotifikasiDibaca(notificationId: String? = null, tandaiSemua: Boolean = false): GatewayResult<Unit> =
+        gateway!!.markNotificationRead(notificationId, tandaiSemua)
 
-    suspend fun daftarkanFcmToken(token: String, deviceInfo: String? = null): GatewayResult<Unit> =
-        gateway.registerFcmToken(com.sukashawarma.customer.data.api.FcmTokenRequest(fcmToken = token, deviceInfo = deviceInfo))
+    open suspend fun daftarkanFcmToken(token: String, deviceInfo: String? = null): GatewayResult<Unit> =
+        gateway!!.registerFcmToken(com.sukashawarma.customer.data.api.FcmTokenRequest(fcmToken = token, deviceInfo = deviceInfo))
 
-    suspend fun ambilPreferensiNotifikasi(): GatewayResult<com.sukashawarma.customer.data.api.NotificationPreferencesResponse> =
-        gateway.getNotificationPreferences()
+    open suspend fun ambilPreferensiNotifikasi(): GatewayResult<com.sukashawarma.customer.data.api.NotificationPreferencesResponse> =
+        gateway!!.getNotificationPreferences()
 
-    suspend fun simpanPreferensiNotifikasi(pesanan: Boolean? = null, promo: Boolean? = null): GatewayResult<Unit> =
-        gateway.updateNotificationPreferences(
+    open suspend fun simpanPreferensiNotifikasi(pesanan: Boolean? = null, promo: Boolean? = null): GatewayResult<Unit> =
+        gateway!!.updateNotificationPreferences(
             com.sukashawarma.customer.data.api.UpdateNotificationPreferencesRequest(
                 notifyOrderStatus = pesanan,
                 notifyPromotions = promo
             )
         )
 
-    suspend fun profil(): GatewayResult<com.sukashawarma.customer.data.api.CustomerDto> =
-        when (val h = gateway.profile()) {
+    open suspend fun profil(): GatewayResult<com.sukashawarma.customer.data.api.CustomerDto> =
+        when (val h = gateway!!.profile()) {
             is GatewayResult.Sukses -> GatewayResult.Sukses(h.data.customer)
             is GatewayResult.Gagal -> h
         }
 
-    suspend fun simpanProfil(nama: String?, telepon: String?): GatewayResult<com.sukashawarma.customer.data.api.CustomerDto> =
-        when (val h = gateway.updateProfile(
+    open suspend fun simpanProfil(nama: String?, telepon: String?): GatewayResult<com.sukashawarma.customer.data.api.CustomerDto> =
+        when (val h = gateway!!.updateProfile(
             com.sukashawarma.customer.data.api.UpdateProfileRequest(name = nama, phone = telepon)
         )) {
             is GatewayResult.Sukses -> GatewayResult.Sukses(h.data.customer)
             is GatewayResult.Gagal -> h
         }
 
-    suspend fun hapusAkun(): GatewayResult<Unit> = gateway.deleteAccount()
+    open suspend fun hapusAkun(): GatewayResult<Unit> = gateway!!.deleteAccount()
 }

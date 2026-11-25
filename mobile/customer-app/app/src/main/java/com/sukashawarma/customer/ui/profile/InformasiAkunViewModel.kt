@@ -136,7 +136,8 @@ class InformasiAkunViewModel(
                 email = c.email ?: lama.email,
                 namaTersimpan = nama,
                 whatsAppTersimpan = wa,
-                menyimpan = false,
+                // Jangan matikan status `menyimpan` dari balasan lambat `init` saat `simpan()` sedang berjalan.
+                menyimpan = if (tandaiTersimpan) false else lama.menyimpan,
                 tersimpan = tandaiTersimpan,
             )
         }

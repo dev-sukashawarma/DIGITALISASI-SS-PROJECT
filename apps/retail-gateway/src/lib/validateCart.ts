@@ -36,25 +36,41 @@ export function periksaKeranjang(
 ): MasalahKeranjang[] {
   const peta = new Map(katalog.map((m) => [m.id, m]))
   const masalah: MasalahKeranjang[] = []
+  // Deduplikasi per (menu_item_id, jenis): keranjang bisa mengirim menu_item_id
+  // yang sama lebih dari sekali (topping sama di 2 menu, atau menu sama dengan
+  // catatan berbeda). Tanpa deduplikasi, klien menerima masalah kembar.
+  const terlihat = new Set<string>()
 
   for (const it of items) {
     const menu = peta.get(it.menu_item_id)
 
     if (!menu) {
-      masalah.push({ menu_item_id: it.menu_item_id, name: it.name, jenis: 'tidak_ada' })
+      const kunci = `${it.menu_item_id}:tidak_ada`
+      if (!terlihat.has(kunci)) {
+        terlihat.add(kunci)
+        masalah.push({ menu_item_id: it.menu_item_id, name: it.name, jenis: 'tidak_ada' })
+      }
       continue
     }
     if (!menu.is_available) {
-      masalah.push({ menu_item_id: it.menu_item_id, name: menu.name, jenis: 'habis' })
+      const kunci = `${it.menu_item_id}:habis`
+      if (!terlihat.has(kunci)) {
+        terlihat.add(kunci)
+        masalah.push({ menu_item_id: it.menu_item_id, name: menu.name, jenis: 'habis' })
+      }
       continue
     }
     if (menu.price !== it.unit_price) {
-      masalah.push({
-        menu_item_id: it.menu_item_id,
-        name: menu.name,
-        jenis: 'harga_berubah',
-        harga_baru: menu.price,
-      })
+      const kunci = `${it.menu_item_id}:harga_berubah`
+      if (!terlihat.has(kunci)) {
+        terlihat.add(kunci)
+        masalah.push({
+          menu_item_id: it.menu_item_id,
+          name: menu.name,
+          jenis: 'harga_berubah',
+          harga_baru: menu.price,
+        })
+      }
     }
   }
 

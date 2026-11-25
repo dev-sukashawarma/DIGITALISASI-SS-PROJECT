@@ -7,9 +7,13 @@ import com.sukashawarma.customer.data.OrderAttemptStore
 import com.sukashawarma.customer.data.Repository
 import com.sukashawarma.customer.data.api.GatewayError
 import com.sukashawarma.customer.data.api.GatewayResult
-import com.sukashawarma.customer.ui.components.pesanGalat
+import com.sukashawarma.customer.data.api.OrderDetailDto
+import com.sukashawarma.customer.data.uraiWaktuIso
 import com.sukashawarma.customer.ui.checkout.kePayloadList
+import com.sukashawarma.customer.ui.components.pesanGalat
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,53 +21,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.roundToLong
 
-/** Jeda antar-penanyaan status selama menit pertama. */
 private const val JEDA_TANYA_AWAL_MS = 3_000L
-
-/**
- * Jeda setelah menit pertama lewat.
- *
- * Pembayaran yang mulus sudah dikonfirmasi dalam hitungan detik. Yang tersisa
- * setelah semenit adalah pelanggan yang sedang bergulat dengan aplikasi
- * banknya -- salah PIN, saldo kurang, top-up dulu. Menanyai server tiap tiga
- * detik selama belasan menit untuk itu memboroskan baterai dan kuota tanpa
- * mempercepat apa pun.
- */
 private const val JEDA_TANYA_LANJUT_MS = 10_000L
-
-/** Ambang perpindahan antara kedua jeda di atas. */
 private const val AMBANG_JEDA_MS = 60 * 1000L
-
-/**
- * Batas menunggu konfirmasi pembayaran.
- *
- * DISAMAKAN DENGAN UMUR DRAFT DAN UMUR QR (`BATAS_BAYAR_DETIK` di gateway,
- * 15 menit). Sebelumnya 5 menit, dan selisih sepuluh menit itu punya wujud
- * nyata: QR di tangan pelanggan masih sah, tetapi layar sudah menyerah dan
- * berkata "belum ada kabar". Pesanannya tetap masuk -- webhook tidak peduli
- * aplikasi masih menonton atau tidak -- tapi orang yang sedang menatap layar
- * itu tidak punya cara tahu.
- *
- * Kalau umur draft di gateway diubah, angka ini WAJIB ikut. Menunggu lebih
- * lama dari umur draft hanya memperpanjang tatapan pada pesanan yang sudah
- * mati; menunggu lebih singkat mengembalikan lubang yang baru saja ditutup.
- */
 private const val BATAS_TUNGGU_MS = 15 * 60 * 1000L
+private const val TENGGANG_EXPIRES_MS = 15_000L
 
 data class PaymentState(
     val memuat: Boolean = false,
+    val sedangMembatalkan: Boolean = false,
     val pesanGalat: String? = null,
-    /**
-     * Teks QRIS yang digambar aplikasi sendiri. Ini jalur utama.
-     */
     val qrString: String? = null,
-    /**
-     * URL halaman pembayaran Xendit; dibuka dengan Custom Tabs.
-     *
-     * CADANGAN, dipakai hanya ketika `qrString` kosong -- yaitu ketika QR Code
-     * API menolak dan gateway jatuh ke Invoice. Selama masih ada QR, pelanggan
-     * tidak pernah dilempar ke peramban.
-     */
     val paymentUrl: String? = null,
     val orderId: String? = null,
     val menungguKonfirmasi: Boolean = false,
@@ -72,14 +40,6 @@ data class PaymentState(
     val kadaluarsa: Boolean = false,
     val nomorPesanan: Int? = null,
     val waktuHabis: Boolean = false,
-    /**
-     * URL pembayaran percobaan yang DILANJUTKAN.
-     *
-     * Dipisah dari [paymentUrl] dengan sengaja: `paymentUrl` memicu pembukaan
-     * otomatis, sedangkan yang ini hanya menyalakan tombol. Membuka otomatis
-     * saat melanjutkan akan melempar pelanggan kembali ke Chrome tepat setelah
-     * ia menutupnya -- lingkaran yang tak bisa diputus.
-     */
     val urlBayarTersimpan: String? = null,
     val totalTagihan: Long = 0L,
     val expiresAt: String? = null
@@ -88,34 +48,22 @@ data class PaymentState(
 class PaymentViewModel(
     private val repository: Repository,
     private val cart: CartStore,
-    private val percobaan: OrderAttemptStore
+    private val percobaan: OrderAttemptStore,
+    private val appScope: CoroutineScope? = null
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(PaymentState(totalTagihan = totalAwal()))
     val state: StateFlow<PaymentState> = _state.asStateFlow()
     private var pollingJob: Job? = null
+    private var bayarJob: Job? = null
+    private var cekJob: Job? = null
+    private var sudahMulai: Boolean = false
 
-    /**
-     * Angka pra-server yang aman ditampilkan sebelum gateway membalas.
-     *
-     * `cart.subtotal()` tidak tahu soal voucher -- kalau keranjang sedang
-     * memakainya, subtotal lokal SELALU terlalu besar (dipotong belum
-     * dihitung) sampai `bayar()`/`tanyaSampaiPasti()` mengisi angka gateway.
-     * `PaymentWaitScreen` merender blok jumlah begitu `totalTagihan > 0` dan
-     * TIDAK digerbangi `memuat`, jadi angka pra-voucher sempat terlihat kalau
-     * tidak disembunyikan (0L) duluan di sini.
-     */
     private fun totalAwal(): Long = if (cart.voucher() != null) 0L else cart.subtotal()
 
-    /**
-     * Membuat pesanan, atau melanjutkan percobaan yang belum selesai.
-     *
-     * `client_order_id` disimpan SEBELUM permintaan dikirim. Pembayaran
-     * membawa pelanggan keluar aplikasi dan Android boleh mematikan prosesnya;
-     * id yang hanya hidup di memori berarti tagihan kedua saat pelanggan
-     * mencoba ulang.
-     */
     fun bayar() {
+        if (bayarJob?.isActive == true || _state.value.sedangMembatalkan) return
+
         val baris = cart.isi()
         val outletId = cart.outletId()
         val total = cart.subtotal()
@@ -124,14 +72,12 @@ class PaymentViewModel(
             return
         }
 
+        val sidikSekarang = cart.sidikJari()
         val clientOrderId = percobaan.clientOrderId() ?: idPesananBaru().also {
             percobaan.simpanClientOrderId(it)
         }
+        percobaan.simpanSidikJari(sidikSekarang)
 
-        // total lokal dipakai untuk pesan galat "keranjang kosong" di atas (bukan
-        // pembayaran nyata), tapi begitu request BENAR-BENAR dikirim (memuat =
-        // true), tampilkan totalAwal() -- sembunyikan angka pra-voucher yang
-        // salah sampai gateway membalas (I2).
         _state.value = _state.value.copy(
             memuat = true,
             pesanGalat = null,
@@ -141,7 +87,7 @@ class PaymentViewModel(
             totalTagihan = totalAwal()
         )
 
-        viewModelScope.launch {
+        bayarJob = viewModelScope.launch {
             when (
                 val hasil = repository.buatPesanan(
                     clientOrderId,
@@ -158,16 +104,7 @@ class PaymentViewModel(
                         memuat = false,
                         orderId = r.orderId,
                         qrString = r.qrString,
-                        // Keduanya bisa null kalau ini balasan duplikat untuk
-                        // pesanan yang tagihannya sudah dibuat. Bukan galat:
-                        // lanjut menanyakan status saja.
-                        //
-                        // Custom Tab HANYA dibuka bila tidak ada QR -- lihat
-                        // penjaga di PaymentWaitScreen.
                         paymentUrl = r.paymentUrl,
-                        // Angka gateway menang atas subtotal lokal (yang tidak
-                        // tahu soal voucher). QRIS dan layar ini WAJIB menagih
-                        // angka yang sama.
                         totalTagihan = r.totalAmount.roundToLong(),
                         expiresAt = r.expiresAt
                     )
@@ -175,12 +112,11 @@ class PaymentViewModel(
                 }
 
                 is GatewayResult.Gagal -> {
-                    // Satu-satunya kondisi yang boleh mengganti id. Lihat
-                    // `idBerikutnya` -- salah arah di sini berarti pelanggan
-                    // terkunci selamanya atau tertagih dua kali.
                     val idBerikut = idBerikutnya(clientOrderId, hasil.error)
                     if (idBerikut != clientOrderId) {
+                        percobaan.selesai()
                         percobaan.simpanClientOrderId(idBerikut)
+                        percobaan.simpanSidikJari(sidikSekarang)
                     }
                     _state.value = _state.value.copy(
                         memuat = false,
@@ -192,194 +128,184 @@ class PaymentViewModel(
     }
 
     /**
-     * Menanyakan status sampai gateway memastikannya.
-     *
-     * Aplikasi TIDAK PERNAH menyimpulkan pembayaran berhasil dari fakta bahwa
-     * pelanggan kembali dari halaman Xendit. Kebenarannya ada di webhook
-     * Xendit ke gateway; layar ini hanya menunggu gateway mengakuinya.
+     * Menerapkan detail pesanan hasil polling / cek manual.
+     * Mengembalikan `true` bila status sudah terminal (polling harus berhenti).
      */
+    private fun terapkanDetailStatus(d: OrderDetailDto): Boolean {
+        _state.value = _state.value.copy(
+            totalTagihan = d.totalAmount.roundToLong(),
+            expiresAt = d.expiresAt ?: _state.value.expiresAt,
+            // Isi QR & URL cadangan bila sebelumnya kosong (mis. gagal jaringan di mulai()).
+            qrString = d.qrString ?: _state.value.qrString,
+            urlBayarTersimpan = d.paymentUrl ?: _state.value.urlBayarTersimpan
+        )
+        return when (nasibPercobaan(d.status, d.expiresAt, System.currentTimeMillis())) {
+            NasibPercobaan.DIBAYAR -> {
+                cart.kosongkan()
+                percobaan.selesai()
+                _state.value = _state.value.copy(
+                    menungguKonfirmasi = false,
+                    dibayar = true,
+                    nomorPesanan = d.posOrderNumber
+                )
+                true
+            }
+            NasibPercobaan.GAGAL -> {
+                percobaan.selesai()
+                _state.value = _state.value.copy(
+                    menungguKonfirmasi = false,
+                    gagalBayar = true,
+                    qrString = null,
+                    paymentUrl = null,
+                    urlBayarTersimpan = null
+                )
+                true
+            }
+            NasibPercobaan.MULAI_BARU -> {
+                percobaan.selesai()
+                _state.value = _state.value.copy(
+                    menungguKonfirmasi = false,
+                    kadaluarsa = true,
+                    qrString = null,
+                    paymentUrl = null,
+                    urlBayarTersimpan = null
+                )
+                true
+            }
+            NasibPercobaan.LANJUTKAN -> false
+        }
+    }
+
     fun tanyaSampaiPasti(orderId: String) {
         pollingJob?.cancel()
         _state.value = _state.value.copy(menungguKonfirmasi = true, waktuHabis = false)
 
         pollingJob = viewModelScope.launch {
             val mulai = System.currentTimeMillis()
-            val batas = mulai + BATAS_TUNGGU_MS
+            val batasDefault = mulai + BATAS_TUNGGU_MS
 
-            while (System.currentTimeMillis() < batas) {
+            while (true) {
+                val batasDariExpires = _state.value.expiresAt
+                    ?.let { uraiWaktuIso(it) }
+                    ?.let { it + TENGGANG_EXPIRES_MS }
+                val batas = minOf(batasDefault, batasDariExpires ?: batasDefault)
+                if (System.currentTimeMillis() >= batas) break
+
                 when (val hasil = repository.statusPesanan(orderId)) {
                     is GatewayResult.Sukses -> {
-                        val d = hasil.data
-                        // Angka nyata muncul begitu diketahui -- termasuk saat
-                        // status masih "menunggu" dan tidak ada cabang di bawah
-                        // yang cocok. Menunggu sampai `dibayar` berarti layar
-                        // ini menampilkan Rp0 (tersembunyi) atau angka lokal
-                        // yang salah selama pesanan masih diproses.
-                        _state.value = _state.value.copy(
-                            totalTagihan = d.totalAmount.roundToLong(),
-                            expiresAt = d.expiresAt ?: _state.value.expiresAt
-                        )
-                        when (d.status) {
-                            "dibayar" -> {
-                                cart.kosongkan()
-                                percobaan.selesai()
-                                _state.value = _state.value.copy(
-                                    menungguKonfirmasi = false,
-                                    dibayar = true,
-                                    nomorPesanan = d.posOrderNumber
-                                )
-                                return@launch
-                            }
-                            "gagal" -> {
-                                percobaan.simpanClientOrderId(idPesananBaru())
-                                _state.value = _state.value.copy(
-                                    menungguKonfirmasi = false,
-                                    gagalBayar = true,
-                                    qrString = null,
-                                    paymentUrl = null,
-                                    urlBayarTersimpan = null
-                                )
-                                return@launch
-                            }
-                            "kadaluarsa" -> {
-                                // Draft hangus. Percobaan berikutnya WAJIB
-                                // memakai id baru, kalau tidak gateway
-                                // membalas 409 selamanya.
-                                percobaan.simpanClientOrderId(idPesananBaru())
-                                _state.value = _state.value.copy(
-                                    menungguKonfirmasi = false,
-                                    kadaluarsa = true,
-                                    qrString = null,
-                                    paymentUrl = null,
-                                    urlBayarTersimpan = null
-                                )
-                                return@launch
-                            }
+                        if (terapkanDetailStatus(hasil.data)) return@launch
+                    }
+                    is GatewayResult.Gagal -> {
+                        if (hasil.error is GatewayError.SesiTidakSah) {
+                            _state.value = _state.value.copy(
+                                menungguKonfirmasi = false,
+                                pesanGalat = pesanBayar(hasil.error)
+                            )
+                            return@launch
                         }
                     }
-                    // Galat saat menanya BUKAN alasan berhenti: sinyal bisa
-                    // putus sebentar sementara pembayaran sudah masuk.
-                    is GatewayResult.Gagal -> Unit
                 }
 
                 val terlewat = System.currentTimeMillis() - mulai
                 delay(if (terlewat < AMBANG_JEDA_MS) JEDA_TANYA_AWAL_MS else JEDA_TANYA_LANJUT_MS)
             }
 
-            // Habis waktu bukan berarti gagal. Pesanan bisa saja tetap masuk;
-            // pelanggan diarahkan memeriksa riwayat, bukan membayar lagi.
-            _state.value = _state.value.copy(
-                menungguKonfirmasi = false,
-                waktuHabis = true,
-                qrString = null,
-                paymentUrl = null,
-                urlBayarTersimpan = null
-            )
+            // Cek apakah kedaluwarsa berdasarkan expiresAt sebelum jatuh ke waktuHabis.
+            val batasIso = _state.value.expiresAt?.let { uraiWaktuIso(it) }
+            if (batasIso != null && System.currentTimeMillis() >= batasIso) {
+                percobaan.selesai()
+                _state.value = _state.value.copy(
+                    menungguKonfirmasi = false,
+                    kadaluarsa = true,
+                    qrString = null,
+                    paymentUrl = null,
+                    urlBayarTersimpan = null
+                )
+            } else {
+                _state.value = _state.value.copy(
+                    menungguKonfirmasi = false,
+                    waktuHabis = true,
+                    qrString = null,
+                    paymentUrl = null,
+                    urlBayarTersimpan = null
+                )
+            }
         }
     }
 
-    /**
-     * Memeriksa status pesanan segera ketika pelanggan mengetuk tombol
-     * "Cek Status Pembayaran" tanpa membuat tagihan ganda.
-     */
+    /** Dipanggil saat countdown QRIS menyentuh 00:00 untuk segera menyinkronkan status. */
+    fun waktuTimerHabis() {
+        val s = _state.value
+        if (s.dibayar || s.gagalBayar || s.kadaluarsa || s.waktuHabis || s.memuat) return
+        periksaStatusSekarang()
+    }
+
     fun periksaStatusSekarang() {
+        if (_state.value.memuat || _state.value.sedangMembatalkan || cekJob?.isActive == true) return
         val orderId = _state.value.orderId ?: percobaan.orderId()
         if (orderId == null) {
             bayar()
             return
         }
-        viewModelScope.launch {
-            if ( repository.statusPesanan(orderId).let { hasil ->
-                if (hasil is GatewayResult.Sukses) {
-                    val d = hasil.data
-                    _state.value = _state.value.copy(
-                        totalTagihan = d.totalAmount.roundToLong(),
-                        expiresAt = d.expiresAt ?: _state.value.expiresAt
-                    )
-                    when (d.status) {
-                        "dibayar" -> {
-                            pollingJob?.cancel()
-                            cart.kosongkan()
-                            percobaan.selesai()
-                            _state.value = _state.value.copy(
-                                menungguKonfirmasi = false,
-                                dibayar = true,
-                                nomorPesanan = d.posOrderNumber
-                            )
-                            true
-                        }
-                        "gagal" -> {
-                            pollingJob?.cancel()
-                            percobaan.simpanClientOrderId(idPesananBaru())
-                            _state.value = _state.value.copy(
-                                menungguKonfirmasi = false,
-                                gagalBayar = true,
-                                qrString = null,
-                                paymentUrl = null,
-                                urlBayarTersimpan = null
-                            )
-                            true
-                        }
-                        "kadaluarsa" -> {
-                            pollingJob?.cancel()
-                            percobaan.simpanClientOrderId(idPesananBaru())
-                            _state.value = _state.value.copy(
-                                menungguKonfirmasi = false,
-                                kadaluarsa = true,
-                                qrString = null,
-                                paymentUrl = null,
-                                urlBayarTersimpan = null
-                            )
-                            true
-                        }
-                        else -> false
+        cekJob = viewModelScope.launch {
+            when (val hasil = repository.statusPesanan(orderId)) {
+                is GatewayResult.Sukses -> {
+                    if (terapkanDetailStatus(hasil.data)) {
+                        pollingJob?.cancel()
                     }
-                } else false
-            }) return@launch
+                }
+                is GatewayResult.Gagal -> {
+                    if (hasil.error is GatewayError.SesiTidakSah) {
+                        pollingJob?.cancel()
+                        _state.value = _state.value.copy(
+                            menungguKonfirmasi = false,
+                            pesanGalat = pesanBayar(hasil.error)
+                        )
+                    }
+                }
+            }
         }
     }
 
     /**
-     * Titik masuk layar pembayaran.
-     *
-     * Kalau ada percobaan tertinggal, statusnya DIPERIKSA dulu -- tidak
-     * langsung dipantau. Versi sebelumnya memantau apa pun yang tersimpan,
-     * termasuk draft yang batas waktunya sudah lewat: pelanggan menonton
-     * pemuat lima menit penuh untuk pesanan yang tidak akan pernah berubah,
-     * lalu diberi pesan "belum ada kabar" yang keliru.
-     *
-     * Galat jaringan saat memeriksa TIDAK memulai pesanan baru. Pesanan lama
-     * mungkin masih hidup, dan membuat yang baru berarti tagihan kedua.
+     * Titik masuk layar pembayaran. Hanya berjalan sekali per instans ViewModel
+     * agar perubahan konfigurasi tidak memicu `bayar()` ganda.
      */
     fun mulai() {
+        if (sudahMulai) return
+        sudahMulai = true
+
         val orderId = percobaan.orderId()
         if (orderId == null) {
             bayar()
             return
         }
 
-        // Pesanan ini SUDAH ada di server (sedang dilanjutkan, bukan dibuat).
-        // `totalTagihan` dihapus ke 0 di SINI, sebelum permintaan
-        // `statusPesanan` pertama dikirim -- bukan hanya di cabang `Gagal`
-        // (fix round 2). `PaymentWaitScreen` merender blok jumlah begitu
-        // `totalTagihan > 0`, dan blok itu TIDAK digerbangi oleh `memuat`,
-        // jadi selama nilai konstruktor (`cart.subtotal()`, pra-voucher)
-        // masih bertahan di sini, ia sempat terlihat pada round-trip pertama
-        // -- bahkan di jalur yang nanti berujung sukses (LANJUTKAN), bukan
-        // cuma yang berujung galat.
+        // Bila keranjang/voucher/outlet berubah sejak percobaan sebelumnya dibuat,
+        // batalkan draft lama (di scope proses) lalu buat pesanan baru untuk keranjang terbaru.
+        val sidikTersimpan = percobaan.sidikJari()
+        val sidikSekarang = cart.sidikJari()
+        if (sidikTersimpan != null && sidikTersimpan != sidikSekarang) {
+            (appScope ?: viewModelScope).launch {
+                repository.batalkanPesanan(orderId)
+            }
+            percobaan.selesai()
+            bayar()
+            return
+        }
+
         _state.value = _state.value.copy(memuat = true, orderId = orderId, totalTagihan = 0L)
 
-        viewModelScope.launch {
+        bayarJob = viewModelScope.launch {
             when (val hasil = repository.statusPesanan(orderId)) {
                 is GatewayResult.Gagal -> {
-                    // Tidak tahu nasibnya. Arah aman: pantau, jangan menagih ulang.
-                    //
-                    // `totalTagihan` DIHAPUS ke 0, bukan dibiarkan pakai
-                    // `cart.subtotal()` dari inisialisasi -- pesanan ini SUDAH
-                    // ada (kita sedang menanyakan statusnya), jadi angka lokal
-                    // yang tidak tahu soal voucher tidak boleh ditampilkan.
-                    // `tanyaSampaiPasti` di bawah akan mengisinya lagi begitu
-                    // balasan status pertama yang berhasil datang.
+                    if (hasil.error is GatewayError.SesiTidakSah) {
+                        _state.value = _state.value.copy(
+                            memuat = false,
+                            pesanGalat = pesanBayar(hasil.error)
+                        )
+                        return@launch
+                    }
                     _state.value = _state.value.copy(memuat = false, totalTagihan = 0L)
                     tanyaSampaiPasti(orderId)
                 }
@@ -403,30 +329,17 @@ class PaymentViewModel(
                         }
 
                         NasibPercobaan.MULAI_BARU -> {
-                            // Percobaan lama mati. Dibuang, lalu pesanan baru
-                            // dibuat dengan client_order_id baru -- id lama
-                            // sudah terpakai dan akan ditolak 409 selamanya.
                             percobaan.selesai()
                             _state.value = _state.value.copy(memuat = false, orderId = null)
+                            bayarJob = null
                             bayar()
                         }
 
                         NasibPercobaan.LANJUTKAN -> {
-                            // Tagihannya masih berlaku. Pelanggan HARUS punya
-                            // jalan membukanya lagi -- kalau tidak, ia terjebak
-                            // menatap pemuat sementara pesanan kedua ditolak
-                            // demi mencegah tagihan ganda.
                             _state.value = _state.value.copy(
                                 memuat = false,
-                                // QR yang sama ditampilkan lagi, bukan tagihan
-                                // kedua. Server didahulukan untuk URL cadangan:
-                                // salinan lokal hilang saat aplikasi dipasang
-                                // ulang atau pelanggan ganti perangkat.
                                 qrString = d.qrString,
                                 urlBayarTersimpan = d.paymentUrl ?: percobaan.paymentUrl(),
-                                // Angka gateway menang -- pesanan lama ini bisa
-                                // saja dibuat dengan voucher, dan cart.subtotal()
-                                // tidak tahu itu.
                                 totalTagihan = d.totalAmount.roundToLong(),
                                 expiresAt = d.expiresAt
                             )
@@ -438,15 +351,47 @@ class PaymentViewModel(
         }
     }
 
-    fun batalkanPercobaan() {
+    /**
+     * Membatalkan draft di server SEBELUM menghapus [OrderAttemptStore] dan keluar layar.
+     * Menjalankan request pada [appScope] agar tidak ikut ter-cancel bila layar di-pop,
+     * serta menolak hapus jika ternyata server melaporkan pesanan sudah `dibayar`.
+     */
+    fun batalkanPercobaan(onSelesaiBatal: () -> Unit = {}) {
+        if (_state.value.sedangMembatalkan) return
         pollingJob?.cancel()
         pollingJob = null
+        bayarJob?.cancel()
+        bayarJob = null
+
         val orderId = _state.value.orderId ?: percobaan.orderId()
-        percobaan.selesai()
-        _state.value = PaymentState()
-        if (orderId != null) {
-            viewModelScope.launch {
-                repository.batalkanPesanan(orderId)
+        if (orderId == null) {
+            percobaan.selesai()
+            _state.value = PaymentState()
+            onSelesaiBatal()
+            return
+        }
+
+        _state.value = _state.value.copy(sedangMembatalkan = true, pesanGalat = null)
+        val scope = appScope ?: viewModelScope
+        val tugasBatal = scope.async { repository.batalkanPesanan(orderId) }
+        viewModelScope.launch {
+            when (val hasil = tugasBatal.await()) {
+                is GatewayResult.Sukses -> {
+                    percobaan.selesai()
+                    _state.value = PaymentState()
+                    onSelesaiBatal()
+                }
+                is GatewayResult.Gagal -> {
+                    if (hasil.error is GatewayError.Kode && hasil.error.kode == "pesanan_sudah_dibayar") {
+                        _state.value = _state.value.copy(sedangMembatalkan = false)
+                        periksaStatusSekarang()
+                    } else {
+                        _state.value = _state.value.copy(
+                            sedangMembatalkan = false,
+                            pesanGalat = pesanBayar(hasil.error)
+                        )
+                    }
+                }
             }
         }
     }
@@ -456,21 +401,15 @@ class PaymentViewModel(
     }
 }
 
-/**
- * Kalimat untuk galat saat membuat pesanan.
- *
- * `pesanan_sedang_diproses` sengaja TIDAK menyuruh pelanggan mencoba lagi
- * segera: percobaan sebelumnya masih berjalan, dan menekan tombol berkali-kali
- * di titik ini persis perilaku yang menghasilkan tagihan ganda.
- */
-fun pesanBayar(galat: GatewayError): String = when {
-    galat is GatewayError.Kode && galat.kode == "pesanan_sedang_diproses" ->
-        "Pesananmu sedang diproses. Tunggu sebentar, jangan tekan bayar lagi."
-    galat is GatewayError.Kode && galat.kode == "pesanan_kadaluarsa" ->
-        "Batas waktu pembayaran sudah lewat. Tekan bayar lagi untuk memulai ulang."
-    galat is GatewayError.Kode && galat.kode == "keranjang_berubah" ->
-        "Menu outlet berubah sejak kamu memilih. Kembali ke ringkasan untuk memperbaikinya."
-    galat is GatewayError.Kode && galat.kode == "voucher_tidak_berlaku" ->
-        galat.pesan
-    else -> pesanGalat(galat)
+internal fun pesanBayar(error: GatewayError): String = when (error) {
+    is GatewayError.Kode -> when (error.kode) {
+        "pesanan_sedang_diproses" ->
+            "Pesananmu sedang dibuat. Tunggu beberapa detik lalu coba lagi."
+        "pesanan_kadaluarsa" ->
+            "Batas waktu pesanan sebelumnya sudah habis. Tekan Coba lagi untuk membuat pesanan baru."
+        "pesanan_sudah_dibayar" ->
+            "Pesanan ini sudah dibayar. Memeriksa status pesananmu..."
+        else -> error.pesan
+    }
+    else -> pesanGalat(error)
 }

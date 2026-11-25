@@ -86,6 +86,29 @@ export async function DELETE(
   const { id } = await params
   const retail = createRetailClient()
 
+  const { data: draft, error: errBaca } = await retail
+    .from('order_drafts')
+    .select('id, status')
+    .eq('id', id)
+    .eq('customer_id', sesi.customerId)
+    .maybeSingle()
+
+  if (errBaca) {
+    console.error('Gagal membaca draft pesanan sebelum batal:', errBaca)
+    return NextResponse.json({ error: 'Gagal membatalkan pesanan' }, { status: 500 })
+  }
+
+  if (draft?.status === 'dibayar') {
+    return NextResponse.json(
+      { error: 'pesanan_sudah_dibayar', pesan: 'Pesanan ini sudah dibayar dan tidak dapat dibatalkan.' },
+      { status: 409 }
+    )
+  }
+
+  if (!draft || draft.status !== 'menunggu_bayar') {
+    return NextResponse.json({ ok: true })
+  }
+
   const { error } = await retail
     .from('order_drafts')
     .update({ status: 'gagal' })

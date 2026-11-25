@@ -81,7 +81,7 @@ struct CheckoutView: View {
                         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(hex: 0xFCA5A5), lineWidth: 1))
                     }
 
-                    ForEach(vm.masalah, id: \.menuItemId) { m in
+                    ForEach(Array(vm.masalah.enumerated()), id: \.offset) { _, m in
                         KartuMasalah(masalah: m) { Task { await vm.perbaiki(m) } }
                     }
                     if vm.masalah.count > 1 {

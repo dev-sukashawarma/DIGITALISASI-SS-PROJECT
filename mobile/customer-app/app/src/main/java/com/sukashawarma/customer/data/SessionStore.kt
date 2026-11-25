@@ -2,8 +2,10 @@ package com.sukashawarma.customer.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import java.security.KeyStore
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
@@ -27,32 +29,38 @@ class SessionStore(context: Context) {
     }
 
     private fun buatEncryptedPrefs(context: Context): SharedPreferences {
-        return runCatching {
+        fun bikin(): SharedPreferences {
             val masterKey = MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                 .build()
 
-            EncryptedSharedPreferences.create(
+            return EncryptedSharedPreferences.create(
                 context,
                 FILE_NAME,
                 masterKey,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
-        }.getOrElse {
-            // Jika file XML lama ter-restore oleh Auto Backup tanpa kunci Keystore perangkat baru,
-            // bersihkan file lama agar tidak crash lalu buat ulang dari awal.
+        }
+
+        return runCatching { bikin() }.getOrElse { pertama ->
+            Log.w(TAG, "EncryptedSharedPreferences gagal dibuka, mencoba reset Keystore + file: ${pertama.message}")
+            // Jika file XML lama ter-restore atau kunci AndroidKeyStore korup/dibatalkan OS,
+            // hapus file prefs SEKALIGUS alias MasterKey agar tidak terjebak crash loop permanen.
             runCatching { context.deleteSharedPreferences(FILE_NAME) }
-            val masterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-            EncryptedSharedPreferences.create(
-                context,
-                FILE_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
+            runCatching {
+                val ks = KeyStore.getInstance("AndroidKeyStore")
+                ks.load(null)
+                if (ks.containsAlias(MasterKey.DEFAULT_MASTER_KEY_ALIAS)) {
+                    ks.deleteEntry(MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+                }
+            }
+            runCatching { bikin() }.getOrElse { kedua ->
+                Log.e(TAG, "Pemulihan EncryptedSharedPreferences gagal: ${kedua.message}", kedua)
+                // Darurat: prefs memori sementara agar aplikasi tidak crash loop saat startup.
+                // Sesi tidak tersimpan ke disk tak terenkripsi; pelanggan cukup masuk lagi.
+                MemoriSharedPreferences()
+            }
         }
     }
 
@@ -99,6 +107,7 @@ class SessionStore(context: Context) {
     }
 
     private companion object {
+        const val TAG = "SukaSession"
         const val FILE_NAME = "suka_customer_session"
         const val KEY_TOKEN = "token"
         const val KEY_EXPIRES_AT = "expires_at"
@@ -108,8 +117,45 @@ class SessionStore(context: Context) {
     }
 }
 
+/**
+ * Cadangan darurat hanya di memori (tidak pernah menulis token ke disk tak
+ * terenkripsi) bila AndroidKeyStore rusak parah di perangkat tertentu.
+ */
+private class MemoriSharedPreferences : SharedPreferences {
+    private val map = LinkedHashMap<String, Any?>()
+    override fun getAll(): MutableMap<String, *> = HashMap(map)
+    override fun getString(key: String?, defValue: String?): String? = map[key] as? String ?: defValue
+    override fun getStringSet(key: String?, defValues: MutableSet<String>?): MutableSet<String>? = defValues
+    override fun getInt(key: String?, defValue: Int): Int = map[key] as? Int ?: defValue
+    override fun getLong(key: String?, defValue: Long): Long = map[key] as? Long ?: defValue
+    override fun getFloat(key: String?, defValue: Float): Float = map[key] as? Float ?: defValue
+    override fun getBoolean(key: String?, defValue: Boolean): Boolean = map[key] as? Boolean ?: defValue
+    override fun contains(key: String?): Boolean = map.containsKey(key)
+    override fun registerOnSharedPreferenceChangeListener(l: SharedPreferences.OnSharedPreferenceChangeListener?) {}
+    override fun unregisterOnSharedPreferenceChangeListener(l: SharedPreferences.OnSharedPreferenceChangeListener?) {}
+    override fun edit(): SharedPreferences.Editor = object : SharedPreferences.Editor {
+        private val pending = LinkedHashMap<String, Any?>()
+        private val removed = HashSet<String>()
+        private var clearAll = false
+        override fun putString(key: String?, value: String?) = apply { if (key != null) pending[key] = value }
+        override fun putStringSet(key: String?, values: MutableSet<String>?) = this
+        override fun putInt(key: String?, value: Int) = apply { if (key != null) pending[key] = value }
+        override fun putLong(key: String?, value: Long) = apply { if (key != null) pending[key] = value }
+        override fun putFloat(key: String?, value: Float) = apply { if (key != null) pending[key] = value }
+        override fun putBoolean(key: String?, value: Boolean) = apply { if (key != null) pending[key] = value }
+        override fun remove(key: String?) = apply { if (key != null) removed.add(key) }
+        override fun clear() = apply { clearAll = true }
+        override fun commit(): Boolean { apply(); return true }
+        override fun apply() {
+            if (clearAll) map.clear()
+            removed.forEach { map.remove(it) }
+            map.putAll(pending)
+        }
+    }
+}
+
 private val POLA_ISO = Regex(
-    """^(\d{4})-(\d{2})-(\d{2})[Tt ](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?\s*([Zz]|[+-]\d{2}:?\d{2})?$"""
+    """^(\d{4})-(\d{2})-(\d{2})[Tt ](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?\s*([Zz]|[+-]\d{2}(?::?\d{2})?)?$"""
 )
 
 /**
@@ -161,9 +207,12 @@ internal fun uraiWaktuIso(iso: String): Long? {
         else -> {
             val tanda = if (offset[0] == '-') -1 else 1
             val angka = offset.substring(1).replace(":", "")
-            if (angka.length != 4) return null
-            val jam = angka.substring(0, 2).toIntOrNull() ?: return null
-            val menit = angka.substring(2, 4).toIntOrNull() ?: return null
+            val (jam, menit) = when (angka.length) {
+                2 -> (angka.toIntOrNull() ?: return null) to 0
+                4 -> (angka.substring(0, 2).toIntOrNull() ?: return null) to
+                    (angka.substring(2, 4).toIntOrNull() ?: return null)
+                else -> return null
+            }
             tanda * (jam * 60L + menit) * 60_000L
         }
     }

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -94,7 +95,14 @@ fun CheckoutScreen(
     // di server. Validasi ulang saat resume supaya Bayar terkunci lagi kalau
     // memang sudah tak berlaku -- job lama otomatis dibatalkan di dalam
     // `validasi()`, jadi ini aman dobel-panggil dengan `init`.
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.validasi() }
+    var pertamaResume by remember { mutableStateOf(true) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (pertamaResume) {
+            pertamaResume = false
+        } else {
+            viewModel.validasi()
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -117,6 +125,7 @@ fun CheckoutScreen(
                 ) {
                     Column(
                         modifier = Modifier
+                            .navigationBarsPadding()
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp, vertical = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -310,8 +319,8 @@ private fun IsiStitch(
             }
         }
 
-        // 3. Masalah Cart
-        items(state.masalah, key = { it.menuItemId + it.jenis }) { masalah ->
+        // 3. Masalah Cart — pakai index agar aman walau gateway lama mengirim duplikat menuItemId
+        itemsIndexed(state.masalah, key = { idx, it -> "${it.menuItemId}_${it.jenis}_$idx" }) { _, masalah ->
             KartuMasalah(masalah = masalah, onPerbaiki = { viewModel.perbaiki(masalah) })
         }
 

@@ -143,13 +143,13 @@ fun NotificationScreen(
                             Icon(
                                 imageVector = Icons.Filled.DoneAll,
                                 contentDescription = null,
-                                tint = SukaOrange,
+                                tint = SukaBrown,
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
                                 text = "Baca Semua",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    color = SukaOrange,
+                                    color = SukaBrown,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.sp
                                 )
@@ -304,13 +304,13 @@ private fun NotificationCard(
                     )
                 )
 
-                // Footer: tombol aksi kontekstual
+                // Footer: tombol aksi kontekstual (pakai SukaBrown agar lolos WCAG AA >= 4.5:1)
                 if (notif.orderId != null) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Lihat detail pesanan →",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = SukaOrange,
+                            color = SukaBrown,
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp
                         )
@@ -320,7 +320,7 @@ private fun NotificationCard(
                     Text(
                         text = "Buka katalog menu →",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = SukaOrange,
+                            color = SukaBrown,
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp
                         )

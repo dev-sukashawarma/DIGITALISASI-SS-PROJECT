@@ -2,6 +2,7 @@ package com.sukashawarma.customer.ui.home
 
 import com.sukashawarma.customer.data.api.OutletDto
 import java.time.Instant
+import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -13,8 +14,12 @@ fun OutletDto.bolehPesan(): Boolean = bisaPesan ?: isActive
 
 fun labelStatusOutlet(o: OutletDto): String {
     if (o.bolehPesan()) {
-        val terakhir = o.pesanTerakhir?.let {
-            runCatching { JAM.format(Instant.parse(it).atZone(WIB)) }.getOrNull()
+        val terakhir = o.pesanTerakhir?.let { iso ->
+            runCatching {
+                val instant = runCatching { OffsetDateTime.parse(iso).toInstant() }
+                    .getOrElse { Instant.parse(iso) }
+                JAM.format(instant.atZone(WIB))
+            }.getOrNull()
         }
         return if (terakhir != null) "Buka · pesan terakhir $terakhir" else "Buka"
     }

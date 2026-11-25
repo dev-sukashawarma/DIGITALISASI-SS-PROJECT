@@ -64,18 +64,32 @@ class LokasiPelanggan(context: Context) {
         val urutan = buildList {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) add(LocationManager.FUSED_PROVIDER)
             add(LocationManager.NETWORK_PROVIDER)
-            add(LocationManager.GPS_PROVIDER)
+            // Pada API < 31, GPS_PROVIDER menuntut ACCESS_FINE_LOCATION sedangkan manifest hanya
+            // mendeklarasikan ACCESS_COARSE_LOCATION. Hanya sertakan GPS pada API >= 31.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) add(LocationManager.GPS_PROVIDER)
         }
         return urutan.firstOrNull { it in aktif }
     }
 
     @SuppressLint("MissingPermission")
-    private fun lokasiTerakhir(): Location? = try {
-        lm.getProviders(true)
-            .mapNotNull { lm.getLastKnownLocation(it) }
+    private fun lokasiTerakhir(): Location? {
+        val aktif = try {
+            lm.getProviders(true)
+        } catch (_: SecurityException) {
+            return null
+        }
+        // Tangkap SecurityException per provider (dan lewati PASSIVE_PROVIDER) agar kegagalan
+        // satu provider tidak membuang lokasi cache valid dari network/fused.
+        return aktif
+            .filterNot { it == LocationManager.PASSIVE_PROVIDER }
+            .mapNotNull { provider ->
+                try {
+                    lm.getLastKnownLocation(provider)
+                } catch (_: SecurityException) {
+                    null
+                }
+            }
             .maxByOrNull { it.time }
-    } catch (_: SecurityException) {
-        null
     }
 
     @SuppressLint("MissingPermission")

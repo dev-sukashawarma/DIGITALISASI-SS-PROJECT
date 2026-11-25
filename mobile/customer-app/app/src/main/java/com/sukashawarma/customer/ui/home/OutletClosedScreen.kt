@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,14 +14,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,28 +30,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.sukashawarma.customer.ui.components.bounceClick
 import com.sukashawarma.customer.ui.theme.LilitaOne
+import com.sukashawarma.customer.ui.theme.SukaBody
 import com.sukashawarma.customer.ui.theme.SukaBorder
 import com.sukashawarma.customer.ui.theme.SukaBrown
 import com.sukashawarma.customer.ui.theme.SukaCream
-import com.sukashawarma.customer.ui.theme.SukaInk
-import com.sukashawarma.customer.ui.theme.SukaMuted
 import com.sukashawarma.customer.ui.theme.SukaOrange
 
 /**
- * Jam buka outlet. Nilai tetap dari sisi operasional.
- */
-private const val JAM_BUKA_OPERASIONAL = "14:00"
-
-/**
  * Layar 16 — Outlet belum melayani pesanan aplikasi.
+ * Menggunakan status dinamis dari gateway ([pesanStatus]), tanpa jam buka hardcode atau tombol mati.
  */
 @Composable
 fun OutletClosedScreen(
     namaOutlet: String,
     onGantiOutlet: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    pesanStatus: String? = null
 ) {
     Box(
         modifier = modifier
@@ -76,7 +67,6 @@ fun OutletClosedScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Clock / Storefront Badge
                 Box(
                     modifier = Modifier
                         .size(68.dp)
@@ -92,25 +82,27 @@ fun OutletClosedScreen(
                     )
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFFFF0E2),
-                    border = BorderStroke(1.dp, SukaOrange.copy(alpha = 0.35f))
-                ) {
-                    Text(
-                        text = "BUKA JAM $JAM_BUKA_OPERASIONAL WIB",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Black,
-                            color = SukaBrown,
-                            fontSize = 10.sp,
-                            letterSpacing = 0.5.sp
+                if (!pesanStatus.isNullOrBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFFFF0E2),
+                        border = BorderStroke(1.dp, SukaOrange.copy(alpha = 0.35f))
+                    ) {
+                        Text(
+                            text = pesanStatus.uppercase(),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Black,
+                                color = SukaBrown,
+                                fontSize = 10.sp,
+                                letterSpacing = 0.5.sp
+                            )
                         )
-                    )
+                    }
                 }
 
                 Text(
-                    text = "Outlet Belum Buka",
+                    text = "Outlet Sedang Tutup",
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontFamily = LilitaOne,
                         color = SukaBrown,
@@ -120,9 +112,9 @@ fun OutletClosedScreen(
                 )
 
                 Text(
-                    text = "$namaOutlet belum melayani pesanan aplikasi saat ini. Keranjangmu tetap kami simpan dengan aman.",
+                    text = "$namaOutlet belum melayani pesanan aplikasi saat ini. Pilih outlet lain yang sedang buka untuk tetap memesan.",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = SukaMuted,
+                        color = SukaBody,
                         fontSize = 13.sp,
                         lineHeight = 18.sp
                     ),
@@ -135,8 +127,7 @@ fun OutletClosedScreen(
                     onClick = onGantiOutlet,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
-                        .bounceClick(),
+                        .height(50.dp),
                     shape = RoundedCornerShape(25.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = SukaOrange,
@@ -153,44 +144,6 @@ fun OutletClosedScreen(
                         )
                     )
                 }
-
-                OutlinedButton(
-                    onClick = {},
-                    enabled = false,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp),
-                    shape = RoundedCornerShape(23.dp),
-                    border = BorderStroke(1.dp, Color(0xFFE5E7EB))
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Notifications,
-                            contentDescription = null,
-                            tint = SukaMuted,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = "Ingatkan Saya Saat Buka",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                color = SukaMuted,
-                                fontSize = 12.sp
-                            )
-                        )
-                    }
-                }
-
-                Text(
-                    text = "Fitur pengingat notifikasi akan hadir di pembaruan berikutnya.",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        color = SukaMuted.copy(alpha = 0.8f),
-                        fontSize = 10.sp
-                    ),
-                    textAlign = TextAlign.Center
-                )
             }
         }
     }

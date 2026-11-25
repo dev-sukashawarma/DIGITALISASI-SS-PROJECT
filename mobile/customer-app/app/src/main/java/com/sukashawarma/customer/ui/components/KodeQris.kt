@@ -1,7 +1,9 @@
 package com.sukashawarma.customer.ui.components
 
 import android.graphics.Bitmap
+import android.util.Log
 import androidx.compose.foundation.Image
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -66,6 +68,8 @@ fun gambarQris(isi: String): Bitmap? = runCatching {
     Bitmap.createBitmap(lebar, tinggi, Bitmap.Config.ARGB_8888).apply {
         setPixels(piksel, 0, lebar, 0, 0, lebar, tinggi)
     }
+}.onFailure { e ->
+    Log.w("SukaQris", "Gagal menggambar kode QRIS: ${e.message}")
 }.getOrNull()
 
 private const val HITAM = 0xFF000000.toInt()
@@ -81,9 +85,13 @@ private const val PUTIH = 0xFFFFFFFF.toInt()
 @Composable
 fun KartuQris(
     qrString: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onStatusGambar: (berhasil: Boolean) -> Unit = {}
 ) {
     val bitmap = remember(qrString) { gambarQris(qrString) }
+    LaunchedEffect(qrString, bitmap) {
+        onStatusGambar(bitmap != null)
+    }
 
     Surface(
         modifier = modifier.fillMaxWidth(),

@@ -16,6 +16,9 @@ final class CatalogViewModel {
     /// Ada >1 outlet, tak ada yang tersimpan, DAN outlet terdekat tak bisa
     /// ditentukan (lokasi tak diizinkan / tak terdeteksi) — pelanggan memilih sendiri.
     private(set) var perluPilihOutlet = false
+    /// Outlet ditampilkan otomatis sebagai fallback agar Beranda langsung terbuka
+    /// tanpa mencegat pengguna baru di layar Pilih Outlet (paritas Android).
+    private(set) var outletOtomatis = false
     /// Tidak ada satu pun outlet yang ikut serta di aplikasi.
     private(set) var tidakAdaOutlet = false
     /// Keranjang terhapus karena pelanggan berpindah outlet.
@@ -66,15 +69,24 @@ final class CatalogViewModel {
             // Outlet tersimpan yang sudah dicabut dari aplikasi tidak boleh tetap dipakai.
             let tersimpan = outletStore.idTerpilih()
             var pilihan = outlets.first(where: { $0.id == tersimpan }) ?? (outlets.count == 1 ? outlets[0] : nil)
+            var otomatis = false
             // Belum ada pilihan: pakai outlet terdekat dari lokasi pelanggan.
             if pilihan == nil { pilihan = await outletTerdekat(outlets) }
+            // Onboarding tanpa cegat: tampilkan outlet buka pertama agar Beranda langsung penuh.
+            if pilihan == nil {
+                pilihan = outlets.first(where: { $0.bolehPesan }) ?? outlets.first
+                otomatis = true
+            }
             guard let terpilih = pilihan else {
                 memuat = false
                 perluPilihOutlet = true
                 return
             }
 
-            outletStore.simpan(id: terpilih.id, nama: terpilih.name)
+            if !otomatis {
+                outletStore.simpan(id: terpilih.id, nama: terpilih.name)
+            }
+            outletOtomatis = otomatis
             pasangOutletKeKeranjang(terpilih.id)
             await muatKatalog(terpilih)
         }
@@ -85,11 +97,20 @@ final class CatalogViewModel {
         pasangOutletKeKeranjang(o.id)
         memuat = true
         galat = nil
+        kueri = ""
         perluPilihOutlet = false
+        tidakAdaOutlet = false
+        outletOtomatis = false
         outlet = o
         semuaItem = []
         kategori = []
         await muatKatalog(o)
+    }
+
+    func konfirmasiOutletSaatIni() {
+        guard let cur = outlet else { return }
+        outletStore.simpan(id: cur.id, nama: cur.name)
+        outletOtomatis = false
     }
 
     func akuiKeranjangDikosongkan() { keranjangDikosongkan = false }

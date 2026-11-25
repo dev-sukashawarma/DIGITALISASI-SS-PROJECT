@@ -44,6 +44,17 @@ class NotificationStore(context: Context) {
 
     fun bacaFcmToken(): String? = prefs.getString(KEY_FCM_TOKEN, null)
 
+    /** Menghapus seluruh state notifikasi lokal saat keluar atau hapus akun agar tak bocor ke akun berikutnya. */
+    fun bersihkan() {
+        prefs.edit()
+            .remove(KEY_STATUS_PESANAN)
+            .remove(KEY_PROMO)
+            .remove(KEY_UNREAD_COUNT)
+            .remove(KEY_FCM_TOKEN)
+            .apply()
+        _unreadCount.value = 0
+    }
+
     private companion object {
         const val FILE_NAME = "suka_customer_notifications"
         const val KEY_STATUS_PESANAN = "notify_order_status"

@@ -94,7 +94,8 @@ fun pesanGalat(error: GatewayError): String = when (error) {
 fun ErrorState(
     error: GatewayError,
     onCobaLagi: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onMasukLagi: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier.fillMaxWidth().padding(32.dp),
@@ -108,6 +109,10 @@ fun ErrorState(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
-        Button(onClick = onCobaLagi) { Text("Coba lagi") }
+        if (error is GatewayError.SesiTidakSah && onMasukLagi != null) {
+            Button(onClick = onMasukLagi) { Text("Masuk Lagi") }
+        } else {
+            Button(onClick = onCobaLagi) { Text("Coba lagi") }
+        }
     }
 }

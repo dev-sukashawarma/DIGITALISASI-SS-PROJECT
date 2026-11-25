@@ -1,6 +1,9 @@
 package com.sukashawarma.customer.ui.payment
 
+import android.content.ActivityNotFoundException
 import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.browser.customtabs.CustomTabColorSchemeParams
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.animation.core.RepeatMode
@@ -99,6 +102,9 @@ fun PaymentWaitScreen(
 
     var urlTerbuka by remember { mutableStateOf<String?>(null) }
     var tampilkanInfoQris by remember { mutableStateOf(false) }
+    var qrisGagalDigambar by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = state.sedangMembatalkan) {}
 
     LaunchedEffect(state.paymentUrl, state.qrString) {
         val url = state.paymentUrl
@@ -131,6 +137,9 @@ fun PaymentWaitScreen(
             } else {
                 (detikTersisa - 1).coerceAtLeast(0)
             }
+        }
+        if (batasEpoch != null && detikTersisa == 0) {
+            viewModel.waktuTimerHabis()
         }
     }
     val menit = detikTersisa / 60
@@ -203,10 +212,10 @@ fun PaymentWaitScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(48.dp)
                             .clip(CircleShape)
                             .background(Color.White)
-                            .bounceClick(onClick = onKembaliKeRingkasan),
+                            .bounceClick(onClick = { if (!state.sedangMembatalkan) onKembaliKeRingkasan() }),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -274,10 +283,10 @@ fun PaymentWaitScreen(
                     ) {
                         Button(
                             onClick = viewModel::periksaStatusSekarang,
+                            enabled = !state.memuat && !state.sedangMembatalkan,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(52.dp)
-                                .bounceClick(),
+                                .height(52.dp),
                             shape = RoundedCornerShape(26.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = SukaOrange,
@@ -308,13 +317,13 @@ fun PaymentWaitScreen(
 
                         TextButton(
                             onClick = {
-                                viewModel.batalkanPercobaan()
-                                onKembaliKeRingkasan()
+                                viewModel.batalkanPercobaan(onSelesaiBatal = onKembaliKeRingkasan)
                             },
+                            enabled = !state.sedangMembatalkan,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "Batalkan Pembayaran",
+                                text = if (state.sedangMembatalkan) "Membatalkan..." else "Batalkan Pembayaran",
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFFD92D20),
@@ -612,9 +621,13 @@ fun PaymentWaitScreen(
                                         .border(BorderStroke(2.dp, Color(0xFFEAD7C5)), RoundedCornerShape(18.dp))
                                         .padding(8.dp)
                                 ) {
-                                    KartuQris(qrString = qr)
+                                    KartuQris(
+                                        qrString = qr,
+                                        onStatusGambar = { berhasil -> qrisGagalDigambar = !berhasil }
+                                    )
                                 }
                             } ?: run {
+                                qrisGagalDigambar = false
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -654,7 +667,7 @@ fun PaymentWaitScreen(
 
                             // Fallback CustomTab Button
                             val urlCadangan = state.urlBayarTersimpan ?: state.paymentUrl
-                            if (state.qrString == null && urlCadangan != null) {
+                            if ((state.qrString == null || qrisGagalDigambar) && urlCadangan != null) {
                                 Spacer(modifier = Modifier.height(12.dp))
                                 OutlinedButton(
                                     onClick = { bukaHalamanBayar(context, urlCadangan) },
@@ -916,8 +929,7 @@ private fun StatusCardState(
                 onClick = onAksiUtama,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
-                    .bounceClick(),
+                    .height(48.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SukaOrange)
             ) {
@@ -934,6 +946,8 @@ private fun StatusCardState(
 }
 
 private fun bukaHalamanBayar(context: android.content.Context, url: String) {
+    val bersih = url.trim()
+    if (!bersih.startsWith("https://") && !bersih.startsWith("http://")) return
     val warnaKustom = CustomTabColorSchemeParams.Builder()
         .setToolbarColor(SukaBrown.toArgb())
         .build()
@@ -941,5 +955,9 @@ private fun bukaHalamanBayar(context: android.content.Context, url: String) {
         .setDefaultColorSchemeParams(warnaKustom)
         .setShowTitle(true)
         .build()
-    intent.launchUrl(context, Uri.parse(url))
+    try {
+        intent.launchUrl(context, Uri.parse(bersih))
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(context, "Tidak ada peramban untuk membuka halaman pembayaran.", Toast.LENGTH_SHORT).show()
+    }
 }

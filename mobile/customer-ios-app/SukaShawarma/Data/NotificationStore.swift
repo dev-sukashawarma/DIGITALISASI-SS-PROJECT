@@ -35,4 +35,12 @@ final class NotificationStore {
         unreadCount = max(n, 0)
         defaults.set(unreadCount, forKey: Self.kunciUnread)
     }
+
+    /// Bersihkan seluruh preferensi & badge saat keluar atau hapus akun agar tak bocor ke akun lain.
+    func bersihkan() {
+        for k in [Self.kunciPesanan, Self.kunciPromo, Self.kunciUnread] {
+            defaults.removeObject(forKey: k)
+        }
+        unreadCount = 0
+    }
 }

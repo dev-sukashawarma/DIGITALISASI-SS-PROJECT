@@ -29,7 +29,7 @@ func jarakOutlet(_ outlet: OutletDto, _ posisi: Koordinat) -> Double? {
 ///  - tanpa posisi (izin ditolak / lokasi mati): alfabetis.
 func urutkanOutlet(_ outlets: [OutletDto], posisi: Koordinat? = nil) -> [OutletDto] {
     outlets.sorted { a, b in
-        if a.isActive != b.isActive { return a.isActive }
+        if a.bolehPesan != b.bolehPesan { return a.bolehPesan }
         if let posisi {
             let ja = jarakOutlet(a, posisi), jb = jarakOutlet(b, posisi)
             if (ja == nil) != (jb == nil) { return ja != nil }

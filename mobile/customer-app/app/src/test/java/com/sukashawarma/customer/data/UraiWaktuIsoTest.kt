@@ -66,6 +66,18 @@ class UraiWaktuIsoTest {
     }
 
     @Test
+    fun `offset dua digit ala Postgres seperti +00 dan +07 diterima`() {
+        assertEquals(
+            uraiWaktuIso("2026-09-07T03:23:34.097Z"),
+            uraiWaktuIso("2026-09-07T03:23:34.097+00")
+        )
+        assertEquals(
+            uraiWaktuIso("2026-09-07T03:23:34.097Z"),
+            uraiWaktuIso("2026-09-07T10:23:34.097+07")
+        )
+    }
+
+    @Test
     fun `tanggal yang tidak masuk akal ditolak`() {
         assertNull(uraiWaktuIso("2026-13-45T99:99:99Z"))
     }

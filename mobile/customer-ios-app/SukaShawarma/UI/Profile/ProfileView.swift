@@ -88,7 +88,7 @@ struct ProfileView: View {
         .confirmationDialog("Keluar dari akun?", isPresented: $konfirmasiKeluar, titleVisibility: .visible) {
             Button("Keluar", role: .destructive, action: onKeluar)
         } message: {
-            Text("Keranjangmu tetap tersimpan di HP ini.")
+            Text("Keranjang yang belum dibayar akan dikosongkan. Kamu tetap bisa melihat menu dan masuk lagi kapan saja.")
         }
     }
 

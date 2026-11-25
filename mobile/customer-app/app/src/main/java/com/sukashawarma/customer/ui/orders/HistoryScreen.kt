@@ -31,7 +31,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Storefront
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -86,6 +89,16 @@ fun HistoryScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var selectedFilter by remember { mutableStateOf(FilterRiwayat.SEMUA) }
 
+    // Segarkan tiap kali tab Pesanan kembali tampil agar pesanan yang baru dibayar langsung muncul.
+    var pertamaResume by remember { mutableStateOf(true) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (pertamaResume) {
+            pertamaResume = false
+        } else {
+            viewModel.muat()
+        }
+    }
+
     val infiniteTransition = rememberInfiniteTransition(label = "pulseActive")
     val pulseAlpha by infiniteTransition.animateFloat(
         initialValue = 0.4f,
@@ -108,22 +121,42 @@ fun HistoryScreen(
                 subjudul = "Pantau status & riwayat pesananmu",
                 onKembali = null,
                 aksiKanan = {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(SukaOrange)
-                            .bounceClick(scaleDown = 0.94f) { onBukaProfil() },
-                        contentAlignment = Alignment.Center
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = inisial,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                color = SukaInk,
-                                fontSize = 11.sp
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.16f))
+                                .bounceClick(scaleDown = 0.94f) { viewModel.muat() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = "Segarkan Riwayat",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
                             )
-                        )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(SukaOrange)
+                                .bounceClick(scaleDown = 0.94f) { onBukaProfil() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = inisial,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = SukaInk,
+                                    fontSize = 11.sp
+                                )
+                            )
+                        }
                     }
                 },
                 // Kategori "Semua / Sedang Berjalan / Selesai / Dibatalkan"
@@ -213,7 +246,7 @@ fun HistoryScreen(
                         FilterRiwayat.SEMUA -> state.pesanan
                         FilterRiwayat.BERJALAN -> state.pesanan.filter {
                             val t = tampilanStatus(it.statusDapur, it.status)
-                            t.tahap != null && !t.berakhir
+                            !t.berakhir
                         }
                         FilterRiwayat.SELESAI -> state.pesanan.filter {
                             tampilanStatus(it.statusDapur, it.status).selesai

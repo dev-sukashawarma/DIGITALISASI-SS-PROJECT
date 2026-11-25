@@ -19,6 +19,9 @@ class StatusOutletLabelTest {
     @Test fun `label buka menyebut pesan terakhir dalam WIB`() =
         assertEquals("Buka · pesan terakhir 21.30", labelStatusOutlet(o(true, terakhir = "2026-09-24T14:30:00.000Z")))
 
+    @Test fun `label buka juga mengurai pesan terakhir ber-offset +07_00`() =
+        assertEquals("Buka · pesan terakhir 21.30", labelStatusOutlet(o(true, terakhir = "2026-09-24T21:30:00+07:00")))
+
     @Test fun `label tutup memakai kalimat gateway`() =
         assertEquals("Outlet belum buka. Buka pukul 14.00.", labelStatusOutlet(o(false, pesan = "Outlet belum buka. Buka pukul 14.00.")))
 

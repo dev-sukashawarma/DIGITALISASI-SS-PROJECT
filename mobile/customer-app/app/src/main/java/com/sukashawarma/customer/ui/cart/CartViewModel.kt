@@ -1,12 +1,14 @@
 package com.sukashawarma.customer.ui.cart
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.sukashawarma.customer.data.CartLine
 import com.sukashawarma.customer.data.CartStore
 import com.sukashawarma.customer.data.CartTopping
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
 data class CartState(
     val baris: List<CartLine> = emptyList(),
@@ -17,26 +19,27 @@ data class CartState(
 /**
  * Jendela baca-tulis ke [CartStore].
  *
- * `CartStore` sengaja tetap sinkron dan tidak memancarkan aliran sendiri --
- * ia dipakai juga dari luar Compose (mis. saat outlet berganti). ViewModel
- * inilah yang menyegarkan tampilan setelah setiap perubahan, lewat [segarkan].
- * Satu ViewModel dipakai bersama seluruh layar supaya tidak ada dua salinan
- * keranjang yang saling menyimpang.
+ * Kini reaktif langsung terhadap [CartStore.snapshot] sehingga setiap perubahan
+ * (termasuk dari Checkout `perbaiki()`, pergantian outlet otomatis, logout, atau
+ * pembayaran lunas) otomatis tercermin tanpa risiko index-shift akibat lupa
+ * memanggil `segarkan()`.
  */
 class CartViewModel(private val cart: CartStore) : ViewModel() {
 
-    private val _state = MutableStateFlow(baca())
-    val state: StateFlow<CartState> = _state.asStateFlow()
+    val state: StateFlow<CartState> = cart.snapshot
+        .map { snap -> CartState(baris = snap.baris, subtotal = snap.subtotal, porsi = snap.porsi) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = CartState(
+                baris = cart.isi(),
+                subtotal = cart.subtotal(),
+                porsi = cart.jumlahPorsi()
+            )
+        )
 
-    private fun baca() = CartState(
-        baris = cart.isi(),
-        subtotal = cart.subtotal(),
-        porsi = cart.jumlahPorsi()
-    )
-
-    fun segarkan() {
-        _state.value = baca()
-    }
+    /** Dipertahankan untuk kompatibilitas pemanggil; [state] sudah selalu segar otomatis. */
+    fun segarkan() = Unit
 
     fun tambah(
         menuItemId: String,
@@ -47,26 +50,21 @@ class CartViewModel(private val cart: CartStore) : ViewModel() {
         toppings: List<CartTopping> = emptyList()
     ) {
         cart.tambah(menuItemId, nama, hargaSatuan, jumlah, catatan, toppings)
-        segarkan()
     }
 
     fun hapusTopping(index: Int, toppingMenuItemId: String) {
         cart.hapusTopping(index, toppingMenuItemId)
-        segarkan()
     }
 
     fun ubahJumlah(index: Int, delta: Int) {
         cart.ubahJumlah(index, delta)
-        segarkan()
     }
 
     fun hapus(index: Int) {
         cart.hapus(index)
-        segarkan()
     }
 
     fun kosongkan() {
         cart.kosongkan()
-        segarkan()
     }
 }

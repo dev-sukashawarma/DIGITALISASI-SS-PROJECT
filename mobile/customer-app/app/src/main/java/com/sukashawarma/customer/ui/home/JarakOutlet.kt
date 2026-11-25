@@ -37,7 +37,7 @@ fun jarakOutlet(outlet: OutletDto, posisi: Koordinat): Double? {
  *  - tanpa posisi (izin ditolak / GPS mati): alfabetis.
  */
 fun urutkanOutlet(outlets: List<OutletDto>, posisi: Koordinat? = null): List<OutletDto> {
-    val bukaDulu = compareByDescending<OutletDto> { it.isActive }
+    val bukaDulu = compareByDescending<OutletDto> { it.bolehPesan() }
     val pembanding = if (posisi == null) {
         bukaDulu
     } else {

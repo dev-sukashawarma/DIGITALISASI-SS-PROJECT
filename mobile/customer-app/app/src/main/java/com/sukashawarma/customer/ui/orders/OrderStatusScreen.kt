@@ -230,8 +230,8 @@ fun OrderStatusScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    // "Live dari dapur" hanya untuk pesanan yang masih berjalan.
-                                    if (!tampil.berakhir) Surface(
+                                    // "Live dari dapur" hanya untuk pesanan yang sudah masuk dapur & masih berjalan.
+                                    if (tampil.tahap != null && !tampil.berakhir) Surface(
                                         shape = RoundedCornerShape(20.dp),
                                         color = SukaOrange.copy(alpha = 0.25f),
                                         border = BorderStroke(1.dp, SukaOrange.copy(alpha = 0.5f))
@@ -326,7 +326,7 @@ fun OrderStatusScreen(
                                                     Text(
                                                         text = when (tampil.tahap) {
                                                             TahapPesanan.DITERIMA -> "Estimasi Siap: ~${LocalConfigApp.current.estimasiSiap}"
-                                                            TahapPesanan.DIBUAT -> "Estimasi Siap: ~5-10 mnt"
+                                                            TahapPesanan.DIBUAT -> "Estimasi Siap: ~${LocalConfigApp.current.estimasiSiap}"
                                                             TahapPesanan.SIAP -> if (tampil.selesai) "Selesai" else "Siap Diambil Sekarang!"
                                                             null -> "Menunggu"
                                                         },
@@ -489,7 +489,7 @@ fun OrderStatusScreen(
                                     title = "Siap Diambil",
                                     desc = "Langsung menuju counter Online Pickup tanpa antre",
                                     isDone = siapSelesai,
-                                    isActive = tampil.tahap == TahapPesanan.SIAP,
+                                    isActive = tampil.tahap == TahapPesanan.SIAP && !tampil.selesai,
                                     isLast = true
                                 )
                             }

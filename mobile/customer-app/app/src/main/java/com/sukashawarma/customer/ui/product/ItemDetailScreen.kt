@@ -45,7 +45,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -158,6 +160,7 @@ fun ItemDetailScreen(
             ) {
                 Column(
                     modifier = Modifier
+                        .navigationBarsPadding()
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -265,13 +268,15 @@ fun ItemDetailScreen(
 
                         // Tambah ke Keranjang CTA Button
                         val ctaInteraction = remember { MutableInteractionSource() }
+                        var sudahDitambah by remember { mutableStateOf(false) }
                         Button(
                             onClick = {
-                                if (item.isAvailable && outletBolehPesan) {
+                                if (!sudahDitambah && item.isAvailable && outletBolehPesan) {
+                                    sudahDitambah = true
                                     onTambahKeKeranjang(state.jumlah, state.catatan.ifBlank { null }, selectedToppingsList)
                                 }
                             },
-                            enabled = item.isAvailable && outletBolehPesan,
+                            enabled = !sudahDitambah && item.isAvailable && outletBolehPesan,
                             interactionSource = ctaInteraction,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = SukaOrange,

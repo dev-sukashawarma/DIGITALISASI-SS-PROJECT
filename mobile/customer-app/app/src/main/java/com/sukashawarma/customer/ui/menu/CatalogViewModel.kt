@@ -11,6 +11,11 @@ import com.sukashawarma.customer.data.api.GatewayResult
 import com.sukashawarma.customer.data.api.MenuItemDto
 import com.sukashawarma.customer.data.api.OutletDto
 import com.sukashawarma.customer.ui.components.BottomNavTab
+import com.sukashawarma.customer.ui.home.HasilLokasi
+import com.sukashawarma.customer.ui.home.LokasiPelanggan
+import com.sukashawarma.customer.ui.home.bolehPesan
+import com.sukashawarma.customer.ui.home.urutkanOutlet
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -30,6 +35,13 @@ data class CatalogState(
     val kategori: List<KategoriMenu> = emptyList(),
     /** Tidak ada outlet tersimpan dan tidak bisa ditentukan sendiri. */
     val perluPilihOutlet: Boolean = false,
+    /**
+     * Outlet ditampilkan otomatis sebagai fallback agar Beranda langsung terbuka
+     * tanpa mencegat pengguna baru di layar Pilih Outlet. Dipakai untuk menampilkan
+     * strip pengingat ringan di Beranda dan konfirmasi 1x sebelum bayar agar tidak
+     * salah cabang.
+     */
+    val outletOtomatis: Boolean = false,
     /** Tidak ada satu pun outlet yang ikut serta di aplikasi. */
     val tidakAdaOutlet: Boolean = false,
     /** Keranjang terhapus karena pelanggan berpindah outlet. */
@@ -41,7 +53,9 @@ data class CatalogState(
 class CatalogViewModel(
     private val repository: Repository,
     private val outletStore: OutletStore,
-    private val cart: CartStore
+    private val cart: CartStore,
+    private val lokasi: LokasiPelanggan? = null,
+    muatAwal: Boolean = true
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CatalogState())
@@ -53,6 +67,9 @@ class CatalogViewModel(
     private val _activeTab = MutableStateFlow(BottomNavTab.BERANDA)
     val activeTab: StateFlow<BottomNavTab> = _activeTab.asStateFlow()
 
+    private var muatJob: Job? = null
+    private var bannerJob: Job? = null
+
     fun setTab(tab: BottomNavTab) {
         _activeTab.value = tab
         when (tab) {
@@ -63,24 +80,25 @@ class CatalogViewModel(
     }
 
     init {
-        muat()
+        if (muatAwal) muat()
     }
 
     fun muat() {
-        _state.value = _state.value.copy(memuat = true, galat = null)
-        viewModelScope.launch {
+        muatJob?.cancel()
+        _state.value = _state.value.copy(
+            memuat = true,
+            galat = null,
+            perluPilihOutlet = false,
+            tidakAdaOutlet = false
+        )
+        muatJob = viewModelScope.launch {
             when (val hasil = repository.outlets()) {
                 is GatewayResult.Gagal -> {
                     _state.value = _state.value.copy(memuat = false, galat = hasil.error)
                 }
                 is GatewayResult.Sukses -> {
-                    // Banner tidak boleh menjatuhkan Beranda ATAU menahannya:
-                    // gagal memuatnya berarti tidak ada banner, bukan layar
-                    // galat, dan lambat memuatnya tidak boleh membuat seluruh
-                    // layar menunggu -- dijalankan di coroutine terpisah
-                    // (bukan di-await di jalur ini) supaya katalog, isi utama
-                    // halaman ini, tidak duduk di spinner menunggu banner.
-                    viewModelScope.launch {
+                    bannerJob?.cancel()
+                    bannerJob = viewModelScope.launch {
                         val banner = repository.banners()
                         if (banner is GatewayResult.Sukses) {
                             _state.value = _state.value.copy(
@@ -99,23 +117,34 @@ class CatalogViewModel(
                         return@launch
                     }
 
-                    // Outlet tersimpan yang sudah dicabut dari aplikasi tidak
-                    // boleh tetap dipakai: pelanggan akan melihat menu outlet
-                    // yang tak lagi melayani pesanan aplikasi.
+                    // Prioritas 1: outlet yang pernah dipilih pelanggan (dan masih aktif di app).
+                    // Prioritas 2: hanya ada 1 outlet.
                     val tersimpan = outletStore.idTerpilih()
-                    val terpilih = outlets.firstOrNull { it.id == tersimpan }
+                    var terpilih = outlets.firstOrNull { it.id == tersimpan }
                         ?: outlets.singleOrNull()
+                    var otomatis = false
 
-                    if (terpilih == null) {
-                        _state.value = _state.value.copy(
-                            memuat = false,
-                            perluPilihOutlet = true
-                        )
-                        return@launch
+                    // Prioritas 3: outlet buka terdekat bila izin lokasi sudah diberikan.
+                    if (terpilih == null && lokasi != null && lokasi.punyaIzin()) {
+                        val hasilLokasi = lokasi.ambil()
+                        if (hasilLokasi is HasilLokasi.Ada) {
+                            terpilih = urutkanOutlet(outlets, hasilLokasi.koordinat).firstOrNull()
+                        }
                     }
 
-                    outletStore.simpan(terpilih.id, terpilih.name)
+                    // Prioritas 4 (onboarding tanpa cegat): pilih outlet buka pertama
+                    // sebagai tampilan awal agar Beranda langsung terbuka penuh, sambil
+                    // menandai `outletOtomatis = true` untuk konfirmasi ringan sebelum bayar.
+                    if (terpilih == null) {
+                        terpilih = outlets.firstOrNull { it.bolehPesan() } ?: outlets.first()
+                        otomatis = true
+                    }
+
+                    if (!otomatis) {
+                        outletStore.simpan(terpilih.id, terpilih.name)
+                    }
                     pasangOutletKeKeranjang(terpilih.id)
+                    _state.value = _state.value.copy(outletOtomatis = otomatis)
                     muatKatalog(terpilih)
                 }
             }
@@ -123,32 +152,32 @@ class CatalogViewModel(
     }
 
     fun pilihOutlet(outlet: OutletDto) {
+        muatJob?.cancel()
         outletStore.simpan(outlet.id, outlet.name)
         pasangOutletKeKeranjang(outlet.id)
         _state.value = _state.value.copy(
             memuat = true,
             galat = null,
+            kueri = "",
             perluPilihOutlet = false,
+            tidakAdaOutlet = false,
+            outletOtomatis = false,
             outlet = outlet,
             semuaItem = emptyList(),
             kategori = emptyList()
         )
-        viewModelScope.launch { muatKatalog(outlet) }
+        muatJob = viewModelScope.launch { muatKatalog(outlet) }
     }
 
-    /**
-     * `bisa_pesan`/`pesan_status` bergantung waktu (jam buka, tutup
-     * sementara), jadi outlet yang sudah dipasang di [state] bisa basi hanya
-     * karena waktu berlalu -- pelanggan yang membuka app sebelum outlet buka
-     * lalu membiarkannya di latar belakang akan tetap melihat "Tutup" walau
-     * jam buka sudah lewat.
-     *
-     * Sengaja ringan: hanya mengganti [CatalogState.outlet], tanpa spinner,
-     * tanpa memuat ulang katalog, tanpa menyentuh keranjang. Gagal jaringan
-     * dibiarkan senyap -- nilai lama dipertahankan, bukan galat yang
-     * menjatuhkan layar untuk penyegaran yang sifatnya best-effort.
-     */
+    /** Pelanggan mengonfirmasi outlet otomatis saat akan lanjut ke pembayaran. */
+    fun konfirmasiOutletSaatIni() {
+        val cur = _state.value.outlet ?: return
+        outletStore.simpan(cur.id, cur.name)
+        _state.value = _state.value.copy(outletOtomatis = false)
+    }
+
     fun segarkanStatusOutlet() {
+        if (_state.value.outlet == null) return
         viewModelScope.launch {
             val hasil = repository.outlets()
             if (hasil is GatewayResult.Sukses) {
@@ -163,12 +192,6 @@ class CatalogViewModel(
         _state.value = _state.value.copy(keranjangDikosongkan = false)
     }
 
-    /**
-     * `menu_item_id` bersifat per-outlet, jadi keranjang milik outlet lain
-     * pasti ditolak gateway saat checkout. Mengosongkannya di sini -- saat
-     * pelanggan masih di katalog dan bisa memesan ulang -- jauh lebih baik
-     * daripada membiarkannya gagal di titik pembayaran.
-     */
     private fun pasangOutletKeKeranjang(outletId: String) {
         if (cart.pakaiOutlet(outletId)) {
             _state.value = _state.value.copy(keranjangDikosongkan = true)
@@ -186,9 +209,6 @@ class CatalogViewModel(
     private suspend fun muatKatalog(outlet: OutletDto) {
         when (val hasil = repository.katalog(outlet.id)) {
             is GatewayResult.Gagal -> {
-                // Outlet tetap dipasang walau katalog gagal: kepala layar dan
-                // tombol "Ganti" harus tetap bisa dipakai, kalau tidak
-                // pelanggan terjebak di layar galat tanpa jalan keluar.
                 _state.value = _state.value.copy(
                     memuat = false,
                     outlet = outlet,
@@ -196,13 +216,12 @@ class CatalogViewModel(
                 )
             }
             is GatewayResult.Sukses -> {
-                val kueri = _state.value.kueri
+                val items = hasil.data
                 _state.value = _state.value.copy(
                     memuat = false,
-                    galat = null,
                     outlet = outlet,
-                    semuaItem = hasil.data,
-                    kategori = kelompokkanPerKategori(saringPencarian(hasil.data, kueri))
+                    semuaItem = items,
+                    kategori = kelompokkanPerKategori(saringPencarian(items, _state.value.kueri))
                 )
             }
         }

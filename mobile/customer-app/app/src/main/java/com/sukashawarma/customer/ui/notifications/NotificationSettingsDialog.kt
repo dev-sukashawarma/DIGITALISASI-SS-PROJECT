@@ -2,6 +2,7 @@ package com.sukashawarma.customer.ui.notifications
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -95,7 +96,7 @@ fun NotificationSettingsDialog(
 
                     IconButton(
                         onClick = onDismiss,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Close,
@@ -131,15 +132,19 @@ fun NotificationSettingsDialog(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Tombol Simpan
+                // Tombol Simpan — pakai shared interactionSource (JANGAN passing lambda {} ke bounceClick,
+                // karena itu menelan klik Button sebelum onClick sempat berjalan).
+                val simpanInteraction = remember { MutableInteractionSource() }
                 Button(
                     onClick = {
                         onSimpan(statusPesanan, promo)
                         onDismiss()
                     },
+                    interactionSource = simpanInteraction,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .bounceClick(scaleDown = 0.98f) {},
+                        .height(48.dp)
+                        .bounceClick(scaleDown = 0.98f, interactionSource = simpanInteraction),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = SukaOrange)
                 ) {

@@ -82,37 +82,54 @@ class NotificationViewModel(
     fun tandaiDibaca(id: String) {
         viewModelScope.launch {
             val listLama = _state.value.semuaNotifikasi
+            val unreadLama = _state.value.unreadCount
             val target = listLama.find { it.id == id } ?: return@launch
             if (target.isRead) return@launch
 
-            // Optimistic update
+            // Optimistic update + rollback bila server menolak/gagal.
             val listBaru = listLama.map { if (it.id == id) it.copy(isRead = true) else it }
-            val unreadBaru = (_state.value.unreadCount - 1).coerceAtLeast(0)
+            val unreadBaru = (unreadLama - 1).coerceAtLeast(0)
             notificationStore.setUnreadCount(unreadBaru)
             _state.value = _state.value.copy(
                 semuaNotifikasi = listBaru,
                 unreadCount = unreadBaru
             )
 
-            repository.tandaiNotifikasiDibaca(notificationId = id)
+            if (repository.tandaiNotifikasiDibaca(notificationId = id) is GatewayResult.Gagal) {
+                notificationStore.setUnreadCount(unreadLama)
+                _state.value = _state.value.copy(
+                    semuaNotifikasi = listLama,
+                    unreadCount = unreadLama
+                )
+            }
         }
     }
 
     fun tandaiSemuaDibaca() {
         viewModelScope.launch {
-            if (_state.value.unreadCount == 0) return@launch
+            if (_state.value.unreadCount == 0 || _state.value.sedangMemproses) return@launch
+            val listLama = _state.value.semuaNotifikasi
+            val unreadLama = _state.value.unreadCount
             _state.value = _state.value.copy(sedangMemproses = true)
 
-            // Optimistic update
-            val listBaru = _state.value.semuaNotifikasi.map { it.copy(isRead = true) }
+            val listBaru = listLama.map { it.copy(isRead = true) }
             notificationStore.setUnreadCount(0)
             _state.value = _state.value.copy(
                 semuaNotifikasi = listBaru,
-                unreadCount = 0,
-                sedangMemproses = false
+                unreadCount = 0
             )
 
-            repository.tandaiNotifikasiDibaca(tandaiSemua = true)
+            val hasil = repository.tandaiNotifikasiDibaca(tandaiSemua = true)
+            if (hasil is GatewayResult.Gagal) {
+                notificationStore.setUnreadCount(unreadLama)
+                _state.value = _state.value.copy(
+                    semuaNotifikasi = listLama,
+                    unreadCount = unreadLama,
+                    sedangMemproses = false
+                )
+            } else {
+                _state.value = _state.value.copy(sedangMemproses = false)
+            }
         }
     }
 }

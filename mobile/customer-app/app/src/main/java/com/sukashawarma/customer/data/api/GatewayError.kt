@@ -28,8 +28,10 @@ fun petakanGalat(status: Int, body: String?): GatewayError {
     val terurai = runCatching { json.parseToJsonElement(body ?: "").jsonObject }.getOrNull()
         ?: return GatewayError.Server(status)
 
-    val kode = terurai["error"]?.jsonPrimitive?.contentOrNull ?: return GatewayError.Server(status)
-    val pesan = terurai["pesan"]?.jsonPrimitive?.contentOrNull ?: kode
+    val kode = runCatching { terurai["error"]?.jsonPrimitive?.contentOrNull }.getOrNull()
+        ?: return GatewayError.Server(status)
+    val pesan = runCatching { terurai["pesan"]?.jsonPrimitive?.contentOrNull }.getOrNull()
+        ?: kode
 
     return GatewayError.Kode(kode, pesan)
 }

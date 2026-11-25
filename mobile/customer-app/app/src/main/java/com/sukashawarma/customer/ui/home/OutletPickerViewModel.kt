@@ -6,6 +6,7 @@ import com.sukashawarma.customer.data.Repository
 import com.sukashawarma.customer.data.api.GatewayError
 import com.sukashawarma.customer.data.api.GatewayResult
 import com.sukashawarma.customer.data.api.OutletDto
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -45,6 +46,7 @@ class OutletPickerViewModel(
 
     private val _state = MutableStateFlow(OutletPickerState())
     val state: StateFlow<OutletPickerState> = _state.asStateFlow()
+    private var lokasiJob: Job? = null
 
     init {
         muat()
@@ -54,11 +56,13 @@ class OutletPickerViewModel(
     /** Dipanggil saat layar dibuka, setelah izin dijawab, dan dari tombol lokasi. */
     fun perbaruiLokasi() {
         if (!lokasi.punyaIzin()) {
+            lokasiJob?.cancel()
             _state.value = _state.value.copy(statusLokasi = StatusLokasi.TANPA_IZIN)
             return
         }
+        lokasiJob?.cancel()
         _state.value = _state.value.copy(statusLokasi = StatusLokasi.MENCARI)
-        viewModelScope.launch {
+        lokasiJob = viewModelScope.launch {
             val hasil = lokasi.ambil()
             // State dibaca SETELAH menunggu lokasi (bisa sampai 10 dtk): daftar
             // outlet mungkin selesai dimuat selama itu dan tidak boleh tertimpa.

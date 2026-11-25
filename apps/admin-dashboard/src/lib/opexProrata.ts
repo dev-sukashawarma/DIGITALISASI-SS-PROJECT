@@ -26,6 +26,19 @@ const adalahOpexCabangNolOktober2026 = (r?: { outlet_id?: string | null; expense
   return tgl >= '2026-10-01' && tgl <= '2026-10-31'
 }
 
+/**
+ * Outlet mitra yang sewanya TIDAK dibebankan ke laba rugi mulai November 2026
+ * (keputusan owner 25 Nov 2026, berlaku sampai ada pemberitahuan berikutnya).
+ * Bulan berjalan: tidak ada baris prorata sewa, baik dari input bulan ini
+ * maupun bawaan sewa bulan lalu.
+ */
+const OUTLET_TANPA_SEWA_MULAI_NOV_2026 = new Set<string>([
+  '550e8400-e29b-41d4-a716-446655440014', // MITRA CIBINONG
+  '550e8400-e29b-41d4-a716-446655440018', // MITRA PEKAYON
+])
+export const adalahOutletTanpaSewa = (outletId?: string | null, firstDay?: string | null): boolean =>
+  Boolean(outletId && OUTLET_TANPA_SEWA_MULAI_NOV_2026.has(outletId) && (firstDay || '').slice(0, 7) >= '2026-11')
+
 export const PRORATED_CATEGORIES = [
   'gaji_crew_outlet',
   'sewa_outlet',
@@ -643,7 +656,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
       }
 
       // --- B. BIAYA SEWA OUTLET ---
-      if (!isNonHrWaivedOct2026) {
+      if (!isNonHrWaivedOct2026 && !adalahOutletTanpaSewa(outletId, monthInfo.firstDay)) {
         let sewaMonthly = currentMonthRealFixed.get(outletId)?.get('sewa_outlet') ?? 0
         let oSewaSource: 'current_month_real' | 'last_month_rollover' | 'none' = 'none'
 

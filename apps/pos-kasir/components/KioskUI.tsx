@@ -29,7 +29,8 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
   const [selectedCategory, setSelectedCategory] = useState('all')
   const { totalItems, totalPrice, isOpen, toggleCart, clearCart, closeCart } = useCart()
   const [deviceLabel, setDeviceLabel] = useState<string>('')
-  const { brandName, brandLogo } = useBrand()
+  const { brandName, brandLogo, userBrandLogo } = useBrand()
+  const customerLogo = userBrandLogo || brandLogo
   const { items } = useCart()
   
   const { calculateItemPrice, calculateGlobalDiscount, getPromoForMenu, getScheduledPromoForMenu } = usePromos(outletId)
@@ -96,8 +97,8 @@ export default function KioskUI({ menuItems, categories, bestsellerIds, coverUrl
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-3 min-w-0 pr-4">
-            {brandLogo ? (
-              <img src={brandLogo} alt="Logo" className="max-w-[120px] max-h-10 w-auto h-auto object-contain rounded-xl shrink-0 shadow-sm" />
+            {customerLogo ? (
+              <img src={customerLogo} alt="Logo" className="max-w-[120px] max-h-10 w-auto h-auto object-contain rounded-xl shrink-0 shadow-sm" />
             ) : (
               <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center shrink-0">
                 <Sandwich className="w-5 h-5 text-white" strokeWidth={2.5} />

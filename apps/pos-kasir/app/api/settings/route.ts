@@ -12,7 +12,7 @@ export async function GET() {
     // Using service role to ensure settings are always fetchable regardless of RLS
     const serviceClient = require('@/lib/supabase/server').createServiceClient()
 
-    const { data, error } = await serviceClient.from('global_settings').select('*')
+    const { data, error } = await serviceClient.from('global_settings').select('key, value')
     if (error) throw error
 
     const settings = data.reduce((acc: any, row: any) => {
@@ -40,14 +40,18 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { brand_name, brand_logo } = body
+    const { brand_name, brand_logo, user_brand_logo } = body
+    const nowIso = new Date().toISOString()
 
     // Update settings
     if (brand_name !== undefined) {
-      await supabase.from('global_settings').upsert({ key: 'brand_name', value: brand_name, updated_at: new Date().toISOString() })
+      await supabase.from('global_settings').upsert({ key: 'brand_name', value: brand_name, updated_at: nowIso })
     }
     if (brand_logo !== undefined) {
-      await supabase.from('global_settings').upsert({ key: 'brand_logo', value: brand_logo, updated_at: new Date().toISOString() })
+      await supabase.from('global_settings').upsert({ key: 'brand_logo', value: brand_logo, updated_at: nowIso })
+    }
+    if (user_brand_logo !== undefined) {
+      await supabase.from('global_settings').upsert({ key: 'user_brand_logo', value: user_brand_logo, updated_at: nowIso })
     }
 
     return NextResponse.json({ success: true })

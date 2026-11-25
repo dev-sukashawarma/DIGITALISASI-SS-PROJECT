@@ -649,7 +649,8 @@ export default function KasirOrderClient({
     handlersRef.current = { cancelOrder, markAsPreparing, handlePrintCustomerOnly, markAsCompleted, setReprintTargetOrder, deleteLocalOrder, retryLocalOrderSync }
   })
   const { outletId: clientOutletId, outletName } = useMyOutlet()
-  const { brandLogo } = useBrand()
+  const { brandLogo, userBrandLogo } = useBrand()
+  const customerLogo = userBrandLogo || brandLogo
   const { device, isConnecting } = usePrinterStore()
   const outletId = clientOutletId || serverOutletId // Fallback to SSR outletId to prevent flash
 
@@ -1108,7 +1109,7 @@ export default function KasirOrderClient({
       paymentMethod: order.payment_method === 'qris' ? 'qris' : 'cash',
       amountReceived: order.amount_received,
       changeAmount: order.change_amount,
-      logoUrl: brandLogo || undefined,
+      logoUrl: customerLogo || undefined,
       receiptType: 'customer'
     }
 
@@ -1153,7 +1154,7 @@ export default function KasirOrderClient({
       paymentMethod: order.payment_method === 'qris' ? 'qris' : 'cash',
       amountReceived: order.amount_received,
       changeAmount: order.change_amount,
-      logoUrl: brandLogo || undefined,
+      logoUrl: (type === 'customer' ? customerLogo : brandLogo) || undefined,
       receiptType: type
     }
 

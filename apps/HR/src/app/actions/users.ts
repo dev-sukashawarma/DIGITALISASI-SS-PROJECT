@@ -1322,7 +1322,7 @@ export interface AMOutletAssignmentRecord {
   notes: string | null
   created_at: string
   staff?: { id: string; name: string } | null
-  outlet?: { id: string; name: string; is_active: boolean; type?: string | null } | null
+  outlet?: { id: string; name: string; is_active: boolean; type?: string | null; status?: string | null } | null
 }
 
 export interface AMOutletRotationRecord {
@@ -1358,7 +1358,7 @@ export async function getAMOutletDataAction(): Promise<{
         .select(`
           id, staff_id, outlet_id, effective_from, effective_to, reason, notes, created_at,
           staff:outlet_staff!staff_id(id, name),
-          outlet:outlets!outlet_id(id, name, is_active, type)
+          outlet:outlets!outlet_id(id, name, is_active, type, status)
         `)
         .is('effective_to', null)
         .order('effective_from', { ascending: false }),
@@ -1367,7 +1367,7 @@ export async function getAMOutletDataAction(): Promise<{
         .select(`
           id, staff_id, outlet_id, effective_from, effective_to, reason, notes, created_at,
           staff:outlet_staff!staff_id(id, name),
-          outlet:outlets!outlet_id(id, name, is_active, type)
+          outlet:outlets!outlet_id(id, name, is_active, type, status)
         `)
         .order('effective_from', { ascending: false })
         .limit(200),

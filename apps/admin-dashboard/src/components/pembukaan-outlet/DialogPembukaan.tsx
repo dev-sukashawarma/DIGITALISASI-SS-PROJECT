@@ -107,9 +107,9 @@ export function DialogGoLive({
       <div>
         <DatePicker label="Tanggal Go-Live" value={tanggal} onChange={setTanggal} today={hariIni} />
         <p className="mt-1 text-xs text-suka-ink/60">
-          Jadi tanggal mulai perhitungan mitra. Maksimal {TOLERANSI_TANGGAL_GO_LIVE_HARI} hari dari hari ini.
+          Jadi tanggal mulai perhitungan mitra. Tidak boleh di masa depan, paling jauh {TOLERANSI_TANGGAL_GO_LIVE_HARI} hari ke belakang.
         </p>
-        {!tanggalOk && <p className="mt-1 text-xs font-semibold text-red-600">Tanggal di luar batas {TOLERANSI_TANGGAL_GO_LIVE_HARI} hari.</p>}
+        {!tanggalOk && <p className="mt-1 text-xs font-semibold text-red-600">Tanggal harus hari ini atau paling jauh {TOLERANSI_TANGGAL_GO_LIVE_HARI} hari ke belakang.</p>}
       </div>
       {paksa && (
         <label className="block space-y-1.5">

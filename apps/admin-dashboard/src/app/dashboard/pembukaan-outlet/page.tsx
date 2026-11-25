@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
 export default async function PembukaanOutletPage() {
   const { role } = await requireRole(['admin', 'owner'])
   const bolehTulis = role === 'admin' || role === 'developer'
-  const [daftar, jumlahPenutupan] = await Promise.all([ambilDaftarPersiapan(), hitungPenutupanTerbuka()])
+  const [{ daftar, gagal }, jumlahPenutupan] = await Promise.all([ambilDaftarPersiapan(), hitungPenutupanTerbuka()])
   const hariIni = hariIniWib()
 
   return (
@@ -35,9 +35,17 @@ export default async function PembukaanOutletPage() {
         )}
       </PageHeader>
 
-      {bolehTulis && <OutletTabs aktif="persiapan" jumlahPersiapan={daftar.length} jumlahPenutupan={jumlahPenutupan} />}
+      {bolehTulis && (
+        <OutletTabs aktif="persiapan" jumlahPersiapan={daftar.length + gagal.length} jumlahPenutupan={jumlahPenutupan} />
+      )}
 
-      {daftar.length === 0 ? (
+      {gagal.length > 0 && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          Checklist outlet berikut gagal dimuat, coba muat ulang halaman: <strong>{gagal.join(', ')}</strong>
+        </div>
+      )}
+
+      {daftar.length === 0 && gagal.length === 0 ? (
         <Card>
           <EmptyState
             icon={Store}

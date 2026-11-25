@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hitungMundur, petakanStatusPersiapan, ringkasLangkahWajib, tanggalGoLiveBawaan } from './petakan'
+import { dalamToleransiGoLive, hitungMundur, petakanStatusPersiapan, ringkasLangkahWajib, tanggalGoLiveBawaan } from './petakan'
 
 const mentah = {
   outlet_id: 'o1',
@@ -52,12 +52,26 @@ describe('hitungMundur', () => {
 })
 
 describe('tanggalGoLiveBawaan', () => {
-  it('memakai tanggal grand opening bila masih dalam 7 hari', () => {
-    expect(tanggalGoLiveBawaan('2026-12-01', '2026-11-28')).toBe('2026-12-01')
+  it('memakai tanggal grand opening yang sudah lewat, paling jauh 7 hari', () => {
     expect(tanggalGoLiveBawaan('2026-12-01', '2026-12-05')).toBe('2026-12-01')
+    expect(tanggalGoLiveBawaan('2026-12-05', '2026-12-05')).toBe('2026-12-05')
+  })
+  it('grand opening di masa depan → hari ini (Go-Live langsung mengaktifkan outlet)', () => {
+    expect(tanggalGoLiveBawaan('2026-12-01', '2026-11-28')).toBe('2026-11-28')
   })
   it('jatuh ke hari ini bila grand opening jauh atau kosong', () => {
     expect(tanggalGoLiveBawaan('2026-12-20', '2026-12-01')).toBe('2026-12-01')
     expect(tanggalGoLiveBawaan(null, '2026-12-01')).toBe('2026-12-01')
+  })
+})
+
+describe('dalamToleransiGoLive', () => {
+  it('hari ini dan maksimal 7 hari ke belakang', () => {
+    expect(dalamToleransiGoLive('2026-12-05', '2026-12-05')).toBe(true)
+    expect(dalamToleransiGoLive('2026-11-28', '2026-12-05')).toBe(true)
+    expect(dalamToleransiGoLive('2026-11-27', '2026-12-05')).toBe(false)
+  })
+  it('menolak tanggal di masa depan', () => {
+    expect(dalamToleransiGoLive('2026-12-06', '2026-12-05')).toBe(false)
   })
 })

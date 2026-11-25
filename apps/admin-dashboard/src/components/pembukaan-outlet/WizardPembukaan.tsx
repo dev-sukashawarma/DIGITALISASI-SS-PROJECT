@@ -169,18 +169,23 @@ export function WizardPembukaan({
   }
 
   const simpan = async () => {
+    if (menyimpan) return
     setMenyimpan(true)
+    let berhasil = false
     try {
       const h = await buatOutletBaru(input)
       if (!h.ok) {
         toast.error(h.pesan)
         return
       }
+      berhasil = true
       if (h.peringatan) toast.warning(h.peringatan, { duration: 10_000 })
       else toast.success('Outlet dibuat dengan status Persiapan')
       router.push(`/dashboard/pembukaan-outlet/${h.outletId}`)
     } finally {
-      setMenyimpan(false)
+      // Sesudah berhasil tombol tetap terkunci sampai pindah halaman: klik kedua
+      // selama papan dimuat dulu membuat outlet (dan akun Form Order) kembar.
+      if (!berhasil) setMenyimpan(false)
     }
   }
 

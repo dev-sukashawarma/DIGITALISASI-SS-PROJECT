@@ -59,11 +59,19 @@ function selisihHari(a: string, b: string): number {
 }
 
 /** Bawaan tanggal Go-Live: tanggal grand opening bila masih dalam toleransi, selain itu hari ini. */
+/**
+ * Bawaan dialog Go-Live. Tanggal grand opening dipakai hanya bila SUDAH lewat
+ * (Go-Live dicatat mundur); grand opening di masa depan → hari ini, karena Go-Live
+ * langsung mengaktifkan outlet sementara tanggal ini jadi awal perhitungan mitra.
+ */
 export function tanggalGoLiveBawaan(grandOpening: string | null, hariIni: string, toleransiHari = 7): string {
-  if (grandOpening && Math.abs(selisihHari(grandOpening, hariIni)) <= toleransiHari) return grandOpening
+  if (grandOpening && grandOpening <= hariIni && dalamToleransiGoLive(grandOpening, hariIni, toleransiHari)) {
+    return grandOpening
+  }
   return hariIni
 }
 
+/** Tanggal Go-Live sah: tidak di masa depan, paling jauh `toleransiHari` ke belakang (= RPC). */
 export function dalamToleransiGoLive(tanggal: string, hariIni: string, toleransiHari = 7): boolean {
-  return Math.abs(selisihHari(tanggal, hariIni)) <= toleransiHari
+  return tanggal <= hariIni && Math.abs(selisihHari(tanggal, hariIni)) <= toleransiHari
 }

@@ -13,6 +13,7 @@ import {
 } from '@/lib/outlets/orderOnlineSync'
 import { hariIniWib } from '@/lib/pembukaanOutlet/konstanta'
 import { petakanStatusPersiapan } from '@/lib/pembukaanOutlet/petakan'
+import { pisahkanHasil } from '@/lib/penutupanOutlet/pisahkanHasil'
 import { validasiInputWizard } from '@/lib/pembukaanOutlet/validasi'
 import type { AkunMitraInput, HasilAksi, InputWizard, StatusPersiapan } from '@/lib/pembukaanOutlet/types'
 
@@ -111,8 +112,27 @@ export async function buatOutletBaru(input: InputWizard): Promise<HasilAksi<{ ou
         daftarPeringatan.push(`Notifikasi Telegram belum terkirim (${hasilSinkron.peringatanTelegram}).`)
       }
     } catch (e) {
-      await supabase.rpc('batalkan_pembukaan_outlet', { p_outlet_id: id, p_alasan: 'Gagal sinkron Order Online' })
-      return { ok: false, pesan: `Gagal sinkron ke Order Online: ${pesanGalat(e)}` }
+      // Bersihkan dua sisi. Outlet & akun di Order Online bisa sudah terbuat sebelum
+      // langkah yang gagal; tanpa dihapus, coba ulang membuat outlet Form Order kembar.
+      const sisa: string[] = []
+      try {
+        await hapusOutletDiOrderOnline(id)
+      } catch (eOo) {
+        sisa.push(`outlet di Order Online belum terhapus (${pesanGalat(eOo)})`)
+      }
+      const { error: errBatal } = await supabase.rpc('batalkan_pembukaan_outlet', {
+        p_outlet_id: id,
+        p_alasan: 'Gagal sinkron Order Online',
+      })
+      if (errBatal) {
+        sisa.push(`outlet tetap tercatat Persiapan (${errBatal.message}); batalkan dari tab Persiapan sebelum mencoba lagi`)
+      }
+      return {
+        ok: false,
+        pesan:
+          `Gagal sinkron ke Order Online: ${pesanGalat(e)}` +
+          (sisa.length > 0 ? `. Perhatian: ${sisa.join('; ')}.` : ''),
+      }
     }
 
     if (input.mitra?.akun.mode === 'baru') {
@@ -146,23 +166,26 @@ export async function ambilStatusPersiapan(outletId: string): Promise<StatusPers
   return petakanStatusPersiapan(data as Record<string, unknown>)
 }
 
-export async function ambilDaftarPersiapan(): Promise<StatusPersiapan[]> {
+/** Satu outlet yang checklist-nya gagal dimuat dilaporkan di `gagal`, tidak mengosongkan daftar. */
+export async function ambilDaftarPersiapan(): Promise<{ daftar: StatusPersiapan[]; gagal: string[] }> {
   await requireRole(PERAN_BACA)
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('outlets')
-    .select('id')
+    .select('id, name')
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
   if (error) throw new Error(error.message)
-  const hasil = await Promise.all(
-    (data ?? []).map(async o => {
+  const baris = data ?? []
+  const hasil = await Promise.allSettled(
+    baris.map(async o => {
       const { data: s, error: e } = await supabase.rpc('status_persiapan_outlet', { p_outlet_id: o.id })
       if (e) throw new Error(e.message)
       return petakanStatusPersiapan(s as Record<string, unknown>)
     }),
   )
-  return hasil
+  const { ok, gagal } = pisahkanHasil(hasil, baris.map(o => o.name as string))
+  return { daftar: ok, gagal }
 }
 
 export async function goLiveOutlet(

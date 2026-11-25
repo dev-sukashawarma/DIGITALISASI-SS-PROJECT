@@ -22,6 +22,7 @@ import {
   type AMOutletRotationRecord,
 } from '@/app/actions/users'
 import { KANTOR_PUSAT_ID } from '@/lib/staffFilters'
+import { bisaDitugaskan } from '@/lib/outletPenugasan'
 
 interface AMOutletRotationModalProps {
   staffList: StaffRow[]
@@ -138,7 +139,8 @@ export function AMOutletRotationModal({
     const map = new Map<string, AMOutletAssignmentRecord[]>()
     activeAMs.forEach((am) => map.set(am.id, []))
     activeAssignments.forEach((a) => {
-      if (!a.outlet || a.outlet.is_active === false) return
+      // Outlet Persiapan (pending) tetap dihitung: AM boleh ditautkan sebelum Go-Live.
+      if (!a.outlet || !bisaDitugaskan(a.outlet)) return
       const list = map.get(a.staff_id) || []
       list.push(a)
       map.set(a.staff_id, list)
@@ -150,7 +152,7 @@ export function AMOutletRotationModal({
   const unassignedOutlets = useMemo(
     () =>
       operationalOutlets.filter(
-        (o) => o.is_active !== false && !currentHolderByOutlet.has(o.id)
+        (o) => bisaDitugaskan(o) && !currentHolderByOutlet.has(o.id)
       ),
     [operationalOutlets, currentHolderByOutlet]
   )
@@ -159,7 +161,7 @@ export function AMOutletRotationModal({
   const filteredOutletsForRotation = useMemo(() => {
     const q = outletSearch.trim().toLowerCase()
     return operationalOutlets.filter((o) => {
-      if (o.is_active === false && !currentHolderByOutlet.has(o.id)) return false
+      if (!bisaDitugaskan(o) && !currentHolderByOutlet.has(o.id)) return false
       const holder = currentHolderByOutlet.get(o.id)
       if (filterAmSource === 'unassigned' && holder) return false
       if (
@@ -510,10 +512,16 @@ export function AMOutletRotationModal({
                             <div className="min-w-0">
                               <div className="font-extrabold text-xs text-suka-ink truncate flex items-center gap-1.5">
                                 <span>{cleanOutletName(o.name)}</span>
-                                {o.is_active === false && (
-                                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-stone-200 text-stone-600 font-bold">
-                                    Nonaktif
+                                {o.status === 'pending' ? (
+                                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-bold">
+                                    Persiapan
                                   </span>
+                                ) : (
+                                  !bisaDitugaskan(o) && (
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-stone-200 text-stone-600 font-bold">
+                                      Nonaktif
+                                    </span>
+                                  )
                                 )}
                               </div>
                               <div className="text-[10px] text-stone-500">

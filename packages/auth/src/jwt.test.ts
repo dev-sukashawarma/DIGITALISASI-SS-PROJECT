@@ -1,7 +1,15 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest'
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from 'jose'
 import type { JWTVerifyGetKey } from 'jose'
-import { verifySupabaseAccessToken, resolveUserId, getVerifiedUserId, supabaseJwtIssuer } from './jwt'
+import {
+  verifySupabaseAccessToken,
+  resolveUserId,
+  getVerifiedUserId,
+  supabaseJwtIssuer,
+  extractSessionTokensFromCookies,
+  resetRefreshSingleflightCacheForTests,
+  safeTrustedReturnUrl,
+} from './jwt'
 
 const SECRET = 'super-secret-jwt-key-for-tests-only'
 const KID = 'test-kid-1'
@@ -182,5 +190,111 @@ describe('getVerifiedUserId', () => {
     const { client, getUser } = mockSupabase(null)
     expect(await getVerifiedUserId(client)).toBeNull()
     expect(getUser).not.toHaveBeenCalled()
+  })
+})
+
+describe('Cookie-First + Singleflight Anti-Race (resolveUserId)', () => {
+  beforeEach(() => {
+    resetRefreshSingleflightCacheForTests()
+  })
+
+  it('membaca cookie utuh maupun chunked base64url @supabase/ssr tanpa memanggil getSession()', async () => {
+    const validJwt = await makeHs256Token({ sub: 'staff-finance-1' })
+    const rawPayload = `base64-${b64urlJson({ access_token: validJwt, refresh_token: 'rt-valid-1' })}`
+    const mid = Math.floor(rawPayload.length / 2)
+    const chunkedCookies = [
+      { name: 'sb-khpkoreaaucvyqfhynfq-auth-token.0', value: rawPayload.slice(0, mid) },
+      { name: 'sb-khpkoreaaucvyqfhynfq-auth-token.1', value: rawPayload.slice(mid) },
+    ]
+
+    const extracted = extractSessionTokensFromCookies(chunkedCookies)
+    expect(extracted.accessToken).toBe(validJwt)
+    expect(extracted.refreshToken).toBe('rt-valid-1')
+
+    const { client, getSession, getUser } = mockSupabase(null)
+    const sub = await resolveUserId(client, SECRET, { cookies: chunkedCookies })
+    expect(sub).toBe('staff-finance-1')
+    expect(getSession).not.toHaveBeenCalled()
+    expect(getUser).not.toHaveBeenCalled()
+  })
+
+  it('prefetch dengan token kedaluwarsa TIDAK PERNAH memanggil getSession() (cegah refresh race)', async () => {
+    const expiredJwt = await makeHs256Token({ sub: 'staff-finance-1', expOffsetSec: -60 })
+    const cookies = [
+      {
+        name: 'sb-khpkoreaaucvyqfhynfq-auth-token',
+        value: `base64-${b64urlJson({ access_token: expiredJwt, refresh_token: 'rt-old-prefetch' })}`,
+      },
+    ]
+
+    const freshJwt = await makeHs256Token({ sub: 'staff-finance-1', expOffsetSec: 3600 })
+    const { client, getSession } = mockSupabase({ access_token: freshJwt })
+
+    const sub = await resolveUserId(client, SECRET, { cookies, isPrefetch: true })
+    expect(sub).toBeNull()
+    expect(getSession).not.toHaveBeenCalled()
+  })
+
+  it('8 request paralel dengan refresh_token kedaluwarsa yang sama di-singleflight menjadi 1 kali refresh', async () => {
+    const expiredJwt = await makeHs256Token({ sub: 'staff-finance-1', expOffsetSec: -120 })
+    const freshJwt = await makeHs256Token({ sub: 'staff-finance-1', expOffsetSec: 3600 })
+    const cookies = [
+      {
+        name: 'sb-khpkoreaaucvyqfhynfq-auth-token',
+        value: `base64-${b64urlJson({ access_token: expiredJwt, refresh_token: 'rt-shared-parallel' })}`,
+      },
+    ]
+
+    let goTrueCalls = 0
+    const sharedClient = {
+      auth: {
+        getSession: vi.fn(async () => {
+          goTrueCalls += 1
+          await new Promise((r) => setTimeout(r, 25))
+          // Simulasi GoTrue: hanya pemanggilan pertama yang berhasil, sisanya refresh_token_not_found!
+          if (goTrueCalls > 1) {
+            return { data: { session: null } }
+          }
+          return { data: { session: { access_token: freshJwt } } }
+        }),
+        getUser: vi.fn(async () => ({ data: { user: null } })),
+      },
+    }
+
+    const replayedCounts: number[] = []
+    const results = await Promise.all(
+      Array.from({ length: 8 }, (_, idx) =>
+        resolveUserId(sharedClient, SECRET, {
+          cookies,
+          getCapturedCookies: () =>
+            idx === 0 ? [{ name: 'sb-khpkoreaaucvyqfhynfq-auth-token', value: 'new-cookie-val' }] : [],
+          replayCookies: (cs) => replayedCounts.push(cs.length),
+        })
+      )
+    )
+
+    expect(goTrueCalls).toBe(1)
+    expect(results).toEqual(Array(8).fill('staff-finance-1'))
+    // 7 request pengikut + panggilan berikutnya dalam masa grace mendapat replay cookie baru
+    expect(replayedCounts.every((c) => c === 1)).toBe(true)
+
+    // Panggilan susulan 100ms kemudian dengan cookie lama (mis. Server Action in-flight) tetap lolos dari grace cache!
+    const followUp = await resolveUserId(sharedClient, SECRET, { cookies })
+    expect(followUp).toBe('staff-finance-1')
+    expect(goTrueCalls).toBe(1)
+  })
+})
+
+describe('safeTrustedReturnUrl', () => {
+  it('menerima subdomain sukashawarma.com HTTPS dan menolak domain asing / loop login', () => {
+    expect(safeTrustedReturnUrl('https://finance.sukashawarma.com/approval')).toBe(
+      'https://finance.sukashawarma.com/approval'
+    )
+    expect(safeTrustedReturnUrl('https://app.sukashawarma.com/')).toBeNull()
+    expect(safeTrustedReturnUrl('https://evil.com/approval')).toBeNull()
+    expect(safeTrustedReturnUrl('http://finance.sukashawarma.com/approval')).toBeNull()
+    expect(safeTrustedReturnUrl('http://localhost:3020/approval', true)).toBe(
+      'http://localhost:3020/approval'
+    )
   })
 })

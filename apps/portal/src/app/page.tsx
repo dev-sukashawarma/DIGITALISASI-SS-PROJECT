@@ -1,7 +1,7 @@
 'use client'
 import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import { BrandProvider, useBrand } from '@suka/auth'
+import { BrandProvider, useBrand, safeTrustedReturnUrl } from '@suka/auth'
 import { Button, Input } from '@suka/design-system'
 import { LogIn, AlertCircle, Loader2, ShieldCheck, CheckCircle2, MapPin, QrCode, Eye, EyeOff } from 'lucide-react'
 
@@ -62,6 +62,16 @@ function LoginForm() {
           (isLocal ? 'http://localhost:3005' : 'https://admin.sukashawarma.com')
         window.location.href = adminUrl
         return
+      }
+
+      if (typeof window !== 'undefined') {
+        const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')
+        const rawNext = new URLSearchParams(window.location.search).get('next')
+        const safeNext = safeTrustedReturnUrl(rawNext, isLocal)
+        if (safeNext) {
+          window.location.href = safeNext
+          return
+        }
       }
 
       router.push('/launcher')

@@ -1,56 +1,79 @@
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
+import { createSupabaseServerClient, resolveUserId, type CapturedCookieItem } from '@suka/auth'
 
-
-
-async function getAuthedClient() {
+async function getAuthedContext(): Promise<{
+  authedClient: ReturnType<typeof createSupabaseServerClient>
+  userId: string | null
+}> {
   const cookieStore = await cookies()
-  return createSupabaseServerClient({
-    getAll: () => cookieStore.getAll(),
-    setAll: (toSet) =>
-      toSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options as any)),
+  const rawCookies = cookieStore.getAll()
+  const capturedCookies: CapturedCookieItem[] = []
+
+  const applySafeCookie = (name: string, value: string, options?: Record<string, unknown>) => {
+    // PENTING: Jangan pernah menghapus cookie sesi (value kosong / maxAge <= 0) dari dalam
+    // Server Action (seperti getOfficeVouchersAction yang dipanggil otomatis di latar belakang).
+    // Bila browser/middleware baru saja merotasi refresh token, Server Action yang datang dengan
+    // cookie lama tidak boleh menembakkan Set-Cookie Max-Age=0 yang menjatuhkan sesi user!
+    if (!value || (typeof options?.maxAge === 'number' && options.maxAge <= 0)) return
+    try {
+      cookieStore.set(name, value, options as any)
+    } catch {
+      // Abaikan bila dipanggil dari konteks read-only
+    }
+  }
+
+  const authedClient = createSupabaseServerClient({
+    getAll: () => rawCookies,
+    setAll: (toSet) => {
+      toSet.forEach(({ name, value, options }) => {
+        if (!value || (typeof options?.maxAge === 'number' && options.maxAge <= 0)) return
+        capturedCookies.push({ name, value, options })
+        applySafeCookie(name, value, options)
+      })
+    },
   })
+
+  const userId = await resolveUserId(authedClient, process.env.SUPABASE_JWT_SECRET, {
+    cookies: rawCookies,
+    getCapturedCookies: () => capturedCookies,
+    replayCookies: (replayed) => {
+      replayed.forEach(({ name, value, options }) => applySafeCookie(name, value, options))
+    },
+  })
+
+  return { authedClient, userId }
 }
 
 /**
  * Gerbang otorisasi server-side untuk Server Action `finance` yang memakai
- * service-role client. 'use server' TIDAK berarti privat — tiap export
- * adalah endpoint POST yang bisa dipanggil langsung tanpa lewat UI, dan
- * middleware `hasAppAccess(role, 'finance')` meloloskan `leader`/`area_manager`
- * juga (mereka memang perlu app ini untuk tahap forward, TAPI bukan untuk
- * approve/proses tahap Finance). Audit lintas-app 2026-07-27.
- *
- * WAJIB dipanggil sebelum memanggil RPC SECURITY DEFINER / menulis lewat
- * service-role client. `userId` HARUS diambil dari hasil fungsi ini (session
- * ter-verifikasi), jangan pernah dari body request client.
+ * service-role client.
  */
 export async function requireRole(
   allowedRoles: string[]
 ): Promise<{ userId: string; role: string }> {
-  const authedClient = await getAuthedClient()
-  const userId = await getVerifiedUserId(authedClient)
+  const { authedClient, userId } = await getAuthedContext()
   if (!userId) {
     throw new Error('Unauthorized: sesi tidak ditemukan')
   }
 
-  const { data: staff, error: staffError } = await authedClient
+  // Gunakan service-role untuk membaca profil role/status setelah userId terverifikasi secara kriptografis,
+  // supaya tidak memicu pemanggilan getSession() kedua pada authedClient bila access_token mepet kedaluwarsa.
+  const { getServiceSupabase } = await import('@/lib/supabase-service')
+  const service = getServiceSupabase()
+  const { data: staff, error: staffError } = await service
     .from('outlet_staff')
     .select('role, status')
     .eq('id', userId)
     .maybeSingle()
 
   if (staffError) throw new Error(staffError.message)
-  // developer = superuser teknis: lolos semua daftar role.
   const hasAccess = allowedRoles.includes(staff?.role) || staff?.role === 'developer'
   if (!staff || staff.status !== 'active' || !hasAccess) {
     throw new Error(`Forbidden: aksi ini hanya untuk role ${allowedRoles.join('/')}`)
   }
 
+  void authedClient
   return { userId, role: staff.role }
 }
 
-/**
- * Peran yang diberi menu keuangan di apps/finance (Buku Kas, EOM, Rekap Bulanan).
- * `developer` otomatis lolos requireRole.
- */
 export const PERAN_KEUANGAN = ['admin_finance', 'admin', 'owner']

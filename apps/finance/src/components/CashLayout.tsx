@@ -201,7 +201,7 @@ function playNotificationSound() {
 
 export function CashLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const { outletStaff, signOut } = useAuth()
+  const { outletStaff, loading: authLoading, signOut } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
@@ -214,20 +214,26 @@ export function CashLayout({ children }: { children: ReactNode }) {
     resolvedPortalUrl = 'http://localhost:3010'
   }
 
+  const isAuthBypassRoute = Boolean(
+    pathname?.startsWith('/leader') ||
+    pathname?.startsWith('/area-manager') ||
+    pathname?.startsWith('/auth/sso')
+  )
 
   const isPurchasingRole = Boolean(
     outletStaff && ((outletStaff.role as string) === 'purchasing' || (outletStaff.role as string) === 'purchase')
   )
   const isDeveloper = outletStaff?.role?.toLowerCase() === 'developer'
 
-  // Badge cukup jumlah → query count-only, bukan daftar lengkap + join.
-  // Hub Approval khusus checker finance (owner/admin/admin_finance/developer).
+  // Badge cukup jumlah -> query count-only, dan tunggu AuthProvider selesai inisialisasi sesi
+  // agar Server Action / query tidak balapan me-refresh token sebelum client siap.
   const role = (outletStaff?.role as string) ?? ''
   const bolehHub = ['owner', 'admin', 'admin_finance', 'developer'].includes(role)
-  const { total: hubPendingCount, adaGalat: hubAdaGalat } = useHubApprovalCount(bolehHub)
+  const siapMuatBadge = !isAuthBypassRoute && !authLoading && Boolean(outletStaff)
+  const { total: hubPendingCount, adaGalat: hubAdaGalat } = useHubApprovalCount(siapMuatBadge && bolehHub)
   const { data: prPendingCount = 0 } = usePendingPrCount()
   // Purchasing: PO diterima yang belum diajukan pembayarannya (termasuk yang ditolak finance).
-  const { data: tagihanBelumDiajukan = 0 } = useTagihanBelumDiajukanCount(isPurchasingRole)
+  const { data: tagihanBelumDiajukan = 0 } = useTagihanBelumDiajukanCount(siapMuatBadge && isPurchasingRole)
   
   const prevPendingRef = useRef(0)
 
@@ -377,7 +383,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
     return jumlah !== undefined && jumlah > 0 ? String(jumlah) : null
   }
 
-  if (pathname?.startsWith('/leader') || pathname?.startsWith('/area-manager')) {
+  if (isAuthBypassRoute) {
     return <>{children}</>
   }
 
@@ -519,6 +525,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
                                 <Link
                                   ref={active ? activeItemRef : undefined}
                                   href={href}
+                                  prefetch={false}
                                   onClick={() => hasChildren && setOpenSub(href)}
                                   className={`flex flex-1 min-w-0 items-center gap-2.5 rounded-lg px-2.5 py-1.5 font-semibold text-xs transition-colors relative z-10 ${
                                     active
@@ -577,6 +584,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
                                         key={subHref}
                                         ref={subActive ? activeItemRef : undefined}
                                         href={subHref}
+                                        prefetch={false}
                                         className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 font-semibold text-[11px] transition-colors relative z-10 ${
                                           subActive
                                             ? 'text-suka-brown font-bold'
@@ -707,6 +715,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
               <Link
                 key={href}
                 href={href}
+                prefetch={false}
                 onClick={() => setIsMenuOpen(false)}
                 className={`flex flex-col items-center justify-center w-full py-1.5 gap-1 transition-all relative ${
                   active ? 'text-suka-brown' : 'text-white/60 hover:text-white'
@@ -817,6 +826,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
                             <Link
                               key={href}
                               href={href}
+                              prefetch={false}
                               onClick={() => setIsMenuOpen(false)}
                               className="flex flex-col items-center gap-2"
                             >

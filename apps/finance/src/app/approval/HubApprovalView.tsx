@@ -49,9 +49,10 @@ function pesan(err: unknown, cadangan: string): string {
 
 export function HubApprovalView() {
   const qc = useQueryClient()
-  const { isChecker, userId } = useFinanceRole()
-  const { items, galat, isLoading, perJenis } = useHubApproval(isChecker)
-  const { data: tagihanBelumDiajukan = 0 } = useTagihanBelumDiajukanCount(isChecker)
+  const { isChecker, userId, authLoading } = useFinanceRole()
+  const siapMuat = isChecker && !authLoading
+  const { items, galat, isLoading, perJenis } = useHubApproval(siapMuat)
+  const { data: tagihanBelumDiajukan = 0 } = useTagihanBelumDiajukanCount(siapMuat)
   const [tab, setTab] = useState<'menunggu' | 'riwayat'>('menunggu')
   const [now, setNow] = useState(() => new Date())
 
@@ -69,7 +70,7 @@ export function HubApprovalView() {
   const cairkanKasbon = useCairkanKasbon()
   const tolakKasbon = useTolakKasbon()
   const { putuskan: putuskanRetur } = useMutasiReturVendor()
-  const { verifyVoucher, rejectVoucher, isVerifying, isRejecting } = useOfficeVouchers(undefined, { enabled: isChecker })
+  const { verifyVoucher, rejectVoucher, isVerifying, isRejecting } = useOfficeVouchers(undefined, { enabled: siapMuat })
 
   const [pettyAcc, setPettyAcc] = useState<PettyCashTopup | null>(null)
   const [pengeluaranPcAcc, setPengeluaranPcAcc] = useState<PendingPettyCashExpense | null>(null)

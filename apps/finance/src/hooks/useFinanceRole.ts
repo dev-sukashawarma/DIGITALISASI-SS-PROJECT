@@ -8,7 +8,7 @@ import { useAuth } from '@suka/auth'
  *   admin_finance disamakan dengan admin (keputusan owner 6 Nov 2026).
  */
 export function useFinanceRole() {
-  const { outletStaff } = useAuth()
+  const { outletStaff, loading: authLoading } = useAuth()
   const role = (outletStaff?.role as string) ?? null
   const isDeveloper = role === 'developer'
   const isChecker = role === 'owner' || role === 'admin' || role === 'admin_finance' || isDeveloper
@@ -24,6 +24,7 @@ export function useFinanceRole() {
     role, 
     name: outletStaff?.name ?? null, 
     userId: outletStaff?.id ?? null,
+    authLoading,
     isChecker, 
     isFinance,
     isPurchasing,

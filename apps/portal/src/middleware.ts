@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createSupabaseServerClient, resolveUserId } from '@suka/auth'
+import { createSupabaseServerClient, resolveUserId, safeTrustedReturnUrl } from '@suka/auth'
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next()
@@ -7,20 +7,26 @@ export async function middleware(request: NextRequest) {
   const supabase = createSupabaseServerClient({
     getAll: () => request.cookies.getAll(),
     setAll: (cookies) => {
-      cookies.forEach(({ name, value, options }) =>
+      cookies.forEach(({ name, value, options }) => {
+        if (!value || (typeof options?.maxAge === 'number' && options.maxAge <= 0)) return
         response.cookies.set(name, value, options)
-      )
+      })
     },
   })
 
-  // Identitas via JWT lokal (tanpa network); fallback getUser() bila secret kosong (dev).
-  const userId = await resolveUserId(supabase, process.env.SUPABASE_JWT_SECRET)
+  // Identitas via Cookie-First JWT lokal + singleflight refresh
+  const userId = await resolveUserId(supabase, process.env.SUPABASE_JWT_SECRET, {
+    cookies: request.cookies.getAll(),
+  })
 
   const { pathname } = request.nextUrl
+  const host = request.headers.get('host') || request.nextUrl.host || ''
+  const isLocal = host.includes('localhost') || host.includes('127.0.0.1')
 
   const getRedirect = (url: string | URL) => {
     const redirectResponse = NextResponse.redirect(new URL(url, request.url))
     response.cookies.getAll().forEach((cookie) => {
+      if (!cookie.value || cookie.maxAge === 0) return
       redirectResponse.cookies.set({ ...cookie })
     })
     return redirectResponse
@@ -31,20 +37,13 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // Already logged in → check staff status and redirect to launcher
+  // Already logged in → check staff status and redirect to ?next= (jika sah) atau /launcher
   if (userId && pathname === '/') {
-    // JWT lokal bisa masih sah padahal sesinya sudah dicabut di server
-    // (logout global dari app lain, refresh token gagal). Launcher memakai
-    // getUser() (network) → user null → redirect('/') → di sini JWT lokal
-    // dianggap login → redirect('/launcher') → LOOP. Titik balik ini wajib
-    // bertanya ke server; kalau sesi sudah mati, buang cookie basi & tampilkan login.
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       const domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined
       for (const { name } of request.cookies.getAll()) {
         if (!name.startsWith('sb-') && name !== '_suka_gate') continue
-        // Header mentah: response.cookies.set dengan nama sama saling menimpa,
-        // padahal varian host-only DAN varian domain sama-sama harus dihapus.
         response.headers.append('Set-Cookie', `${name}=; Max-Age=0; Path=/`)
         if (domain) response.headers.append('Set-Cookie', `${name}=; Max-Age=0; Path=/; Domain=${domain}`)
       }
@@ -57,12 +56,10 @@ export async function middleware(request: NextRequest) {
       .eq('id', userId)
       .maybeSingle()
 
-    // Allow access only if staff is active
     if (staff && staff.status === 'active') {
-      return getRedirect('/launcher')
+      const safeNext = safeTrustedReturnUrl(request.nextUrl.searchParams.get('next'), isLocal)
+      return getRedirect(safeNext || '/launcher')
     }
-    // Inactive/on_leave: fall through to render the login page. The status gate
-    // (with user-facing message) is enforced in the login handler & launcher RSC.
   }
 
   // Not logged in → force to login

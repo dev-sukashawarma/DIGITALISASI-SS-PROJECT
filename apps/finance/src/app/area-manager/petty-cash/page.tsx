@@ -35,8 +35,8 @@ export default async function PettyCashPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-suka-brown">Approval Petty Cash</h1>
-        <p className="text-suka-gray-500 mt-1">Daftar pengajuan Top Up Petty Cash dari Kasir dan Crew.</p>
+        <h1 className="text-2xl font-bold text-suka-brown">Pantauan Petty Cash</h1>
+        <p className="text-suka-gray-500 mt-1">Daftar pantauan pengajuan Top Up Petty Cash outlet (persetujuan langsung di Finance).</p>
       </div>
 
       <PettyCashList initialRequests={initialRequests} />

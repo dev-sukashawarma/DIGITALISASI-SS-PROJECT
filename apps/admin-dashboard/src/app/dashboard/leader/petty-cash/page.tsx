@@ -95,10 +95,34 @@ function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; on
   )
 }
 
+function isTopupTimeAllowedWib(now: Date = new Date()): boolean {
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      hour12: false,
+    }).formatToParts(now)
+    const rawHour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0')
+    const hour = rawHour === 24 ? 0 : rawHour
+    return hour >= 9 && hour < 16
+  } catch {
+    const hour = now.getHours()
+    return hour >= 9 && hour < 16
+  }
+}
+
 export default function LeaderPettyCashPage() {
   const supabase = createClient()
   const [showForm, setShowForm] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isTopupOpen, setIsTopupOpen] = useState(() => isTopupTimeAllowedWib())
+
+  useEffect(() => {
+    const refresh = () => setIsTopupOpen(isTopupTimeAllowedWib())
+    refresh()
+    const timer = setInterval(refresh, 30_000)
+    return () => clearInterval(timer)
+  }, [])
   const [requests, setRequests] = useState<TopupRequest[]>([])
   const [outlets, setOutlets] = useState<any[]>([])
   const [selectedOutletId, setSelectedOutletId] = useState<string>('')
@@ -222,6 +246,11 @@ export default function LeaderPettyCashPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!isTopupTimeAllowedWib()) {
+      setIsTopupOpen(false)
+      toast.error('Pengajuan top up petty cash hanya dibuka pukul 09:00 hingga 16:00 WIB.')
+      return
+    }
     if (!selectedOutletId) {
       toast.error('Pilih outlet tujuan top up terlebih dahulu!')
       return
@@ -327,6 +356,17 @@ export default function LeaderPettyCashPage() {
       {/* FORM SECTION - Luxury Minimal */}
       {showForm && (
         <form onSubmit={handleSubmit} className="mb-8 bg-white rounded-[24px] p-5 sm:p-8 shadow-sm ring-1 ring-slate-100 space-y-8 animate-in fade-in duration-200">
+          <div
+            className={`rounded-2xl border px-4 py-3 text-xs font-medium ${
+              isTopupOpen
+                ? 'border-blue-200 bg-blue-50 text-blue-900'
+                : 'border-red-200 bg-red-50 text-red-800'
+            }`}
+          >
+            {isTopupOpen
+              ? 'Jam pengajuan top up petty cash: 09:00–16:00 WIB. Pengajuan yang belum diproses Finance melewati pukul 16:00 WIB akan dibatalkan otomatis oleh sistem.'
+              : 'Pengajuan top up petty cash sedang tutup. Hanya dibuka pukul 09:00 hingga 16:00 WIB.'}
+          </div>
           
           {/* STEP 1: OUTLET SELECTION */}
           <div className="space-y-4">
@@ -474,10 +514,10 @@ export default function LeaderPettyCashPage() {
           <div className="pt-6 border-t border-slate-100 flex justify-end">
             <button
               type="submit"
-              disabled={isSubmitting || !selectedOutletId}
+              disabled={isSubmitting || !selectedOutletId || !isTopupOpen}
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3.5 bg-suka-orange hover:bg-orange-600 active:scale-[0.98] text-white rounded-2xl font-bold text-sm transition-all disabled:opacity-50 cursor-pointer"
             >
-              {isSubmitting ? 'Mengirim...' : 'Kirim Pengajuan'}
+              {isSubmitting ? 'Mengirim...' : !isTopupOpen ? 'Tutup (09:00–16:00 WIB)' : 'Kirim Pengajuan'}
               <Send className="w-4 h-4 ml-1" />
             </button>
           </div>

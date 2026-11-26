@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@suka/design-system'
 import {
@@ -15,8 +15,10 @@ import {
   ImageOff,
 } from 'lucide-react'
 import {
+  KATEGORI_PETTY_CASH_OPTIONS,
   labelKategoriPettyCash,
   useReviewPettyCashExpense,
+  useUbahKategoriPettyCashExpense,
   type PendingPettyCashExpense,
 } from '@/hooks/usePettyCashExpenseApproval'
 import { rupiah, tanggalWaktu } from '@/lib/format'
@@ -35,24 +37,40 @@ export function SetujuiPengeluaranPettyCashModal({
   onGagal?: () => void
 }) {
   const review = useReviewPettyCashExpense()
+  const ubahKategori = useUbahKategoriPettyCashExpense()
   const [imgError, setImgError] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState(expense.category)
+
+  useEffect(() => {
+    setSelectedCategory(expense.category)
+    setImgError(false)
+  }, [expense.id, expense.category])
 
   if (!isOpen) return null
 
-  const setujui = () => {
-    review.mutate(
-      { expenseId: expense.id, action: 'approve' },
-      {
-        onSuccess: () => {
-          toast.success(`Pengeluaran petty cash ${expense.outlet_nama} (${rupiah(expense.amount)}) disetujui`)
-          onClose()
-        },
-        onError: (err) => {
-          toast.error(err instanceof Error ? err.message : 'Gagal menyetujui pengeluaran petty cash')
-          onGagal?.()
-        },
-      },
-    )
+  const isRabOtomatis = expense.type === 'rab' || expense.category === 'rab'
+  const kategoriBerubah = !isRabOtomatis && selectedCategory !== expense.category
+  const sedangProses = review.isPending || ubahKategori.isPending
+
+  const setujui = async () => {
+    try {
+      if (kategoriBerubah) {
+        await ubahKategori.mutateAsync({
+          expenseId: expense.id,
+          category: selectedCategory,
+        })
+      }
+      await review.mutateAsync({ expenseId: expense.id, action: 'approve' })
+      toast.success(
+        kategoriBerubah
+          ? `Kategori dikoreksi & pengeluaran ${expense.outlet_nama} (${rupiah(expense.amount)}) disetujui`
+          : `Pengeluaran petty cash ${expense.outlet_nama} (${rupiah(expense.amount)}) disetujui`,
+      )
+      onClose()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Gagal menyetujui pengeluaran petty cash')
+      onGagal?.()
+    }
   }
 
   return (
@@ -107,15 +125,50 @@ export function SetujuiPengeluaranPettyCashModal({
               </div>
             </div>
 
-            <div className="flex items-start gap-2">
+            <div className="flex items-start gap-2 sm:col-span-2">
               <Tag size={15} className="mt-0.5 shrink-0 text-suka-orange" />
-              <div className="min-w-0">
-                <div className="text-[11px] font-medium text-suka-gray-500">Kategori</div>
-                <div className="truncate font-semibold text-suka-ink">{labelKategoriPettyCash(expense.category)}</div>
+              <div className="min-w-0 flex-1">
+                <label htmlFor="kategori-pengeluaran-pc" className="block text-[11px] font-medium text-suka-gray-500">
+                  Kategori {isRabOtomatis ? '(RAB Otomatis)' : '(dapat dikoreksi sebelum ACC)'}
+                </label>
+                {isRabOtomatis ? (
+                  <div className="mt-0.5 font-semibold text-suka-ink">
+                    {labelKategoriPettyCash(expense.category)}
+                  </div>
+                ) : (
+                  <>
+                    <select
+                      id="kategori-pengeluaran-pc"
+                      value={selectedCategory}
+                      onChange={(e) => setSelectedCategory(e.target.value)}
+                      disabled={sedangProses}
+                      className="mt-1 w-full rounded-lg border border-suka-brown/20 bg-white px-2.5 py-1.5 text-sm font-semibold text-suka-ink focus:border-suka-orange focus:outline-none focus:ring-1 focus:ring-suka-orange disabled:opacity-50"
+                    >
+                      {KATEGORI_PETTY_CASH_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                      {!KATEGORI_PETTY_CASH_OPTIONS.some((o) => o.value === selectedCategory) && (
+                        <option value={selectedCategory}>{labelKategoriPettyCash(selectedCategory)}</option>
+                      )}
+                    </select>
+                    {kategoriBerubah && (
+                      <p className="mt-1 text-[11px] font-medium text-amber-800">
+                        Akan dikoreksi dari <b>{labelKategoriPettyCash(expense.category)}</b> saat disetujui.
+                      </p>
+                    )}
+                    {!kategoriBerubah && expense.kategori_asal && expense.kategori_asal !== expense.category && (
+                      <p className="mt-1 text-[11px] text-suka-gray-500">
+                        Kategori awal kasir: {labelKategoriPettyCash(expense.kategori_asal)}
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
             </div>
 
-            <div className="flex items-start gap-2">
+            <div className="flex items-start gap-2 sm:col-span-2">
               <Calendar size={15} className="mt-0.5 shrink-0 text-suka-orange" />
               <div className="min-w-0">
                 <div className="text-[11px] font-medium text-suka-gray-500">Waktu Pengajuan</div>
@@ -130,7 +183,12 @@ export function SetujuiPengeluaranPettyCashModal({
           </div>
 
           <div className="flex items-baseline justify-between border-t border-suka-brown/10 pt-2.5">
-            <span className="text-xs font-semibold text-suka-gray-600">Nominal Pengeluaran</span>
+            <div>
+              <span className="text-xs font-semibold text-suka-gray-600">Nominal Pengeluaran</span>
+              <p className="text-[11px] text-suka-gray-500">
+                Jika nominal beda dari struk, klik Tolak Pengajuan agar kasir input ulang.
+              </p>
+            </div>
             <span className="font-display text-xl font-bold tabular-nums text-suka-brown">
               {rupiah(expense.amount)}
             </span>
@@ -195,18 +253,18 @@ export function SetujuiPengeluaranPettyCashModal({
           <button
             type="button"
             onClick={onTolak}
-            disabled={review.isPending}
+            disabled={sedangProses}
             className="rounded-xl border border-red-200 bg-white px-3.5 py-2 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Tolak Pengajuan
           </button>
 
           <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={onClose} disabled={review.isPending}>
+            <Button variant="secondary" onClick={onClose} disabled={sedangProses}>
               Batal
             </Button>
-            <Button onClick={setujui} disabled={review.isPending}>
-              {review.isPending ? 'Menyetujui…' : 'Setujui Pengeluaran'}
+            <Button onClick={setujui} disabled={sedangProses}>
+              {sedangProses ? 'Memproses…' : kategoriBerubah ? 'Simpan Kategori & Setujui' : 'Setujui Pengeluaran'}
             </Button>
           </div>
         </div>

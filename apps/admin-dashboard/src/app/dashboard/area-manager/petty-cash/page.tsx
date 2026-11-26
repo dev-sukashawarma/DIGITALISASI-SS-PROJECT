@@ -360,7 +360,7 @@ export default function AreaManagerPettyCashPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">Dana Operasional Cabang</h2>
-          <p className="text-sm text-slate-500 mt-0.5">Kelola dan setujui pengajuan petty cash dari tim outlet.</p>
+          <p className="text-sm text-slate-500 mt-0.5">Pantauan pengajuan petty cash outlet (persetujuan kini langsung di Finance).</p>
         </div>
         <div className="flex items-center gap-3">
           <button

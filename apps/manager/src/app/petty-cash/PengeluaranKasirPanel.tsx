@@ -2,17 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { Check, CheckCircle2, Clock, FileText, Loader2, Store, Tag, User, X } from 'lucide-react'
+import { CheckCircle2, Clock, FileText, Store, Tag, User } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 
 /**
- * Antrean pengeluaran petty cash dari POS yang menunggu persetujuan AM.
+ * Pantauan pengeluaran petty cash dari POS yang sedang menunggu ACC Finance.
  *
- * Sejak 13 Nov 2026 persetujuannya pindah dari Finance ke Area Manager outlet
- * binaan (RPC `review_petty_cash_expense`, migrasi 20261113100000). Dibaca dengan
- * JWT pengguna. Untuk AM daftar disaring eksplisit ke outlet binaan (staff_outlets),
- * karena RLS `petty_cash_expenses_select` juga membuka outlet utama AM; RPC menolak
- * outlet di luar binaan dengan aturan yang sama.
+ * Sejak 26 Nov 2026 persetujuan pengeluaran outlet POS pindah kembali ke Finance
+ * (migrasi 20261126100000_pengeluaran_dan_topup_petty_cash_finance). Panel ini
+ * bersifat pantauan (read-only) untuk Area Manager outlet binaan, tanpa tombol ACC/Tolak.
  */
 
 export interface PengeluaranMenunggu {
@@ -37,6 +35,7 @@ const LABEL_KATEGORI: Record<string, string> = {
   internet: 'Internet',
   lembur: 'Lembur',
   endorsement: 'Endorsement',
+  rab: 'RAB (Otomatis)',
 }
 
 export function labelKategori(category: string | null | undefined): string {
@@ -54,7 +53,7 @@ function formatWaktu(iso: string) {
   }).format(new Date(iso))
 }
 
-/** Daftar + jumlah antrean; dipakai halaman untuk lencana tab. */
+/** Daftar + jumlah pantauan pengeluaran menunggu Finance; dipakai halaman untuk lencana tab. */
 export function usePengeluaranMenunggu(outletId: string) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const [items, setItems] = useState<PengeluaranMenunggu[]>([])
@@ -81,8 +80,6 @@ export function usePengeluaranMenunggu(outletId: string) {
   }, [supabase])
 
   const muat = useCallback(async () => {
-    // AM hanya melihat outlet binaannya. RLS juga membuka outlet utama AM, jadi
-    // daftar disaring eksplisit ke staff_outlets — sama dengan cek di RPC.
     const binaan = await ambilBinaan()
     if (binaan && binaan.length === 0) {
       setItems([])
@@ -132,7 +129,6 @@ export function usePengeluaranMenunggu(outletId: string) {
 
   useEffect(() => {
     muat()
-    // Realtime hanya untuk tabel ini (dan outlet terpilih bila ada), digabung 1 dtk.
     let timer: ReturnType<typeof setTimeout> | null = null
     const jadwalkan = () => {
       if (timer) clearTimeout(timer)
@@ -152,66 +148,18 @@ export function usePengeluaranMenunggu(outletId: string) {
     }
   }, [muat, supabase, outletId])
 
-  const proses = useCallback(
-    async (id: string, action: 'approve' | 'reject', reason?: string) => {
-      const { error } = await supabase.rpc('review_petty_cash_expense', {
-        p_expense_id: id,
-        p_action: action,
-        p_reason: reason ?? null,
-      })
-      if (error) throw new Error(error.message)
-      setItems((prev) => prev.filter((i) => i.id !== id))
-    },
-    [supabase],
-  )
-
-  return { items, loading, muat, proses }
+  return { items, loading, muat }
 }
 
 export function PengeluaranKasirPanel({
   items,
   loading,
-  proses,
   onLihatStruk,
 }: {
   items: PengeluaranMenunggu[]
   loading: boolean
-  proses: (id: string, action: 'approve' | 'reject', reason?: string) => Promise<void>
   onLihatStruk: (url: string) => void
 }) {
-  const [sibuk, setSibuk] = useState<string | null>(null)
-
-  async function setujui(item: PengeluaranMenunggu) {
-    if (!confirm(`Setujui pengeluaran ${formatRupiah(item.amount)} di ${item.outlet_nama}? Saldo petty cash outlet langsung terpotong.`)) return
-    setSibuk(item.id)
-    try {
-      await proses(item.id, 'approve')
-      toast.success(`Pengeluaran ${item.outlet_nama} (${formatRupiah(item.amount)}) disetujui`)
-    } catch (err: any) {
-      toast.error('Gagal menyetujui: ' + err.message)
-    } finally {
-      setSibuk(null)
-    }
-  }
-
-  async function tolak(item: PengeluaranMenunggu) {
-    const alasan = prompt(`Alasan menolak pengeluaran ${formatRupiah(item.amount)} di ${item.outlet_nama}:`)
-    if (alasan === null) return
-    if (!alasan.trim()) {
-      toast.error('Alasan penolakan wajib diisi')
-      return
-    }
-    setSibuk(item.id)
-    try {
-      await proses(item.id, 'reject', alasan.trim())
-      toast.success('Pengajuan pengeluaran ditolak')
-    } catch (err: any) {
-      toast.error('Gagal menolak: ' + err.message)
-    } finally {
-      setSibuk(null)
-    }
-  }
-
   if (loading) {
     return (
       <div className="space-y-3">
@@ -229,7 +177,7 @@ export function PengeluaranKasirPanel({
           <CheckCircle2 className="w-6 h-6" />
         </div>
         <h3 className="text-sm font-semibold text-slate-900">Tidak ada pengeluaran menunggu</h3>
-        <p className="text-sm text-slate-500 mt-1">Semua pengeluaran petty cash kasir di outlet binaan sudah diproses.</p>
+        <p className="text-sm text-slate-500 mt-1">Semua pengeluaran petty cash kasir di outlet binaan sudah diproses Finance.</p>
       </div>
     )
   }
@@ -237,7 +185,7 @@ export function PengeluaranKasirPanel({
   return (
     <div className="space-y-3">
       <p className="text-xs text-slate-500">
-        Kasir tidak bisa tutup shift selama masih ada pengeluaran menunggu. Periksa foto struk sebelum menyetujui.
+        Pantauan saja — persetujuan pengeluaran outlet POS kini diproses langsung oleh tim <b>Finance</b> di Hub Approval.
       </p>
       {items.map((item) => (
         <div
@@ -283,29 +231,10 @@ export function PengeluaranKasirPanel({
             </div>
           </div>
 
-          <div className="flex flex-row md:flex-col items-center md:items-end justify-between shrink-0 border-t md:border-t-0 md:border-l border-slate-100 pt-3 md:pt-0 md:pl-6 gap-3">
+          <div className="flex flex-row md:flex-col items-center md:items-end justify-between shrink-0 border-t md:border-t-0 md:border-l border-slate-100 pt-3 md:pt-0 md:pl-6 gap-2">
             <div className="text-left md:text-right">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Menunggu ACC</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600 mb-0.5">Menunggu ACC Finance</div>
               <div className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">{formatRupiah(item.amount)}</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => tolak(item)}
-                disabled={sibuk === item.id}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
-              >
-                <X className="w-3.5 h-3.5" /> Tolak
-              </button>
-              <button
-                type="button"
-                onClick={() => setujui(item)}
-                disabled={sibuk === item.id}
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-[#4a1c15] text-white rounded-md text-xs font-semibold hover:bg-[#38130e] shadow-sm transition-colors disabled:opacity-50"
-              >
-                {sibuk === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                ACC
-              </button>
             </div>
           </div>
         </div>

@@ -86,7 +86,7 @@ export async function ambilBiayaRab(
         .lte('expense_date', rentang.to)
         .order('expense_date', { ascending: false })
         .order('id', { ascending: false })
-      if (tabel === 'petty_cash_expenses') q = q.is('deleted_at', null)
+      if (tabel === 'petty_cash_expenses') q = q.eq('status', 'approved').is('deleted_at', null)
       if (rentang.outletIds && rentang.outletIds.length > 0) q = q.in('outlet_id', rentang.outletIds)
       const { data, error } = await q.range(mulai, mulai + PAGE - 1)
       if (error) throw new Error(error.message)

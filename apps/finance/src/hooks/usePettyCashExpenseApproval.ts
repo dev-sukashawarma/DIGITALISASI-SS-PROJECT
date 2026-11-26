@@ -8,6 +8,8 @@ export interface PendingPettyCashExpense {
   id: string
   outlet_id: string
   category: string
+  kategori_asal?: string | null
+  type?: string | null
   amount: number
   description: string | null
   expense_date: string
@@ -19,6 +21,18 @@ export interface PendingPettyCashExpense {
   pengaju_nama: string | null
 }
 
+export const KATEGORI_PETTY_CASH_OPTIONS = [
+  { value: 'pengeluaran_outlet', label: 'Operasional Outlet' },
+  { value: 'bahan_baku', label: 'Bahan Baku' },
+  { value: 'gas', label: 'Gas' },
+  { value: 'transport', label: 'Transport' },
+  { value: 'pln', label: 'PLN / Listrik' },
+  { value: 'pdam', label: 'PDAM / Air' },
+  { value: 'internet', label: 'Internet' },
+  { value: 'lembur', label: 'Lembur' },
+  { value: 'endorsement', label: 'Endorsement' },
+] as const
+
 const LABEL_KATEGORI: Record<string, string> = {
   pengeluaran_outlet: 'Operasional Outlet',
   bahan_baku: 'Bahan Baku',
@@ -29,6 +43,7 @@ const LABEL_KATEGORI: Record<string, string> = {
   internet: 'Internet',
   lembur: 'Lembur',
   endorsement: 'Endorsement',
+  rab: 'RAB (Otomatis)',
 }
 
 export function labelKategoriPettyCash(category: string | null | undefined): string {
@@ -53,6 +68,8 @@ export function usePettyCashExpensesMenunggu(enabled = true) {
           id,
           outlet_id,
           category,
+          kategori_asal,
+          type,
           amount,
           description,
           expense_date,
@@ -76,6 +93,8 @@ export function usePettyCashExpensesMenunggu(enabled = true) {
           id: row.id,
           outlet_id: row.outlet_id,
           category: row.category,
+          kategori_asal: row.kategori_asal ?? null,
+          type: row.type ?? 'expense',
           amount: Number(row.amount) || 0,
           description: row.description ?? null,
           expense_date: row.expense_date,
@@ -136,6 +155,25 @@ export function useReviewPettyCashExpense() {
       queryClient.invalidateQueries({ queryKey: ['petty_cash_expenses_detail'] })
       queryClient.invalidateQueries({ queryKey: ['petty_cash_real_balances'] })
       queryClient.invalidateQueries({ queryKey: ['approval_log'] })
+    },
+  })
+}
+
+export function useUbahKategoriPettyCashExpense() {
+  const supabase = useMemo(() => createClient(), [])
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: { expenseId: string; category: string }) => {
+      const { data, error } = await supabase.rpc('ubah_kategori_pengeluaran_petty_cash', {
+        p_expense_id: params.expenseId,
+        p_category: params.category,
+      })
+      if (error) throw new Error(error.message)
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['petty_cash_expenses_pending'] })
     },
   })
 }

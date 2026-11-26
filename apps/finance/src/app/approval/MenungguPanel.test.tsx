@@ -34,10 +34,19 @@ describe('MenungguPanel', () => {
   })
 
   it('saringan jenis hanya menampilkan jenis itu', () => {
-    pasang([item('po', 'a', '2026-11-06T10:00:00Z'), item('petty_cash', 'b', '2026-11-06T10:00:00Z')])
+    pasang([
+      item('po', 'a', '2026-11-06T10:00:00Z'),
+      item('petty_cash', 'b', '2026-11-06T10:00:00Z'),
+      item('pengeluaran_petty_cash', 'c', '2026-11-06T10:00:00Z'),
+    ])
     fireEvent.click(screen.getByRole('button', { name: /Approval PO/ }))
     expect(screen.getByText('Judul a')).toBeInTheDocument()
     expect(screen.queryByText('Judul b')).toBeNull()
+    expect(screen.queryByText('Judul c')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /Pengeluaran PC/ }))
+    expect(screen.getByText('Judul c')).toBeInTheDocument()
+    expect(screen.queryByText('Judul a')).toBeNull()
   })
 
   it('sumber yang gagal dimuat ditandai, bukan dihitung nol', () => {

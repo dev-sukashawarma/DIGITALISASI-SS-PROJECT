@@ -187,6 +187,28 @@ export default function CashierShiftPage() {
   const [successMsg, setSuccessMsg] = useState('')
   const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null)
   const [visibleLedgerCount, setVisibleLedgerCount] = useState(20)
+  const [isExpenseTimeAllowed, setIsExpenseTimeAllowed] = useState(true)
+
+  useEffect(() => {
+    const checkExpenseWindow = () => {
+      try {
+        const parts = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Jakarta',
+          hour: '2-digit',
+          hour12: false,
+        }).formatToParts(new Date())
+        const rawHour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0')
+        const hour = rawHour === 24 ? 0 : rawHour
+        setIsExpenseTimeAllowed(hour >= 6 && hour < 21)
+      } catch {
+        const hour = new Date().getHours()
+        setIsExpenseTimeAllowed(hour >= 6 && hour < 21)
+      }
+    }
+    checkExpenseWindow()
+    const interval = setInterval(checkExpenseWindow, 60000)
+    return () => clearInterval(interval)
+  }, [])
 
   const shiftSalesTotal = useMemo(
     () => cashOrders
@@ -519,6 +541,10 @@ export default function CashierShiftPage() {
   async function handleAddExpense(e: React.FormEvent) {
     e.preventDefault()
     if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
+    if (!isExpenseTimeAllowed) {
+      setErrorMsg('Pengajuan pengeluaran outlet hanya dapat dilakukan pukul 06:00 hingga 21:00 WIB.')
+      return
+    }
     setErrorMsg('')
     setSuccessMsg('')
     setIsSubmitting(true)
@@ -532,7 +558,7 @@ export default function CashierShiftPage() {
       if (amount > availablePettyCashBalance) {
         if (pendingExpensesTotal > 0) {
           throw new Error(
-            `Sisa kuota Petty Cash tidak mencukupi. Saldo saat ini ${formatRupiah(pettyCashBalance)}, tertahan pengajuan menunggu AM ${formatRupiah(pendingExpensesTotal)}, sisa kuota: ${formatRupiah(availablePettyCashBalance)}.`
+            `Sisa kuota Petty Cash tidak mencukupi. Saldo saat ini ${formatRupiah(pettyCashBalance)}, tertahan pengajuan menunggu Finance ${formatRupiah(pendingExpensesTotal)}, sisa kuota: ${formatRupiah(availablePettyCashBalance)}.`
           )
         }
         throw new Error(`Saldo Petty Cash tidak mencukupi. Sisa saldo: ${formatRupiah(pettyCashBalance)}`)
@@ -561,7 +587,7 @@ export default function CashierShiftPage() {
         throw error
       }
 
-      setSuccessMsg('Pengeluaran berhasil diajukan dan menunggu approval AM')
+      setSuccessMsg('Pengeluaran berhasil diajukan dan menunggu approval Finance')
       setExpAmount('')
       setExpDesc('')
       setExpCategory('pengeluaran_outlet')
@@ -708,7 +734,7 @@ export default function CashierShiftPage() {
             {pendingExpensesCount > 0 && (
               <div className="flex items-center gap-1.5 bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2 rounded-lg text-xs font-bold">
                 <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span>{pendingExpensesCount} Pengajuan Menunggu AM</span>
+                <span>{pendingExpensesCount} Pengajuan Menunggu Finance</span>
               </div>
             )}
             <Link
@@ -838,7 +864,7 @@ export default function CashierShiftPage() {
                   <div className="mt-2.5 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 space-y-1">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-amber-800">
                       <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span>Menunggu Approval AM: {formatRupiah(pendingExpensesTotal)} ({pendingExpensesCount})</span>
+                      <span>Menunggu Approval Finance: {formatRupiah(pendingExpensesTotal)} ({pendingExpensesCount})</span>
                     </div>
                     <p className="text-[11px] font-semibold text-amber-700">
                       Sisa Kuota Belanja: {formatRupiah(availablePettyCashBalance)}
@@ -864,10 +890,18 @@ export default function CashierShiftPage() {
                   </div>
                 </div>
                 <form onSubmit={handleAddExpense} className="p-5 space-y-4 bg-gray-50/50 rounded-b-2xl">
+                  {!isExpenseTimeAllowed && (
+                    <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 text-xs text-red-800 font-medium">
+                      <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                      <span>
+                        Pengajuan pengeluaran outlet ditutup. Batas pengajuan maksimal pukul <b>21:00 WIB</b> (dibuka kembali pukul 06:00 WIB).
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-xs text-amber-800">
                     <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                     <span>
-                      Pengeluaran akan masuk antrean <b>Approval AM</b>. Saldo Petty Cash baru terpotong setelah disetujui AM, dan shift tidak dapat ditutup selama masih ada pengajuan menunggu.
+                      Pengeluaran diajukan maksimal pukul <b>21:00 WIB</b> dan masuk antrean <b>Approval Finance</b>. Saldo Petty Cash baru terpotong setelah disetujui Finance, dan shift tidak dapat ditutup selama masih ada pengajuan menunggu.
                     </span>
                   </div>
                   <div ref={categoryDropdownRef} className="relative">
@@ -925,14 +959,14 @@ export default function CashierShiftPage() {
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Foto Bukti Struk (Wajib)</label>
                     <input type="file" required accept="image/*,application/pdf" capture="environment" onChange={e => setReceiptFile(e.target.files?.[0] || null)} disabled={isSubmitting} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 transition-colors" />
                   </div>
-                  <button type="submit" disabled={isSubmitting || availablePettyCashBalance <= 0} className="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                    {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Mengajukan...</> : 'Ajukan Pengeluaran'}
+                  <button type="submit" disabled={isSubmitting || availablePettyCashBalance <= 0 || !isExpenseTimeAllowed} className="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                    {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Mengajukan...</> : !isExpenseTimeAllowed ? 'Pengajuan Tutup (Maks. 21:00 WIB)' : 'Ajukan Pengeluaran'}
                   </button>
                   {availablePettyCashBalance <= 0 && (
                     <p className="text-xs text-red-500 font-bold text-center mt-2">
                       {pettyCashBalance <= 0
                         ? 'Saldo Petty Cash kosong, tidak bisa mengajukan pengeluaran.'
-                        : 'Seluruh sisa kuota Petty Cash sedang tertahan pengajuan yang menunggu approval AM.'}
+                        : 'Seluruh sisa kuota Petty Cash sedang tertahan pengajuan yang menunggu approval Finance.'}
                     </p>
                   )}
                 </form>
@@ -981,17 +1015,17 @@ export default function CashierShiftPage() {
                                   ) : isPending ? (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                                       <Clock className="w-3 h-3 text-amber-600" />
-                                      Menunggu Approval AM
+                                      Menunggu Approval Finance
                                     </span>
                                   ) : isRejected ? (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">
                                       <XCircle className="w-3 h-3 text-red-500" />
-                                      Ditolak AM
+                                      Ditolak Finance
                                     </span>
                                   ) : (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                       <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                      Disetujui AM
+                                      Disetujui Finance
                                     </span>
                                   )}
                                 </div>

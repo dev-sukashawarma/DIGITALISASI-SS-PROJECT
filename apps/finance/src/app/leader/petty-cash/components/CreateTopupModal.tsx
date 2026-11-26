@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Card, Button, Spinner } from '@suka/design-system'
 import { useCreatePettyCashTopup } from '@/hooks/usePettyCash'
 import { createClient } from '@/lib/supabase'
+import { cekJamPengajuanTopupWib } from '@/lib/pettyCash/jamBatas'
 
 interface CreateTopupModalProps {
   isOpen: boolean
@@ -23,6 +24,14 @@ export function CreateTopupModal({ isOpen, onClose }: CreateTopupModalProps) {
   const [bankAccountName, setBankAccountName] = useState<string>('')
   const [isLoadingOutlet, setIsLoadingOutlet] = useState<boolean>(false)
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
+  const [jamInfo, setJamInfo] = useState(() => cekJamPengajuanTopupWib())
+
+  useEffect(() => {
+    if (!isOpen) return
+    setJamInfo(cekJamPengajuanTopupWib())
+    const timer = setInterval(() => setJamInfo(cekJamPengajuanTopupWib()), 30_000)
+    return () => clearInterval(timer)
+  }, [isOpen])
 
   useEffect(() => {
     if (!isOpen) return
@@ -93,6 +102,12 @@ export function CreateTopupModal({ isOpen, onClose }: CreateTopupModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const cekJam = cekJamPengajuanTopupWib()
+    setJamInfo(cekJam)
+    if (!cekJam.diizinkan) {
+      alert(cekJam.pesan || 'Pengajuan top up petty cash hanya dibuka pukul 09:00 hingga 16:00 WIB.')
+      return
+    }
     if (!selectedOutletId || !amount || !description) return
 
     setIsSubmitting(true)
@@ -129,6 +144,17 @@ export function CreateTopupModal({ isOpen, onClose }: CreateTopupModalProps) {
           <div className="p-8 flex justify-center"><Spinner /></div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div
+              className={`rounded-lg border px-3 py-2 text-xs ${
+                jamInfo.diizinkan
+                  ? 'border-blue-200 bg-blue-50 text-blue-900'
+                  : 'border-red-200 bg-red-50 text-red-800 font-medium'
+              }`}
+            >
+              {jamInfo.diizinkan
+                ? 'Jam pengajuan top up petty cash: 09:00–16:00 WIB. Pengajuan yang belum diproses melewati pukul 16:00 WIB dibatalkan otomatis oleh sistem.'
+                : jamInfo.pesan}
+            </div>
             <div>
               <label className="block text-xs font-semibold text-suka-gray-700 uppercase tracking-wider mb-1">
                 Outlet
@@ -230,8 +256,8 @@ export function CreateTopupModal({ isOpen, onClose }: CreateTopupModalProps) {
               <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={isSubmitting}>
                 Batal
               </Button>
-              <Button type="submit" variant="primary" size="sm" disabled={isSubmitting}>
-                {isSubmitting ? 'Mengajukan...' : 'Kirim Pengajuan'}
+              <Button type="submit" variant="primary" size="sm" disabled={isSubmitting || !jamInfo.diizinkan}>
+                {isSubmitting ? 'Mengajukan...' : !jamInfo.diizinkan ? 'Tutup (09:00–16:00 WIB)' : 'Kirim Pengajuan'}
               </Button>
             </div>
           </form>

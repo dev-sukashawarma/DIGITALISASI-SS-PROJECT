@@ -1,8 +1,7 @@
+import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { toast } from 'sonner'
-
-const supabase = createSupabaseBrowserClient()
 
 export type PurchaseRequest = {
   id: string
@@ -19,6 +18,7 @@ export type PurchaseRequest = {
 }
 
 export function usePurchaseRequests() {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const q = useQuery<PurchaseRequest[]>({
     queryKey: ['purchase-requests'],
     staleTime: 60_000,
@@ -34,9 +34,11 @@ export function usePurchaseRequests() {
   return { rows: q.data ?? [], loading: q.isLoading, error: q.error }
 }
 
-export function usePendingPrCount() {
+export function usePendingPrCount(enabled = true) {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   return useQuery<number>({
     queryKey: ['purchase-requests', 'count'],
+    enabled,
     staleTime: 30_000,
     queryFn: async () => {
       const { count, error } = await supabase
@@ -50,6 +52,7 @@ export function usePendingPrCount() {
 }
 
 export function useRejectPr() {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {

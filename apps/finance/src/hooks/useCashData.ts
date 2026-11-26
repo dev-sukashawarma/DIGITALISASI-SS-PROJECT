@@ -6,11 +6,17 @@ import { createClient } from '@/lib/supabase'
 import type { CashLocation, CashBalance, CashTransaction, LocationWithBalance } from '@/lib/types'
 
 /** Lokasi kas + saldo tergabung (dua query, di-merge di klien — sederhana & prediktif). */
-export function useCashOverview(initialLocations?: CashLocation[], initialBalances?: CashBalance[]) {
+export function useCashOverview(
+  initialLocations?: CashLocation[],
+  initialBalances?: CashBalance[],
+  options?: { enabled?: boolean }
+) {
   const supabase = useMemo(() => createClient(), [])
+  const enabled = options?.enabled ?? true
 
   const locationsQ = useQuery<CashLocation[]>({
     queryKey: ['cash_location'],
+    enabled,
     initialData: initialLocations,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -25,6 +31,7 @@ export function useCashOverview(initialLocations?: CashLocation[], initialBalanc
 
   const balancesQ = useQuery<CashBalance[]>({
     queryKey: ['cash_balance'],
+    enabled,
     initialData: initialBalances,
     queryFn: async () => {
       const { data, error } = await supabase.from('cash_balance').select('*')

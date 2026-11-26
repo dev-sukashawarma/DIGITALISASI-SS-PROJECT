@@ -13,12 +13,13 @@ const FULL_ACCESS_ROLES = ['admin', 'admin_hr', 'owner', 'spv', 'regional_manage
  */
 export async function resolveCallerScope() {
   const cookieStore = await cookies()
+  const rawCookies = cookieStore.getAll()
   const supabase = createSupabaseServerClient({
-    getAll: () => cookieStore.getAll(),
+    getAll: () => rawCookies,
     setAll: () => {}
   })
 
-  const userId = await getVerifiedUserId(supabase)
+  const userId = await getVerifiedUserId(supabase, rawCookies)
   if (!userId) throw new Error('Unauthorized')
 
   const { data: staff, error: staffError } = await supabase
@@ -38,4 +39,3 @@ export async function resolveCallerScope() {
   const allowedOutletIds: string[] = (outletIds ?? []).map((id: any) => String(id)).sort()
   return { supabase, scopeKey: allowedOutletIds.join(','), allowedOutletIds }
 }
-

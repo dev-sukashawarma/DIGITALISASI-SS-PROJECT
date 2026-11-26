@@ -61,7 +61,7 @@ export function HubApprovalView() {
     return () => clearInterval(t)
   }, [])
 
-  const { locations } = useCashOverview()
+  const { locations } = useCashOverview(undefined, undefined, { enabled: siapMuat })
 
   const processTopup = useProcessPettyCashFinance()
   const reviewPettyExpense = useReviewPettyCashExpense()

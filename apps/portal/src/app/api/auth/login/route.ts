@@ -151,8 +151,47 @@ export async function POST(request: NextRequest) {
     { status: 200, headers: { 'Cache-Control': 'no-store' } }
   )
 
+  const cookieDomain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined
+  const securePart = process.env.NODE_ENV === 'production' ? '; Secure' : ''
+  const activeNames = new Set(
+    pendingCookies
+      .filter((c) => Boolean(c.value) && !(typeof c.options?.maxAge === 'number' && c.options.maxAge <= 0))
+      .map((c) => c.name)
+  )
+
+  const cleanupNames = new Set<string>(['_suka_gate'])
+  for (const { name } of request.cookies.getAll()) {
+    if (name.startsWith('sb-') || name === '_suka_gate') cleanupNames.add(name)
+  }
+  for (const { name } of pendingCookies) {
+    const match = /^(sb-[a-z0-9_-]+-auth-token)(?:\.\d+)?$/i.exec(name)
+    if (match) {
+      cleanupNames.add(match[1])
+      for (let i = 0; i <= 5; i++) cleanupNames.add(`${match[1]}.${i}`)
+    }
+  }
+
+  for (const name of cleanupNames) {
+    if (activeNames.has(name)) continue
+    response.cookies.set(name, '', {
+      path: '/',
+      ...(cookieDomain ? { domain: cookieDomain } : {}),
+      maxAge: 0,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    })
+  }
+
   for (const { name, value, options } of pendingCookies) {
+    if (!activeNames.has(name)) continue
     response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2])
+  }
+
+  // Append penghapusan host-only PALING AKHIR setelah seluruh response.cookies.set selesai
+  if (cookieDomain) {
+    for (const name of cleanupNames) {
+      response.headers.append('Set-Cookie', `${name}=; Path=/; Max-Age=0; SameSite=Lax${securePart}`)
+    }
   }
 
   return response

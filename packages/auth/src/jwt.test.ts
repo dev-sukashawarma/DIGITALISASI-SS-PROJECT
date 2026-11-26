@@ -7,6 +7,8 @@ import {
   getVerifiedUserId,
   supabaseJwtIssuer,
   extractSessionTokensFromCookies,
+  extractAllSessionTokensFromCookies,
+  hasActiveSessionCookieWrite,
   resetRefreshSingleflightCacheForTests,
   safeTrustedReturnUrl,
 } from './jwt'
@@ -296,5 +298,52 @@ describe('safeTrustedReturnUrl', () => {
     expect(safeTrustedReturnUrl('http://localhost:3020/approval', true)).toBe(
       'http://localhost:3020/approval'
     )
+  })
+})
+
+describe('Anti-Shadowing Cookie Utuh vs Chunked & Batch Filter', () => {
+  beforeEach(() => {
+    resetRefreshSingleflightCacheForTests()
+  })
+
+  it('memilih sesi chunked (.0 + .1) yang baru meskipun ada cookie utuh lama yang sudah kedaluwarsa', async () => {
+    const expiredJwt = await makeHs256Token({ sub: 'staff-finance-1', expOffsetSec: -600 })
+    const freshJwt = await makeHs256Token({ sub: 'staff-finance-1', expOffsetSec: 3600 })
+
+    const staleWhole = `base64-${b64urlJson({ access_token: expiredJwt, refresh_token: 'rt-dead' })}`
+    const freshCombined = `base64-${b64urlJson({ access_token: freshJwt, refresh_token: 'rt-alive' })}`
+    const mid = Math.floor(freshCombined.length / 2)
+
+    const collidedCookies = [
+      { name: 'sb-khpkoreaaucvyqfhynfq-auth-token', value: staleWhole },
+      { name: 'sb-khpkoreaaucvyqfhynfq-auth-token.0', value: freshCombined.slice(0, mid) },
+      { name: 'sb-khpkoreaaucvyqfhynfq-auth-token.1', value: freshCombined.slice(mid) },
+    ]
+
+    const all = extractAllSessionTokensFromCookies(collidedCookies)
+    expect(all).toHaveLength(2)
+    expect(all[0].accessToken).toBe(freshJwt)
+    expect(all[0].refreshToken).toBe('rt-alive')
+
+    const { client, getSession } = mockSupabase(null)
+    const sub = await resolveUserId(client, SECRET, { cookies: collidedCookies })
+    expect(sub).toBe('staff-finance-1')
+    expect(getSession).not.toHaveBeenCalled()
+  })
+
+  it('hasActiveSessionCookieWrite membedakan batch sesi sah (dengan cleanup maxAge=0) dari penghapusan total', () => {
+    expect(
+      hasActiveSessionCookieWrite([
+        { name: 'sb-x-auth-token', value: '', options: { maxAge: 0 } },
+        { name: 'sb-x-auth-token.0', value: 'part0', options: { maxAge: 31536000 } },
+      ])
+    ).toBe(true)
+
+    expect(
+      hasActiveSessionCookieWrite([
+        { name: 'sb-x-auth-token.0', value: '', options: { maxAge: 0 } },
+        { name: 'sb-x-auth-token.1', value: '', options: { maxAge: 0 } },
+      ])
+    ).toBe(false)
   })
 })

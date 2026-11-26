@@ -12,6 +12,9 @@ export default defineConfig({
     setupFiles: ['./vitest.setup.ts'],
   },
   resolve: {
-    alias: { '@': resolve(__dirname, './src') },
+    alias: {
+      '@': resolve(__dirname, './src'),
+      '@suka/auth': resolve(__dirname, '../../packages/auth/src/index.ts'),
+    },
   },
 })

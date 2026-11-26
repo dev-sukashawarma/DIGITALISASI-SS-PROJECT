@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient, resolveUserId, type CapturedCookieItem } from '@suka/auth'
+import {
+  createSupabaseServerClient,
+  hasActiveSessionCookieWrite,
+  resolveUserId,
+  type CapturedCookieItem,
+} from '@suka/auth'
 
 async function getAuthedContext(): Promise<{
   authedClient: ReturnType<typeof createSupabaseServerClient>
@@ -9,36 +14,33 @@ async function getAuthedContext(): Promise<{
   const rawCookies = cookieStore.getAll()
   const capturedCookies: CapturedCookieItem[] = []
 
-  const applySafeCookie = (name: string, value: string, options?: Record<string, unknown>) => {
-    // PENTING: Jangan pernah menghapus cookie sesi (value kosong / maxAge <= 0) dari dalam
-    // Server Action (seperti getOfficeVouchersAction yang dipanggil otomatis di latar belakang).
-    // Bila browser/middleware baru saja merotasi refresh token, Server Action yang datang dengan
-    // cookie lama tidak boleh menembakkan Set-Cookie Max-Age=0 yang menjatuhkan sesi user!
-    if (!value || (typeof options?.maxAge === 'number' && options.maxAge <= 0)) return
-    try {
-      cookieStore.set(name, value, options as any)
-    } catch {
-      // Abaikan bila dipanggil dari konteks read-only
+  const applySafeBatch = (batch: CapturedCookieItem[]) => {
+    // Hanya terapkan penulisan cookie bila batch tersebut membawa sesi baru yang aktif
+    // (termasuk penghapusan chunk lama yang berlebih dalam batch yang sama).
+    // Abaikan batch yang isinya murni penghapusan akibat kegagalan refresh paralel.
+    if (!hasActiveSessionCookieWrite(batch)) return
+    for (const { name, value, options } of batch) {
+      try {
+        cookieStore.set(name, value, options as any)
+      } catch {
+        // Abaikan bila dipanggil dari konteks read-only
+      }
     }
   }
 
   const authedClient = createSupabaseServerClient({
     getAll: () => rawCookies,
     setAll: (toSet) => {
-      toSet.forEach(({ name, value, options }) => {
-        if (!value || (typeof options?.maxAge === 'number' && options.maxAge <= 0)) return
-        capturedCookies.push({ name, value, options })
-        applySafeCookie(name, value, options)
-      })
+      if (!hasActiveSessionCookieWrite(toSet)) return
+      toSet.forEach((item) => capturedCookies.push(item))
+      applySafeBatch(toSet)
     },
   })
 
   const userId = await resolveUserId(authedClient, process.env.SUPABASE_JWT_SECRET, {
     cookies: rawCookies,
     getCapturedCookies: () => capturedCookies,
-    replayCookies: (replayed) => {
-      replayed.forEach(({ name, value, options }) => applySafeCookie(name, value, options))
-    },
+    replayCookies: (replayed) => applySafeBatch(replayed),
   })
 
   return { authedClient, userId }
@@ -56,8 +58,6 @@ export async function requireRole(
     throw new Error('Unauthorized: sesi tidak ditemukan')
   }
 
-  // Gunakan service-role untuk membaca profil role/status setelah userId terverifikasi secara kriptografis,
-  // supaya tidak memicu pemanggilan getSession() kedua pada authedClient bila access_token mepet kedaluwarsa.
   const { getServiceSupabase } = await import('@/lib/supabase-service')
   const service = getServiceSupabase()
   const { data: staff, error: staffError } = await service

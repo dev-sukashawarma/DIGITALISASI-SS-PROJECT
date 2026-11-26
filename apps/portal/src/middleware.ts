@@ -1,5 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createSupabaseServerClient, resolveUserId, safeTrustedReturnUrl } from '@suka/auth'
+import {
+  createSupabaseServerClient,
+  hasActiveSessionCookieWrite,
+  resolveUserId,
+  safeTrustedReturnUrl,
+} from '@suka/auth'
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next()
@@ -7,8 +12,8 @@ export async function middleware(request: NextRequest) {
   const supabase = createSupabaseServerClient({
     getAll: () => request.cookies.getAll(),
     setAll: (cookies) => {
+      if (!hasActiveSessionCookieWrite(cookies)) return
       cookies.forEach(({ name, value, options }) => {
-        if (!value || (typeof options?.maxAge === 'number' && options.maxAge <= 0)) return
         response.cookies.set(name, value, options)
       })
     },
@@ -26,7 +31,6 @@ export async function middleware(request: NextRequest) {
   const getRedirect = (url: string | URL) => {
     const redirectResponse = NextResponse.redirect(new URL(url, request.url))
     response.cookies.getAll().forEach((cookie) => {
-      if (!cookie.value || cookie.maxAge === 0) return
       redirectResponse.cookies.set({ ...cookie })
     })
     return redirectResponse

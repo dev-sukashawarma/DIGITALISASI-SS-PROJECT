@@ -231,7 +231,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
   const bolehHub = ['owner', 'admin', 'admin_finance', 'developer'].includes(role)
   const siapMuatBadge = !isAuthBypassRoute && !authLoading && Boolean(outletStaff)
   const { total: hubPendingCount, adaGalat: hubAdaGalat } = useHubApprovalCount(siapMuatBadge && bolehHub)
-  const { data: prPendingCount = 0 } = usePendingPrCount()
+  const { data: prPendingCount = 0 } = usePendingPrCount(siapMuatBadge)
   // Purchasing: PO diterima yang belum diajukan pembayarannya (termasuk yang ditolak finance).
   const { data: tagihanBelumDiajukan = 0 } = useTagihanBelumDiajukanCount(siapMuatBadge && isPurchasingRole)
   

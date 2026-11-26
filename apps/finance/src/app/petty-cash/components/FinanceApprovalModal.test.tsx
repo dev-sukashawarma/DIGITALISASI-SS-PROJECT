@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { useCashOverview } from '@/hooks/useCashData'
 import type { LocationWithBalance, PettyCashTopup } from '@/lib/types'
 import { FinanceApprovalModal } from './FinanceApprovalModal'
@@ -8,6 +8,16 @@ vi.mock('@/hooks/useCashData', () => ({ useCashOverview: vi.fn() }))
 
 URL.createObjectURL = vi.fn(() => 'blob:bukti')
 URL.revokeObjectURL = vi.fn()
+
+beforeEach(() => {
+  // Jam pencairan dibatasi sebelum pukul 16:00 WIB pada hari pengajuan (2026-11-05 10:00 WIB)
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-11-05T03:00:00Z'))
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 function lampirkanBukti() {
   const input = document.getElementById('proof-photo-upload') as HTMLInputElement

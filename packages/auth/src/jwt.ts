@@ -23,6 +23,31 @@ const MAX_REFRESH_CACHE_ENTRIES = 256
 
 export type RawCookieItem = { name: string; value: string }
 export type CapturedCookieItem = { name: string; value: string; options?: Record<string, unknown> }
+export type SessionTokenPair = { accessToken: string | null; refreshToken: string | null }
+
+/** Apakah satu entri cookie merupakan instruksi penghapusan (`value === ""` atau `maxAge <= 0`). */
+export function isCookieDeletion(value: string, options?: Record<string, unknown>): boolean {
+  if (!value) return true
+  const maxAge = options?.maxAge
+  if (typeof maxAge === 'number' && maxAge <= 0) return true
+  return false
+}
+
+/**
+ * Membedakan batch `setAll(cookies)` dari `@supabase/ssr`:
+ * - `true`: penulisan sesi sah (`SIGNED_IN`, `TOKEN_REFRESHED`, `USER_UPDATED`). Batch ini
+ *   BOLEH dan WAJIB menyertakan entri `maxAge: 0` untuk membersihkan pecahan/chunk lama
+ *   (mis. menghapus `sb-xxx` utuh saat sesi baru dipecah menjadi `.0` + `.1`, atau menghapus
+ *   `.2` saat sesi baru menyusut).
+ * - `false`: semua entri di batch adalah penghapusan (`SIGNED_OUT` akibat `refresh_token_not_found`
+ *   pada request paralel yang kalah balapan). Batch seperti ini WAJIB diabaikan di middleware /
+ *   Server Action / RSC agar tidak menghapus sesi sah milik tab/request pemenang.
+ */
+export function hasActiveSessionCookieWrite(
+  cookies: ReadonlyArray<{ name: string; value: string; options?: Record<string, unknown> }>
+): boolean {
+  return cookies.some((c) => !isCookieDeletion(c.value, c.options))
+}
 
 function supabaseBaseUrl(): string {
   return (process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL).replace(/\/+$/, '')
@@ -119,87 +144,133 @@ function decodeBase64UrlUtf8(b64url: string): string | null {
   }
 }
 
-/**
- * Membaca pasangan `access_token` & `refresh_token` langsung dari daftar cookie
- * `@supabase/ssr` (`sb-<ref>-auth-token` maupun pecahan `.0`, `.1`, dst.) tanpa
- * memicu `supabase.auth.getSession()`.
- *
- * Ini mencegah `@supabase/auth-js` merotasi `refresh_token` secara prematur pada
- * request paralel (prefetch, RSC, Server Action) selama `access_token` masih sah.
- */
-export function extractSessionTokensFromCookies(
-  cookies: ReadonlyArray<RawCookieItem> | undefined | null
-): { accessToken: string | null; refreshToken: string | null } {
-  if (!cookies || cookies.length === 0) {
-    return { accessToken: null, refreshToken: null }
+/** Membaca klaim `exp` (detik epoch) dari JWT tanpa verifikasi kriptografi, hanya untuk pengurutan kandidat. */
+export function decodeJwtExpSeconds(token: string | null | undefined): number | null {
+  if (!token) return null
+  const parts = token.split('.')
+  if (parts.length !== 3) return null
+  const json = decodeBase64UrlUtf8(parts[1])
+  if (!json) return null
+  try {
+    const parsed = JSON.parse(json) as { exp?: unknown }
+    return typeof parsed?.exp === 'number' && Number.isFinite(parsed.exp) ? parsed.exp : null
+  } catch {
+    return null
+  }
+}
+
+function parseRawCookieSessionPayload(rawCombined: string): SessionTokenPair | null {
+  if (!rawCombined) return null
+
+  let jsonStr: string | null = null
+  if (rawCombined.startsWith('base64-')) {
+    jsonStr = decodeBase64UrlUtf8(rawCombined.slice('base64-'.length))
+  } else {
+    try {
+      jsonStr = decodeURIComponent(rawCombined)
+    } catch {
+      jsonStr = rawCombined
+    }
   }
 
-  // Kelompokkan berdasarkan nama dasar cookie auth Supabase
+  if (!jsonStr) return null
+
+  try {
+    const parsed = JSON.parse(jsonStr) as
+      | { access_token?: unknown; refresh_token?: unknown }
+      | unknown[]
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const accessToken =
+        typeof parsed.access_token === 'string' && parsed.access_token.length > 0
+          ? parsed.access_token
+          : null
+      const refreshToken =
+        typeof parsed.refresh_token === 'string' && parsed.refresh_token.length > 0
+          ? parsed.refresh_token
+          : null
+      if (accessToken || refreshToken) {
+        return { accessToken, refreshToken }
+      }
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
+/**
+ * Mengekstrak SEMUA kandidat pasangan `{ accessToken, refreshToken }` dari daftar cookie
+ * (baik cookie utuh `sb-<ref>-auth-token`, pecahan `.0`..`.N`, maupun duplikat host-only vs domain),
+ * diurutkan dari `exp` terbaru ke terlama sehingga cookie basi yang tertinggal tidak pernah
+ * menutupi sesi baru yang sah.
+ */
+export function extractAllSessionTokensFromCookies(
+  cookies: ReadonlyArray<RawCookieItem> | undefined | null
+): SessionTokenPair[] {
+  if (!cookies || cookies.length === 0) return []
+
   const baseNames = new Set<string>()
   for (const c of cookies) {
     const match = /^(sb-[a-z0-9_-]+-auth-token)(?:\.\d+)?$/i.exec(c.name)
     if (match) baseNames.add(match[1])
   }
 
+  const rawCandidates: string[] = []
   for (const base of baseNames) {
-    const exact = cookies.find((c) => c.name === base && c.value)
-    let rawCombined = exact?.value ?? ''
-
-    if (!rawCombined) {
-      const chunks: Array<{ idx: number; value: string }> = []
-      for (const c of cookies) {
-        if (!c.name.startsWith(`${base}.`)) continue
-        const suffix = c.name.slice(base.length + 1)
-        if (!/^\d+$/.test(suffix)) continue
-        chunks.push({ idx: Number(suffix), value: c.value })
-      }
-      if (chunks.length > 0) {
-        chunks.sort((a, b) => a.idx - b.idx)
-        // Pastikan indeks berurutan 0..N-1
-        if (chunks.every((ch, idx) => ch.idx === idx)) {
-          rawCombined = chunks.map((ch) => ch.value).join('')
-        }
+    // 1. Semua entri utuh dengan nama persis `base` (bisa >1 bila ada duplikat host-only & domain)
+    for (const c of cookies) {
+      if (c.name === base && c.value) {
+        rawCandidates.push(c.value)
       }
     }
 
-    if (!rawCombined) continue
-
-    let jsonStr: string | null = null
-    if (rawCombined.startsWith('base64-')) {
-      jsonStr = decodeBase64UrlUtf8(rawCombined.slice('base64-'.length))
-    } else {
-      try {
-        jsonStr = decodeURIComponent(rawCombined)
-      } catch {
-        jsonStr = rawCombined
-      }
+    // 2. Gabungan pecahan `.0`, `.1`, ... (tetap dievaluasi walau cookie utuh juga ada!)
+    const byIndex = new Map<number, string>()
+    for (const c of cookies) {
+      if (!c.name.startsWith(`${base}.`) || !c.value) continue
+      const suffix = c.name.slice(base.length + 1)
+      if (!/^\d+$/.test(suffix)) continue
+      // Ambil nilai terakhir untuk indeks yang sama (selaras perilaku Map RequestCookies)
+      byIndex.set(Number(suffix), c.value)
     }
-
-    if (!jsonStr) continue
-
-    try {
-      const parsed = JSON.parse(jsonStr) as
-        | { access_token?: unknown; refresh_token?: unknown }
-        | unknown[]
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        const accessToken =
-          typeof parsed.access_token === 'string' && parsed.access_token.length > 0
-            ? parsed.access_token
-            : null
-        const refreshToken =
-          typeof parsed.refresh_token === 'string' && parsed.refresh_token.length > 0
-            ? parsed.refresh_token
-            : null
-        if (accessToken || refreshToken) {
-          return { accessToken, refreshToken }
-        }
+    if (byIndex.has(0)) {
+      const assembled: string[] = []
+      for (let i = 0; byIndex.has(i); i++) {
+        assembled.push(byIndex.get(i)!)
       }
-    } catch {
-      // Lanjut ke kandidat berikutnya jika ada
+      if (assembled.length > 0) {
+        rawCandidates.push(assembled.join(''))
+      }
     }
   }
 
-  return { accessToken: null, refreshToken: null }
+  const seen = new Set<string>()
+  const parsedList: Array<{ pair: SessionTokenPair; exp: number }> = []
+
+  for (const raw of rawCandidates) {
+    const pair = parseRawCookieSessionPayload(raw)
+    if (!pair) continue
+    const dedupKey = `${pair.accessToken ?? ''}|${pair.refreshToken ?? ''}`
+    if (seen.has(dedupKey)) continue
+    seen.add(dedupKey)
+    const exp = decodeJwtExpSeconds(pair.accessToken) ?? -1
+    parsedList.push({ pair, exp })
+  }
+
+  // Urutkan agar kandidat dengan masa berlaku paling baru diuji paling dulu
+  parsedList.sort((a, b) => b.exp - a.exp)
+  return parsedList.map((entry) => entry.pair)
+}
+
+/**
+ * Membaca pasangan `access_token` & `refresh_token` terbaik langsung dari daftar cookie
+ * `@supabase/ssr` tanpa memicu `supabase.auth.getSession()`.
+ */
+export function extractSessionTokensFromCookies(
+  cookies: ReadonlyArray<RawCookieItem> | undefined | null
+): SessionTokenPair {
+  const candidates = extractAllSessionTokensFromCookies(cookies)
+  return candidates[0] ?? { accessToken: null, refreshToken: null }
 }
 
 type RefreshGraceEntry = {
@@ -284,17 +355,12 @@ async function resolveFromSupabaseSession(
 /**
  * Resolusi userId di middleware / Server Action / RSC.
  *
- * Urutan anti-race-condition:
- * 1. Bila `options.cookies` diberikan, periksa JWT `access_token` secara lokal
- *    LEBIH DULU sebelum menyentuh `supabase.auth.getSession()`. Selama token
- *    belum kedaluwarsa, GoTrue sama sekali tidak dipanggil (menghindari rotasi
- *    prematur saat margin 90 detik `@supabase/auth-js`).
- * 2. Bila request adalah prefetch (`options.isPrefetch`), JANGAN PERNAH me-refresh
- *    token ke GoTrue — kembalikan null agar rotasi hanya dilakukan oleh navigasi utama.
- * 3. Bila `access_token` sudah kedaluwarsa namun `refresh_token` ada, jalankan
- *    refresh melalui singleflight + grace cache 30 detik berbasis hash `refresh_token`,
- *    sehingga 5–10 request paralel yang membawa cookie lama tidak saling membatalkan
- *    (`refresh_token_not_found`).
+ * Urutan anti-race-condition & anti-stale-chunk:
+ * 1. Bila `options.cookies` diberikan, evaluasi SEMUA kandidat cookie (`utuh` maupun `.0`+`.1`)
+ *    secara lokal lebih dulu. Selama ada satu `access_token` yang sah, GoTrue tidak dipanggil.
+ * 2. Bila request adalah prefetch (`options.isPrefetch`), JANGAN PERNAH me-refresh token ke GoTrue.
+ * 3. Bila semua `access_token` kedaluwarsa namun ada `refresh_token`, jalankan refresh melalui
+ *    singleflight + grace cache 30 detik berbasis hash `refresh_token`.
  */
 export async function resolveUserId(
   supabase: SessionAuthClient,
@@ -302,10 +368,11 @@ export async function resolveUserId(
   options?: ResolveUserOptions
 ): Promise<string | null> {
   if (options?.cookies) {
-    const { accessToken, refreshToken } = extractSessionTokensFromCookies(options.cookies)
+    const candidates = extractAllSessionTokensFromCookies(options.cookies)
 
-    if (accessToken) {
-      const fastCheck = await verifySupabaseAccessToken(accessToken, {
+    for (const candidate of candidates) {
+      if (!candidate.accessToken) continue
+      const fastCheck = await verifySupabaseAccessToken(candidate.accessToken, {
         jwtSecret,
         jwks: options.jwks,
       })
@@ -318,6 +385,7 @@ export async function resolveUserId(
       return null
     }
 
+    const refreshToken = candidates.find((c) => Boolean(c.refreshToken))?.refreshToken ?? null
     if (refreshToken) {
       const key = await hashRefreshKey(refreshToken)
       const now = Date.now()
@@ -360,7 +428,6 @@ export async function resolveUserId(
       return outcome?.userId ?? null
     }
 
-    // Tidak ada access_token maupun refresh_token di daftar cookie
     return null
   }
 
@@ -402,7 +469,6 @@ export function safeTrustedReturnUrl(
       (parsed.port === '' || parsed.port === '443') &&
       (host === 'sukashawarma.com' || host.endsWith('.sukashawarma.com'))
     ) {
-      // Hindari redirect memutar ke halaman login portal itu sendiri
       if (host === 'app.sukashawarma.com' && (parsed.pathname === '/' || parsed.pathname === '')) {
         return null
       }

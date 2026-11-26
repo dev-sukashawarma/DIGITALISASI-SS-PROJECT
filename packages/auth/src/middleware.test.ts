@@ -138,4 +138,45 @@ describe('enforceAppAccess anti-bounce-to-login', () => {
     expect(res.status).toBe(200)
     expect(getSessionMock).not.toHaveBeenCalled()
   })
+
+  it('saat sesi baru ter-refresh menjadi chunked (.0 + .1), instruksi penghapusan cookie utuh lama (maxAge=0) TETAP diterapkan agar tidak menutupi chunk baru', async () => {
+    const expired = await signTestJwt(-120)
+    const fresh = await signTestJwt(3600)
+    const oldUnchunked = encodeCookieVal(expired, 'rt-old-unchunked')
+    const freshEncoded = encodeCookieVal(fresh, 'rt-new-chunked')
+    const mid = Math.floor(freshEncoded.length / 2)
+
+    mockSetAllCookies = [
+      {
+        name: 'sb-khpkoreaaucvyqfhynfq-auth-token',
+        value: '',
+        options: { path: '/', domain: '.sukashawarma.com', maxAge: 0 },
+      },
+      {
+        name: 'sb-khpkoreaaucvyqfhynfq-auth-token.0',
+        value: freshEncoded.slice(0, mid),
+        options: { path: '/', domain: '.sukashawarma.com', maxAge: 31536000 },
+      },
+      {
+        name: 'sb-khpkoreaaucvyqfhynfq-auth-token.1',
+        value: freshEncoded.slice(mid),
+        options: { path: '/', domain: '.sukashawarma.com', maxAge: 31536000 },
+      },
+    ]
+    mockSessionToken = fresh
+
+    const req = new NextRequest('https://finance.sukashawarma.com/approval', {
+      headers: {
+        host: 'finance.sukashawarma.com',
+        cookie: `sb-khpkoreaaucvyqfhynfq-auth-token=${oldUnchunked}`,
+      },
+    })
+
+    const res = await enforceAppAccess(req, 'finance')
+    expect(res.status).toBe(200)
+    const setCookieHeader = res.headers.get('set-cookie') ?? ''
+    expect(setCookieHeader).toContain('sb-khpkoreaaucvyqfhynfq-auth-token=; Path=/; Max-Age=0')
+    expect(setCookieHeader).toContain('sb-khpkoreaaucvyqfhynfq-auth-token.0=')
+    expect(setCookieHeader).toContain('sb-khpkoreaaucvyqfhynfq-auth-token.1=')
+  })
 })

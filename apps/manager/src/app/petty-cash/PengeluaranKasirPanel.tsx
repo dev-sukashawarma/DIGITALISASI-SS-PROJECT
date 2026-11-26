@@ -62,6 +62,7 @@ export function usePengeluaranMenunggu(outletId: string) {
   // Daftar outlet binaan AM (staff_outlets), dibaca sekali per sesi halaman.
   // null = bukan AM (RM/developer) → tidak disaring di klien.
   const binaanRef = useRef<Promise<string[] | null> | null>(null)
+  const reqSeqRef = useRef(0)
   const ambilBinaan = useCallback(() => {
     if (!binaanRef.current) {
       binaanRef.current = (async () => {
@@ -80,7 +81,9 @@ export function usePengeluaranMenunggu(outletId: string) {
   }, [supabase])
 
   const muat = useCallback(async () => {
+    const seq = ++reqSeqRef.current
     const binaan = await ambilBinaan()
+    if (seq !== reqSeqRef.current) return
     if (binaan && binaan.length === 0) {
       setItems([])
       setLoading(false)
@@ -102,6 +105,7 @@ export function usePengeluaranMenunggu(outletId: string) {
     if (binaan) q = q.in('outlet_id', binaan)
 
     const { data, error } = await q
+    if (seq !== reqSeqRef.current) return
     if (error) {
       toast.error('Gagal memuat pengeluaran kasir: ' + error.message)
       setLoading(false)

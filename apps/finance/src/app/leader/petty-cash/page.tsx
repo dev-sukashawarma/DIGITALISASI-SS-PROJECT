@@ -16,11 +16,24 @@ export default async function PettyCashPage() {
   const { data } = await supabase
     .from('petty_cash_topups')
     .select(`
-      *,
+      id,
+      outlet_id,
+      amount,
+      description,
+      status,
+      created_at,
+      approved_at,
+      completed_at,
+      leader_forwarded_at,
+      bank_name,
+      bank_account_number,
+      bank_account_name,
+      proof_of_transfer_url,
       outlet_staff!petty_cash_topups_created_by_fkey(name),
       outlets!petty_cash_topups_outlet_id_fkey(name)
     `)
     .order('created_at', { ascending: false })
+    .limit(100)
 
   let initialRequests: PettyCashTopup[] = []
   if (data) {

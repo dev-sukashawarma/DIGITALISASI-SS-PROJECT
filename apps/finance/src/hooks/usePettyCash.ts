@@ -9,6 +9,31 @@ import {
   processPettyCashFinanceCustomAmount,
   mintaLinkUnggahBuktiPencairanAction,
 } from '@/app/actions/pettyCash'
+import { cekBatasProsesFinanceTopupWib } from '@/lib/pettyCash/jamBatas'
+
+const PETTY_CASH_TOPUP_COLUMNS = `
+  id,
+  outlet_id,
+  amount,
+  description,
+  status,
+  created_at,
+  created_by,
+  approved_at,
+  approved_by,
+  finance_approved_by,
+  leader_forwarded_by,
+  leader_forwarded_at,
+  completed_at,
+  disbursement_method,
+  disbursed_from_cash_location_id,
+  proof_of_transfer_url,
+  bank_name,
+  bank_account_number,
+  bank_account_name,
+  outlet_staff!petty_cash_topups_created_by_fkey(name),
+  outlets!petty_cash_topups_outlet_id_fkey!inner(name, region)
+`
 
 export function usePettyCashRequests(status?: string, initialData?: PettyCashTopup[], regionFilter?: string) {
   const supabase = useMemo(() => createClient(), [])
@@ -19,12 +44,9 @@ export function usePettyCashRequests(status?: string, initialData?: PettyCashTop
     queryFn: async () => {
       let query = supabase
         .from('petty_cash_topups')
-        .select(`
-          *,
-          outlet_staff!petty_cash_topups_created_by_fkey(name),
-          outlets!petty_cash_topups_outlet_id_fkey!inner(name, region)
-        `)
+        .select(PETTY_CASH_TOPUP_COLUMNS)
         .order('created_at', { ascending: false })
+        .limit(200)
       
       if (status) {
         query = query.eq('status', status)
@@ -63,11 +85,7 @@ export function usePettyCashMenunggu(enabled = true) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('petty_cash_topups')
-        .select(`
-          *,
-          outlet_staff!petty_cash_topups_created_by_fkey(name),
-          outlets!petty_cash_topups_outlet_id_fkey!inner(name, region)
-        `)
+        .select(PETTY_CASH_TOPUP_COLUMNS)
         .eq('status', 'forwarded_to_finance')
         .order('created_at', { ascending: true })
       if (error) throw error
@@ -156,6 +174,12 @@ export function useProcessPettyCashFinance() {
       approvedAmount?: number;
       approvalNote?: string;
     }) => {
+      if (action === 'approve') {
+        const cekJam = cekBatasProsesFinanceTopupWib()
+        if (!cekJam.diizinkan) {
+          throw new Error(cekJam.pesan || 'Pengajuan top up petty cash sudah melewati batas pukul 16:00 WIB.')
+        }
+      }
       const formData = new FormData()
       formData.append('id', id)
       formData.append('action', action)

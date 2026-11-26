@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@suka/design-system'
 import {
@@ -13,6 +13,8 @@ import {
   ExternalLink,
   CheckCircle2,
   ImageOff,
+  ChevronDown,
+  Check,
 } from 'lucide-react'
 import {
   KATEGORI_PETTY_CASH_OPTIONS,
@@ -40,29 +42,66 @@ export function SetujuiPengeluaranPettyCashModal({
   const ubahKategori = useUbahKategoriPettyCashExpense()
   const [imgError, setImgError] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState(expense.category)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const submittingRef = useRef(false)
+  const committedCategoryRef = useRef(expense.category)
 
   useEffect(() => {
     setSelectedCategory(expense.category)
+    committedCategoryRef.current = expense.category
     setImgError(false)
+    setDropdownOpen(false)
   }, [expense.id, expense.category])
+
+  useEffect(() => {
+    if (!dropdownOpen) return
+    const onDocClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDropdownOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [dropdownOpen])
 
   if (!isOpen) return null
 
   const isRabOtomatis = expense.type === 'rab' || expense.category === 'rab'
-  const kategoriBerubah = !isRabOtomatis && selectedCategory !== expense.category
-  const sedangProses = review.isPending || ubahKategori.isPending
+  const kategoriBerubah = !isRabOtomatis && selectedCategory !== committedCategoryRef.current
+  const sedangProses = submitting || review.isPending || ubahKategori.isPending
+
+  const kategoriOptions = KATEGORI_PETTY_CASH_OPTIONS.some((o) => o.value === selectedCategory)
+    ? [...KATEGORI_PETTY_CASH_OPTIONS]
+    : [
+        ...KATEGORI_PETTY_CASH_OPTIONS,
+        { value: selectedCategory, label: labelKategoriPettyCash(selectedCategory) },
+      ]
 
   const setujui = async () => {
+    if (submittingRef.current || sedangProses) return
+    submittingRef.current = true
+    setSubmitting(true)
+    const perluUbahKategori = !isRabOtomatis && selectedCategory !== committedCategoryRef.current
     try {
-      if (kategoriBerubah) {
+      if (perluUbahKategori) {
         await ubahKategori.mutateAsync({
           expenseId: expense.id,
           category: selectedCategory,
         })
+        committedCategoryRef.current = selectedCategory
       }
       await review.mutateAsync({ expenseId: expense.id, action: 'approve' })
       toast.success(
-        kategoriBerubah
+        perluUbahKategori || selectedCategory !== expense.category
           ? `Kategori dikoreksi & pengeluaran ${expense.outlet_nama} (${rupiah(expense.amount)}) disetujui`
           : `Pengeluaran petty cash ${expense.outlet_nama} (${rupiah(expense.amount)}) disetujui`,
       )
@@ -70,50 +109,57 @@ export function SetujuiPengeluaranPettyCashModal({
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Gagal menyetujui pengeluaran petty cash')
       onGagal?.()
+    } finally {
+      submittingRef.current = false
+      setSubmitting(false)
     }
   }
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="judul-modal-pengeluaran-pc"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-suka-ink/45 p-4 backdrop-blur-xs"
+      onClick={() => !sedangProses && onClose()}
     >
-      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-suka-brown/10 bg-white p-5 shadow-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-suka-brown/10 pb-3.5">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-suka-orange/10 text-suka-orange">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="judul-modal-pengeluaran-pc"
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-suka-brown/12 bg-white p-6 shadow-xl"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
               <Receipt size={18} />
-            </span>
+            </div>
             <div>
-              <h2 id="judul-modal-pengeluaran-pc" className="font-display text-xl font-bold text-suka-brown">
-                Verifikasi Pengeluaran Petty Cash
-              </h2>
+              <h3 id="judul-modal-pengeluaran-pc" className="font-display text-lg font-bold text-suka-brown">
+                Tinjau Pengeluaran Petty Cash
+              </h3>
               <p className="text-xs text-suka-gray-500">
-                Periksa rincian belanja dan foto struk sebelum menyetujui pemotongan kas kecil
+                Verifikasi bukti struk sebelum memotong saldo Petty Cash POS outlet.
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
+            disabled={sedangProses}
             aria-label="Tutup"
-            className="rounded-lg p-1 text-suka-gray-400 transition-colors hover:bg-suka-gray-100 hover:text-suka-ink"
+            className="rounded-lg p-1 text-suka-gray-400 transition-colors hover:bg-suka-gray-100 hover:text-suka-ink disabled:opacity-50"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
         {/* Ringkasan Pengajuan */}
-        <div className="mt-4 space-y-3 rounded-xl border border-suka-brown/10 bg-suka-cream/60 p-4 text-sm text-suka-ink">
+        <div className="mt-4 space-y-3 rounded-xl border border-suka-brown/10 bg-suka-surface/50 p-4 text-sm">
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             <div className="flex items-start gap-2">
               <Store size={15} className="mt-0.5 shrink-0 text-suka-orange" />
               <div className="min-w-0">
                 <div className="text-[11px] font-medium text-suka-gray-500">Outlet</div>
-                <div className="truncate font-semibold text-suka-brown">{expense.outlet_nama}</div>
+                <div className="truncate font-semibold text-suka-ink">{expense.outlet_nama}</div>
               </div>
             </div>
 
@@ -121,38 +167,76 @@ export function SetujuiPengeluaranPettyCashModal({
               <User size={15} className="mt-0.5 shrink-0 text-suka-orange" />
               <div className="min-w-0">
                 <div className="text-[11px] font-medium text-suka-gray-500">Diajukan Oleh</div>
-                <div className="truncate font-semibold text-suka-ink">{expense.pengaju_nama ?? 'Kru Kasir'}</div>
+                <div className="truncate font-semibold text-suka-ink">{expense.pengaju_nama || 'Kru Kasir'}</div>
               </div>
             </div>
 
             <div className="flex items-start gap-2 sm:col-span-2">
               <Tag size={15} className="mt-0.5 shrink-0 text-suka-orange" />
-              <div className="min-w-0 flex-1">
-                <label htmlFor="kategori-pengeluaran-pc" className="block text-[11px] font-medium text-suka-gray-500">
+              <div className="min-w-0 flex-1" ref={dropdownRef}>
+                <span
+                  id="label-kategori-pengeluaran-pc"
+                  className="block text-[11px] font-medium text-suka-gray-500"
+                >
                   Kategori {isRabOtomatis ? '(RAB Otomatis)' : '(dapat dikoreksi sebelum ACC)'}
-                </label>
+                </span>
                 {isRabOtomatis ? (
                   <div className="mt-0.5 font-semibold text-suka-ink">
                     {labelKategoriPettyCash(expense.category)}
                   </div>
                 ) : (
-                  <>
-                    <select
-                      id="kategori-pengeluaran-pc"
-                      value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value)}
+                  <div className="relative mt-1">
+                    <button
+                      type="button"
+                      role="combobox"
+                      aria-labelledby="label-kategori-pengeluaran-pc"
+                      aria-expanded={dropdownOpen}
+                      aria-haspopup="listbox"
+                      aria-controls="listbox-kategori-pengeluaran-pc"
                       disabled={sedangProses}
-                      className="mt-1 w-full rounded-lg border border-suka-brown/20 bg-white px-2.5 py-1.5 text-sm font-semibold text-suka-ink focus:border-suka-orange focus:outline-none focus:ring-1 focus:ring-suka-orange disabled:opacity-50"
+                      onClick={() => setDropdownOpen((prev) => !prev)}
+                      className="flex w-full items-center justify-between rounded-lg border border-suka-brown/20 bg-white px-3 py-2 text-left text-sm font-semibold text-suka-ink transition-colors hover:border-suka-brown/40 focus:border-suka-orange focus:outline-none focus:ring-1 focus:ring-suka-orange disabled:opacity-50"
                     >
-                      {KATEGORI_PETTY_CASH_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                      {!KATEGORI_PETTY_CASH_OPTIONS.some((o) => o.value === selectedCategory) && (
-                        <option value={selectedCategory}>{labelKategoriPettyCash(selectedCategory)}</option>
-                      )}
-                    </select>
+                      <span className="truncate">{labelKategoriPettyCash(selectedCategory)}</span>
+                      <ChevronDown
+                        size={16}
+                        className={`ml-2 shrink-0 text-suka-gray-500 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+
+                    {dropdownOpen && (
+                      <div
+                        id="listbox-kategori-pengeluaran-pc"
+                        role="listbox"
+                        aria-labelledby="label-kategori-pengeluaran-pc"
+                        className="absolute left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto rounded-xl border border-suka-gray-200 bg-white py-1 shadow-lg"
+                      >
+                        {kategoriOptions.map((opt) => {
+                          const aktif = opt.value === selectedCategory
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              role="option"
+                              aria-selected={aktif}
+                              onClick={() => {
+                                setSelectedCategory(opt.value)
+                                setDropdownOpen(false)
+                              }}
+                              className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
+                                aktif
+                                  ? 'bg-amber-50 font-semibold text-suka-brown'
+                                  : 'font-medium text-suka-ink hover:bg-suka-gray-50'
+                              }`}
+                            >
+                              <span>{opt.label}</span>
+                              {aktif && <Check size={15} className="shrink-0 text-suka-orange" />}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+
                     {kategoriBerubah && (
                       <p className="mt-1 text-[11px] font-medium text-amber-800">
                         Akan dikoreksi dari <b>{labelKategoriPettyCash(expense.category)}</b> saat disetujui.
@@ -163,7 +247,7 @@ export function SetujuiPengeluaranPettyCashModal({
                         Kategori awal kasir: {labelKategoriPettyCash(expense.kategori_asal)}
                       </p>
                     )}
-                  </>
+                  </div>
                 )}
               </div>
             </div>

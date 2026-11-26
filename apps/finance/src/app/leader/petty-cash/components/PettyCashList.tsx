@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useRef } from 'react'
+import { toast } from 'sonner'
 import { Spinner, EmptyState } from '@suka/design-system'
 import { Camera, X, Download, Search, Calendar, Store, Building2, Clock, CheckCircle2, Send, XCircle, Plus, FileSpreadsheet, FileText } from 'lucide-react'
 import { CreateTopupModal } from './CreateTopupModal'
@@ -73,6 +74,8 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
   const [searchQuery, setSearchQuery] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null)
+  const [confirmForwardReq, setConfirmForwardReq] = useState<PettyCashTopup | null>(null)
+  const forwardingRef = useRef(false)
 
   const reviewRequests = allRequests?.filter(r => sedangBerjalan(r.status)) || []
   const historyRequests = allRequests?.filter(r => !sedangBerjalan(r.status)) || []
@@ -92,9 +95,23 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
     })
   }, [baseRequests, searchQuery])
 
-  const handleForward = async (req: PettyCashTopup) => {
-    if (confirm('Uang sudah masuk laci kasir? Saldo petty cash outlet akan bertambah.')) {
-      await forwardTopup.mutateAsync({ id: req.id })
+  const handleForward = (req: PettyCashTopup) => {
+    setConfirmForwardReq(req)
+  }
+
+  const executeForward = async () => {
+    if (!confirmForwardReq || forwardingRef.current || forwardTopup.isPending) return
+    forwardingRef.current = true
+    const targetId = confirmForwardReq.id
+    try {
+      await forwardTopup.mutateAsync({ id: targetId })
+      toast.success('Dana dikonfirmasi masuk laci. Saldo petty cash outlet bertambah.')
+      setConfirmForwardReq(null)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal mengonfirmasi penerimaan dana'
+      toast.error(msg)
+    } finally {
+      forwardingRef.current = false
     }
   }
 
@@ -373,9 +390,10 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
                       <button
                         type="button"
                         onClick={() => setSelectedProofUrl(req.proof_of_transfer_url || null)}
-                        className="px-2.5 py-1 bg-emerald-50 text-emerald-700 font-extrabold text-[11px] rounded-lg border border-emerald-200"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 font-extrabold text-[11px] rounded-lg border border-emerald-200"
                       >
-                        📷 Bukti
+                        <Camera className="w-3 h-3" />
+                        <span>Bukti</span>
                       </button>
                     )}
 
@@ -393,6 +411,59 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
             ))}
           </div>
 
+        </div>
+      )}
+
+      {confirmForwardReq && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-suka-ink/50 p-4 backdrop-blur-xs"
+          onClick={() => !forwardTopup.isPending && setConfirmForwardReq(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl border border-suka-gray-200 bg-white p-6 shadow-xl space-y-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-suka-brown">Dana diterima &amp; masuk laci</h3>
+                <p className="text-xs font-semibold text-suka-gray-600 mt-0.5">
+                  {confirmForwardReq.outlet?.name || 'Outlet'} · Rp {confirmForwardReq.amount.toLocaleString('id-ID')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmForwardReq(null)}
+                disabled={forwardTopup.isPending}
+                className="rounded-lg p-1 text-suka-gray-400 hover:bg-suka-gray-100 hover:text-suka-ink"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-suka-gray-600 leading-relaxed">
+              Uang sudah masuk laci kasir? Saldo petty cash outlet akan langsung bertambah.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-suka-gray-100">
+              <button
+                type="button"
+                onClick={() => setConfirmForwardReq(null)}
+                disabled={forwardTopup.isPending}
+                className="px-4 py-2 rounded-xl border border-suka-gray-200 bg-white text-xs font-bold text-suka-gray-700 hover:bg-suka-gray-50 disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={executeForward}
+                disabled={forwardTopup.isPending}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{forwardTopup.isPending ? 'Memproses...' : 'Dana diterima & masuk laci'}</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

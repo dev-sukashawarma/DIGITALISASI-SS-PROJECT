@@ -75,7 +75,7 @@ export async function processPettyCashFinanceCustomAmount(formData: FormData) {
 
     const { data: topup, error: fetchError } = await supabase
       .from('petty_cash_topups')
-      .select('*')
+      .select('id, outlet_id, amount, description, status, created_at')
       .eq('id', id)
       .single()
 

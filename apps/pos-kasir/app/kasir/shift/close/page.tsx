@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { LogOut, Calculator, AlertTriangle, CheckCircle2, Loader2, ArrowLeft, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -97,28 +97,35 @@ export default function CloseShiftPage() {
   const [actualEndingPettyCash, setActualEndingPettyCash] = useState<string>('')
   
   // Time Validation
-  const [isClosingAllowed, setIsClosingAllowed] = useState(true)
+  const checkIsClosingAllowedWib = () => {
+    try {
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Jakarta',
+        hour: '2-digit',
+        hour12: false,
+      }).formatToParts(new Date())
+      const rawHour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0')
+      const hour = rawHour === 24 ? 0 : rawHour
+      return hour >= 22 || hour < 6
+    } catch {
+      const hour = new Date().getHours()
+      return hour >= 22 || hour < 6
+    }
+  }
+
+  const [isClosingAllowed, setIsClosingAllowed] = useState(() => checkIsClosingAllowedWib())
 
   useEffect(() => {
-    const checkTime = () => {
-      try {
-        const now = new Date()
-        const jktTimeStr = now.toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
-        const jktTime = new Date(jktTimeStr)
-        const hour = jktTime.getHours()
-        setIsClosingAllowed(hour >= 22 || hour < 6)
-      } catch (e) {
-        const hour = new Date().getHours()
-        setIsClosingAllowed(hour >= 22 || hour < 6)
-      }
-    }
+    const checkTime = () => setIsClosingAllowed(checkIsClosingAllowedWib())
     checkTime()
-    const interval = setInterval(checkTime, 60000)
+    const interval = setInterval(checkTime, 30000)
     return () => clearInterval(interval)
   }, [])
   
   // UI State
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const submittingRef = useRef(false)
+  const fetchSeqRef = useRef(0)
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
 
@@ -207,6 +214,7 @@ export default function CloseShiftPage() {
   }, [outletId, supabase])
 
   async function fetchCurrentState(isSilent = false) {
+    const seq = ++fetchSeqRef.current
     try {
       if (!isSilent) setLoading(true)
       setErrorMsg('')
@@ -219,6 +227,7 @@ export default function CloseShiftPage() {
         .maybeSingle()
 
       if (shiftError) throw shiftError
+      if (seq !== fetchSeqRef.current) return
       setActiveShift(shiftData || null)
 
       let snapExpenses: Expense[] = []
@@ -232,6 +241,7 @@ export default function CloseShiftPage() {
           supabase.from('petty_cash_topups').select('id, amount, description, status, created_at, created_by, approved_at, approved_by, leader_forwarded_at, completed_at').eq('outlet_id', outletId).or(`created_at.gte.${shiftData.start_time},completed_at.gte.${shiftData.start_time},leader_forwarded_at.gte.${shiftData.start_time},approved_at.gte.${shiftData.start_time}`),
           supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel').eq('outlet_id', outletId).eq('status', 'completed').gte('created_at', shiftData.start_time)
         ])
+        if (seq !== fetchSeqRef.current) return
 
         snapExpenses = expRes.data || []
         snapTopups = topRes.data || []
@@ -308,15 +318,20 @@ export default function CloseShiftPage() {
 
   async function handleCloseShift(e: React.FormEvent) {
     e.preventDefault()
+    if (submittingRef.current || isSubmitting) return
     if (!activeShift) return
     if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
-    if (!isClosingAllowed) { setErrorMsg('Penutupan shift hanya dapat dilakukan antara jam 22:00 hingga 06:00.'); return }
+    const bolehTutupKini = checkIsClosingAllowedWib()
+    setIsClosingAllowed(bolehTutupKini)
+    if (!bolehTutupKini) { setErrorMsg('Penutupan shift hanya dapat dilakukan antara jam 22:00 hingga 06:00.'); return }
     if (pendingExpenseCount > 0) {
       setErrorMsg(`Tidak dapat menutup shift: masih ada ${pendingExpenseCount} pengajuan pengeluaran Petty Cash yang menunggu approval Finance.`)
       return
     }
     const confirmed = await showConfirm('Tutup shift sekarang? Setelah ditutup Anda tidak bisa melakukan transaksi tunai.')
     if (!confirmed) return
+    if (submittingRef.current || isSubmitting) return
+    submittingRef.current = true
     setErrorMsg('')
     setSuccessMsg('')
     setIsSubmitting(true)
@@ -367,6 +382,7 @@ export default function CloseShiftPage() {
       router.push('/kasir/reports?shift=closed')
     } catch (err: any) {
       setErrorMsg(err.message || 'Gagal menutup shift')
+      submittingRef.current = false
       setIsSubmitting(false)
     }
   }

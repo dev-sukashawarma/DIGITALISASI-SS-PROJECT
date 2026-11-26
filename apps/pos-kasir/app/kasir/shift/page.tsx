@@ -183,30 +183,35 @@ export default function CashierShiftPage() {
 
   // UI State
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const submittingRef = useRef(false)
+  const fetchSeqRef = useRef(0)
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null)
   const [visibleLedgerCount, setVisibleLedgerCount] = useState(20)
-  const [isExpenseTimeAllowed, setIsExpenseTimeAllowed] = useState(true)
+
+  const checkIsExpenseWindowOpenWib = () => {
+    try {
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Jakarta',
+        hour: '2-digit',
+        hour12: false,
+      }).formatToParts(new Date())
+      const rawHour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0')
+      const hour = rawHour === 24 ? 0 : rawHour
+      return hour >= 6 && hour < 21
+    } catch {
+      const hour = new Date().getHours()
+      return hour >= 6 && hour < 21
+    }
+  }
+
+  const [isExpenseTimeAllowed, setIsExpenseTimeAllowed] = useState(() => checkIsExpenseWindowOpenWib())
 
   useEffect(() => {
-    const checkExpenseWindow = () => {
-      try {
-        const parts = new Intl.DateTimeFormat('en-GB', {
-          timeZone: 'Asia/Jakarta',
-          hour: '2-digit',
-          hour12: false,
-        }).formatToParts(new Date())
-        const rawHour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0')
-        const hour = rawHour === 24 ? 0 : rawHour
-        setIsExpenseTimeAllowed(hour >= 6 && hour < 21)
-      } catch {
-        const hour = new Date().getHours()
-        setIsExpenseTimeAllowed(hour >= 6 && hour < 21)
-      }
-    }
+    const checkExpenseWindow = () => setIsExpenseTimeAllowed(checkIsExpenseWindowOpenWib())
     checkExpenseWindow()
-    const interval = setInterval(checkExpenseWindow, 60000)
+    const interval = setInterval(checkExpenseWindow, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -316,6 +321,7 @@ export default function CashierShiftPage() {
   }, [outletId, supabase])
 
   async function fetchCurrentState(isSilent = false) {
+    const seq = ++fetchSeqRef.current
     try {
       if (!isSilent) setLoading(true)
       setErrorMsg('')
@@ -328,11 +334,13 @@ export default function CashierShiftPage() {
         .maybeSingle()
 
       if (shiftError) throw shiftError
+      if (seq !== fetchSeqRef.current) return
       setActiveShift(shiftData || null)
 
       const { data: snapshotData, error: snapshotError } = await supabase.rpc('get_petty_cash_snapshot', {
         p_outlet_id: outletId,
       })
+      if (seq !== fetchSeqRef.current) return
       const snapshot = snapshotError ? null : snapshotData as PettyCashSnapshot
       setAdminAdjustmentNote(snapshot?.last_adjustment_note || snapshot?.pending_note || null)
       setSnapshotPendingTotal(snapshot ? Number(snapshot.pending_expenses_total) || 0 : null)
@@ -383,6 +391,7 @@ export default function CashierShiftPage() {
           fetchCreators(expRes.data || []),
           fetchCreators(topRes.data || [])
         ])
+        if (seq !== fetchSeqRef.current) return
         snapExpenses = processedExpenses
         snapTopups = processedTopups
         snapCashOrders = (ordRes.data || []).filter(o => o.payment_method === 'cash')
@@ -519,7 +528,9 @@ export default function CashierShiftPage() {
 
   async function handleOpenShift(e: React.FormEvent) {
     e.preventDefault()
+    if (submittingRef.current || isSubmitting) return
     if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
+    submittingRef.current = true
     setErrorMsg('')
     setSuccessMsg('')
     setIsSubmitting(true)
@@ -534,20 +545,26 @@ export default function CashierShiftPage() {
     } catch (err: any) {
       setErrorMsg(err.message || 'Gagal membuka shift')
     } finally {
+      submittingRef.current = false
       setIsSubmitting(false)
     }
   }
 
   async function handleAddExpense(e: React.FormEvent) {
     e.preventDefault()
+    if (submittingRef.current || isSubmitting) return
     if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
-    if (!isExpenseTimeAllowed) {
+    const jamBukaKini = checkIsExpenseWindowOpenWib()
+    setIsExpenseTimeAllowed(jamBukaKini)
+    if (!jamBukaKini) {
       setErrorMsg('Pengajuan pengeluaran outlet hanya dapat dilakukan pukul 06:00 hingga 21:00 WIB.')
       return
     }
+    submittingRef.current = true
     setErrorMsg('')
     setSuccessMsg('')
     setIsSubmitting(true)
+    let uploadedFilePath: string | null = null
     try {
       const amount = parseFloat(expAmount)
       if (isNaN(amount) || amount <= 0) throw new Error('Nominal pengeluaran tidak valid')
@@ -571,6 +588,7 @@ export default function CashierShiftPage() {
         const filePath = `${outletId}/${fileName}`
         const { error: uploadError } = await supabase.storage.from('petty-cash-receipts').upload(filePath, compressedFile)
         if (uploadError) throw new Error(`Gagal mengunggah foto struk: ${uploadError.message}`)
+        uploadedFilePath = filePath
         const { data: publicUrlData } = supabase.storage.from('petty-cash-receipts').getPublicUrl(filePath)
         receiptUrl = publicUrlData.publicUrl
       }
@@ -584,6 +602,10 @@ export default function CashierShiftPage() {
       })
 
       if (error) {
+        if (uploadedFilePath) {
+          await supabase.storage.from('petty-cash-receipts').remove([uploadedFilePath]).catch(() => {})
+        }
+        setIsExpenseTimeAllowed(checkIsExpenseWindowOpenWib())
         throw error
       }
 
@@ -596,11 +618,13 @@ export default function CashierShiftPage() {
     } catch (err: any) {
       setErrorMsg(err.message || 'Gagal mengajukan pengeluaran (periksa sisa kuota Petty Cash)')
     } finally {
+      submittingRef.current = false
       setIsSubmitting(false)
     }
   }
 
   async function handleVoidExpense(id: string, status?: string) {
+    if (submittingRef.current || isSubmitting) return
     if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
     const isPending = status === 'pending'
     const reason = await showPrompt(
@@ -619,7 +643,9 @@ export default function CashierShiftPage() {
         : 'Anda yakin ingin membatalkan pengeluaran ini? Nominal akan dikembalikan ke saldo Petty Cash.'
     )
     if (!confirmed) return
+    if (submittingRef.current || isSubmitting) return
 
+    submittingRef.current = true
     setErrorMsg('')
     setSuccessMsg('')
     setIsSubmitting(true)
@@ -632,6 +658,7 @@ export default function CashierShiftPage() {
     } catch (err: any) {
       setErrorMsg(err.message || 'Gagal membatalkan pengeluaran.')
     } finally {
+      submittingRef.current = false
       setIsSubmitting(false)
     }
   }

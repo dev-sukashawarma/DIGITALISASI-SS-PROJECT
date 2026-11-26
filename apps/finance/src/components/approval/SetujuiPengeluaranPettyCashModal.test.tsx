@@ -87,7 +87,8 @@ describe('SetujuiPengeluaranPettyCashModal', () => {
       />,
     )
 
-    fireEvent.change(screen.getByLabelText(/Kategori/), { target: { value: 'gas' } })
+    fireEvent.click(screen.getByRole('combobox', { name: /Kategori/ }))
+    fireEvent.click(screen.getByRole('option', { name: 'Gas' }))
     expect(screen.getByRole('button', { name: 'Simpan Kategori & Setujui' })).toBeInTheDocument()
 
     await act(async () => {

@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { 
   Building2, Send, Check, 
   Search, Camera, X, Download
@@ -115,6 +115,9 @@ export default function LeaderPettyCashPage() {
   const supabase = createClient()
   const [showForm, setShowForm] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const submittingRef = useRef(false)
+  const forwardingRef = useRef(false)
+  const loadSeqRef = useRef(0)
   const [isTopupOpen, setIsTopupOpen] = useState(() => isTopupTimeAllowedWib())
 
   useEffect(() => {
@@ -142,10 +145,6 @@ export default function LeaderPettyCashPage() {
 
   useEffect(() => {
     loadData()
-  }, [])
-
-  useEffect(() => {
-    loadData()
 
     const channel = supabase
       .channel('leader-petty-cash-realtime')
@@ -160,17 +159,30 @@ export default function LeaderPettyCashPage() {
   }, [])
 
   async function loadData() {
+    const seq = ++loadSeqRef.current
     try {
       const [topupsRes, userRes] = await Promise.all([
         supabase
           .from('petty_cash_topups')
           .select(`
-            *,
+            id,
+            outlet_id,
+            amount,
+            description,
+            status,
+            created_at,
+            bank_name,
+            bank_account_number,
+            bank_account_name,
+            proof_of_transfer_url,
             outlets!petty_cash_topups_outlet_id_fkey(name, bank_name, bank_account_number, bank_account_name)
           `)
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .limit(100),
         supabase.auth.getUser()
       ])
+
+      if (seq !== loadSeqRef.current) return
 
       if (topupsRes.data) {
         setRequests(topupsRes.data.map((r: any) => ({
@@ -214,7 +226,11 @@ export default function LeaderPettyCashPage() {
         accessibleOutletIds = Array.from(ids)
       }
 
-      let outletQuery = supabase.from('outlets').select('*').eq('is_active', true).order('name', { ascending: true })
+      let outletQuery = supabase
+        .from('outlets')
+        .select('id, name, slug, bank_name, bank_account_number, bank_account_name')
+        .eq('is_active', true)
+        .order('name', { ascending: true })
       if (accessibleOutletIds.length > 0) {
         outletQuery = outletQuery.in('id', accessibleOutletIds)
       }
@@ -246,6 +262,7 @@ export default function LeaderPettyCashPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submittingRef.current || isSubmitting) return
     if (!isTopupTimeAllowedWib()) {
       setIsTopupOpen(false)
       toast.error('Pengajuan top up petty cash hanya dibuka pukul 09:00 hingga 16:00 WIB.')
@@ -271,6 +288,7 @@ export default function LeaderPettyCashPage() {
       return
     }
 
+    submittingRef.current = true
     setIsSubmitting(true)
     try {
       // Rekening outlet ikut disimpan oleh RPC create_petty_cash_topup.
@@ -293,19 +311,29 @@ export default function LeaderPettyCashPage() {
     } catch (err: any) {
       toast.error('Gagal membuat pengajuan: ' + (err.message || 'Terjadi kesalahan'))
     } finally {
+      submittingRef.current = false
       setIsSubmitting(false)
     }
   }
 
+  const [confirmForwardRow, setConfirmForwardRow] = useState<TopupRequest | null>(null)
+  const [isForwarding, setIsForwarding] = useState(false)
+
   const handleLeaderForwardToCrew = async (id: string) => {
-    if (!confirm('Uang sudah masuk laci kasir? Saldo petty cash outlet akan bertambah.')) return
+    if (forwardingRef.current || isForwarding) return
+    forwardingRef.current = true
+    setIsForwarding(true)
     try {
       const { error } = await supabase.rpc('leader_forward_funds', { p_topup_id: id })
       if (error) throw error
       toast.success('Dana dikonfirmasi. Saldo petty cash outlet bertambah.')
+      setConfirmForwardRow(null)
       await loadData()
     } catch (err: any) {
       toast.error('Gagal penyerahan dana: ' + err.message)
+    } finally {
+      forwardingRef.current = false
+      setIsForwarding(false)
     }
   }
 
@@ -659,7 +687,8 @@ export default function LeaderPettyCashPage() {
               <div className="pt-2 flex flex-wrap items-center gap-2">
                 {perluKonfirmasiLeader(row.status) && (
                   <button
-                    onClick={() => handleLeaderForwardToCrew(row.id)}
+                    type="button"
+                    onClick={() => setConfirmForwardRow(row)}
                     className="flex-1 sm:flex-none py-2.5 px-6 bg-suka-orange hover:bg-orange-600 active:scale-95 text-white rounded-xl text-xs font-bold transition-all text-center shadow-sm"
                   >
                     Dana diterima &amp; masuk laci
@@ -680,6 +709,59 @@ export default function LeaderPettyCashPage() {
           ))
         )}
       </div>
+
+      {confirmForwardRow && (
+        <div
+          className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs"
+          onClick={() => !isForwarding && setConfirmForwardRow(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl ring-1 ring-slate-200 space-y-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Dana diterima &amp; masuk laci</h3>
+                <p className="text-xs font-semibold text-slate-500 mt-0.5">
+                  {confirmForwardRow.outlet?.name || 'Outlet'} · {formatRupiah(confirmForwardRow.amount)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmForwardRow(null)}
+                disabled={isForwarding}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Uang sudah masuk laci kasir? Saldo petty cash outlet akan langsung bertambah.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setConfirmForwardRow(null)}
+                disabled={isForwarding}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLeaderForwardToCrew(confirmForwardRow.id)}
+                disabled={isForwarding}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-suka-orange hover:bg-orange-600 text-white text-xs font-bold disabled:opacity-50"
+              >
+                <Check className="w-4 h-4" />
+                <span>{isForwarding ? 'Memproses...' : 'Dana diterima & masuk laci'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ProofImageLightbox
         imageUrl={selectedProofUrl}

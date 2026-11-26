@@ -1,11 +1,13 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
-import { Wallet, X, Store, CreditCard, Building2, User, AlertCircle, CheckCircle2, XCircle, Trash2, Camera, MessageSquare, ChevronDown, Check } from 'lucide-react'
+import { toast } from 'sonner'
+import { Wallet, X, Store, CreditCard, Building2, User, AlertCircle, CheckCircle2, XCircle, Trash2, Camera, MessageSquare, ChevronDown, Check, Clock } from 'lucide-react'
 import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
 import { relativeTime, tanggalWaktu } from '@/lib/format'
 import { useCashOverview } from '@/hooks/useCashData'
 import { lokasiGrup } from '@/lib/kas/grupKas'
+import { cekBatasProsesFinanceTopupWib } from '@/lib/pettyCash/jamBatas'
 
 interface FinanceApprovalModalProps {
   isOpen: boolean
@@ -40,20 +42,35 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
   // Custom Amount State
   const [approvedAmount, setApprovedAmount] = useState<number>(request.amount)
   const [approvalNote, setApprovalNote] = useState<string>('')
+  const submittingRef = useRef(false)
+  const [batasProses, setBatasProses] = useState(() => cekBatasProsesFinanceTopupWib(request.created_at))
 
   // Reset state when request changes
   useEffect(() => {
-    if (isOpen) {
-      setMethod('transfer')
-      setCashLocationId('')
-      setApprovedAmount(request.amount)
-      setApprovalNote('')
-      setProofFile(null)
-      setProofImage(null)
-      setProofFileName(null)
-      setIsDropdownOpen(false)
+    if (!isOpen) return
+    setMethod('transfer')
+    setCashLocationId('')
+    setApprovedAmount(request.amount)
+    setApprovalNote('')
+    setProofFile(null)
+    setProofImage((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
+    setProofFileName(null)
+    setIsDropdownOpen(false)
+    setBatasProses(cekBatasProsesFinanceTopupWib(request.created_at))
+    const timer = setInterval(() => {
+      setBatasProses(cekBatasProsesFinanceTopupWib(request.created_at))
+    }, 15_000)
+    return () => clearInterval(timer)
+  }, [isOpen, request.id, request.amount, request.created_at])
+
+  useEffect(() => {
+    return () => {
+      if (proofImage) URL.revokeObjectURL(proofImage)
     }
-  }, [isOpen, request.id, request.amount])
+  }, [proofImage])
 
   // Handle click outside dropdown
   useEffect(() => {
@@ -79,7 +96,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
   const amountIsValid = Number.isFinite(approvedAmount) && approvedAmount > 0 && approvedAmount <= request.amount
   const hasEnoughBalance = selectedLocation && selectedLocation.saldo >= approvedAmount
   const labelBukti = method === 'transfer' ? 'Bukti transfer (wajib)' : 'Foto bukti serah uang (wajib)'
-  const canApprove = !isCashLoading && !cashError && amountIsValid && hasEnoughBalance && !!proofFile
+  const canApprove = batasProses.diizinkan && !isCashLoading && !cashError && amountIsValid && hasEnoughBalance && !!proofFile
     && (approvedAmount === request.amount || approvalNote.trim().length > 0)
 
   if (!isOpen) return null
@@ -88,8 +105,12 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
     const file = e.target.files?.[0]
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        alert('Ukuran file foto maksimal 5MB')
+        toast.error('Ukuran file foto maksimal 5MB')
+        e.target.value = ''
         return
+      }
+      if (proofImage) {
+        URL.revokeObjectURL(proofImage)
       }
       setProofFile(file)
       setProofFileName(file.name)
@@ -110,8 +131,18 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
   }
 
   const handleAction = async (type: 'approve' | 'reject') => {
-    if (isLoading || (type === 'approve' && !canApprove)) return
+    if (submittingRef.current || isLoading) return
+    if (type === 'approve') {
+      const cekKini = cekBatasProsesFinanceTopupWib(request.created_at)
+      setBatasProses(cekKini)
+      if (!cekKini.diizinkan) {
+        toast.error(cekKini.pesan || 'Pengajuan sudah melewati batas waktu proses pukul 16:00 WIB.')
+        return
+      }
+      if (!canApprove) return
+    }
 
+    submittingRef.current = true
     setIsLoading(true)
     setActionType(type)
     try {
@@ -122,8 +153,9 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
       }
     } catch (err: any) {
       console.error('Error processing petty cash disbursement:', err)
-      alert('Gagal memproses pencairan: ' + (err.message || 'Terjadi kesalahan pada koneksi server.'))
+      toast.error('Gagal memproses pencairan: ' + (err?.message || 'Terjadi kesalahan pada koneksi server.'))
     } finally {
+      submittingRef.current = false
       setIsLoading(false)
       setActionType(null)
     }
@@ -155,6 +187,20 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
         
         {/* Modal Body */}
         <div className="p-6 space-y-6 overflow-y-auto flex-1">
+          <div
+            className={`rounded-2xl border px-4 py-3 text-xs font-medium flex items-start gap-2.5 ${
+              batasProses.diizinkan
+                ? 'border-blue-200 bg-blue-50 text-blue-900'
+                : 'border-red-200 bg-red-50 text-red-800'
+            }`}
+          >
+            <Clock className={`w-4 h-4 shrink-0 mt-0.5 ${batasProses.diizinkan ? 'text-blue-600' : 'text-red-600'}`} />
+            <span>
+              {batasProses.diizinkan
+                ? 'Batas proses pencairan top up adalah pukul 16:00 WIB pada hari yang sama. Jangan transfer dana bila mendekati/melewati pukul 16:00 WIB.'
+                : batasProses.pesan}
+            </span>
+          </div>
           
           {/* Summary Box with Editable Amount */}
           <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200/60 flex flex-col gap-4">

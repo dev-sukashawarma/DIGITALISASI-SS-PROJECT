@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/authz'
 
@@ -30,9 +31,12 @@ export interface KoreksiAbsensiInput {
   jamMasuk: string | null
   /**
    * Status & menit dihitung database dari jam (shift tercatat / config outlet +
-   * toleransi) — lihat hitung_status_absen. Satu-satunya keputusan manual: Alfa.
+   * toleransi) — lihat hitung_status_absen. Keputusan manual: Alfa atau bebasTelat.
    */
   alfa: boolean
+  /** Hilangkan label terlambat & denda telat menjadi Hadir tepat waktu (wajib catatanIzin). */
+  bebasTelat?: boolean
+  catatanIzin?: string | null
   jamPulang: string | null
   alasan: string
 }
@@ -99,11 +103,17 @@ export async function koreksiAbsensi(input: KoreksiAbsensiInput): Promise<HasilK
     if (input.jamMasuk && input.jamPulang && input.jamPulang <= input.jamMasuk) {
       return { ok: false, pesan: 'Jam pulang harus setelah jam masuk' }
     }
-    const alasan = input.alasan.trim()
+    const bebasTelat = Boolean(input.jamMasuk && input.bebasTelat && !input.alfa)
+    const catatanIzin = (input.catatanIzin ?? '').trim()
+    if (bebasTelat && catatanIzin.length < 3) {
+      return { ok: false, pesan: 'Catatan izin wajib diisi (minimal 3 karakter) untuk menghilangkan label telat' }
+    }
+    const alasanInput = input.alasan.trim()
+    const alasan = alasanInput.length >= 3 ? alasanInput : (bebasTelat ? `Hilangkan label telat: ${catatanIzin}` : alasanInput)
     if (alasan.length < 3) return { ok: false, pesan: 'Alasan koreksi wajib diisi' }
 
     const supabase = await createClient()
-    const { error } = await supabase.rpc('koreksi_absensi', {
+    const { error } = await supabase.rpc('koreksi_absensi_v2', {
       p_staff_id: input.staffId,
       p_tanggal: input.tanggal,
       p_outlet_id: input.outletId,
@@ -115,8 +125,12 @@ export async function koreksiAbsensi(input: KoreksiAbsensiInput): Promise<HasilK
       p_status_pulang: null,
       p_menit_pulang: null,
       p_alasan: alasan,
+      p_bebas_telat: bebasTelat,
+      p_catatan: bebasTelat ? catatanIzin : null,
     })
     if (error) return { ok: false, pesan: error.message }
+    revalidatePath('/dashboard/owner/rekap-absensi')
+    revalidatePath('/dashboard/hr/attendance')
     return { ok: true }
   } catch (e) {
     return { ok: false, pesan: pesanGalat(e) }
@@ -144,6 +158,8 @@ export async function hapusAbsensi(input: {
       p_alasan: alasan,
     })
     if (error) return { ok: false, pesan: error.message }
+    revalidatePath('/dashboard/owner/rekap-absensi')
+    revalidatePath('/dashboard/hr/attendance')
     return { ok: true }
   } catch (e) {
     return { ok: false, pesan: pesanGalat(e) }

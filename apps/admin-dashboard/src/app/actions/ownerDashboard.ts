@@ -1022,7 +1022,7 @@ export async function getPettyCashData(
 /* ── Fetch REAL Attendance Rekap & Stealth Photos from `attendance` ──── */
 
 const ATTENDANCE_REPORT_COLS =
-  'id, outlet_staff_id, outlet_id, type, ts_server, selfie_url, source, gps_lat, gps_lng, status, telat_menit, shift_jam_masuk, shift_jam_keluar, is_manual_button'
+  'id, outlet_staff_id, outlet_id, type, ts_server, selfie_url, source, gps_lat, gps_lng, status, telat_menit, shift_jam_masuk, shift_jam_keluar, is_manual_button, catatan'
 
 /** Batas atas baris `attendance` per permintaan (50 halaman × 1.000). Rentang wajar
  *  (≤ 1 bulan, ±300 baris/hari) jauh di bawahnya. */
@@ -1191,6 +1191,7 @@ export async function getAttendanceReportData(
     const item = grouped.get(key)!
     if (!item.shift_jam_masuk && r.shift_jam_masuk) item.shift_jam_masuk = String(r.shift_jam_masuk).slice(0, 5)
     if (!item.shift_jam_keluar && r.shift_jam_keluar) item.shift_jam_keluar = String(r.shift_jam_keluar).slice(0, 5)
+    if (r.catatan && (r.type === 'in' || !item.notes)) item.notes = String(r.catatan).trim() || null
 
     const tsMs = new Date(r.ts_server).getTime()
     if (r.type === 'in') {

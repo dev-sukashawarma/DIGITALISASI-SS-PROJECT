@@ -15,6 +15,7 @@ import {
   Minus,
   Pencil,
   Plus,
+  ShieldCheck,
   Trash2,
   X,
 } from 'lucide-react'
@@ -37,6 +38,7 @@ type Tone = 'emerald' | 'amber' | 'red' | 'blue'
 /** Label & warna status yang AKAN tersimpan — dihitung dari jam, bukan dipilih (hitung_status_absen). */
 const LABEL_STATUS: Record<string, { label: string; tone: Tone }> = {
   tepat: { label: 'Tepat waktu', tone: 'emerald' },
+  bebas_telat: { label: 'Hadir (Label telat dihapus)', tone: 'emerald' },
   telat_toleransi: { label: 'Telat dlm toleransi', tone: 'blue' },
   telat: { label: 'Terlambat', tone: 'amber' },
   alpha: { label: 'Alfa', tone: 'red' },
@@ -48,6 +50,7 @@ const LABEL_STATUS: Record<string, { label: string; tone: Tone }> = {
 
 const ALASAN_CEPAT_EDIT = ['Lupa absen pulang', 'Salah input jam', 'Kendala kamera / aplikasi', 'Dikonfirmasi SPV']
 const ALASAN_CEPAT_HAPUS = ['Absen ganda', 'Salah akun', 'Data uji coba', 'Tidak masuk kerja']
+const CATATAN_CEPAT_IZIN = ['Udah izin', 'Sudah izin SPV', 'Izin keperluan mendadak', 'Kendala perjalanan']
 
 const TONE_BADGE: Record<Tone, string> = {
   emerald: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
@@ -246,18 +249,22 @@ function ReasonField({
   quick,
   placeholder,
   showError,
+  required = true,
+  helperText,
 }: {
   value: string
   onChange: (v: string) => void
   quick: string[]
   placeholder: string
   showError: boolean
+  required?: boolean
+  helperText?: string
 }) {
   const id = useId()
   return (
     <div className="space-y-2">
       <label htmlFor={id} className="block text-[11px] font-bold uppercase tracking-wide text-slate-500">
-        Alasan <span className="text-red-500">*</span>
+        Alasan {required ? <span className="text-red-500">*</span> : <span className="font-semibold normal-case text-slate-400">(opsional)</span>}
       </label>
       <div className="flex flex-wrap gap-1.5">
         {quick.map((q) => (
@@ -286,7 +293,11 @@ function ReasonField({
           showError ? 'border-red-300 focus:ring-red-100' : 'border-slate-200 focus:border-suka-orange focus:ring-suka-orange/15'
         }`}
       />
-      {showError && <p className="text-[11px] font-semibold text-red-600">Alasan wajib diisi — tercatat di jejak audit.</p>}
+      {showError ? (
+        <p className="text-[11px] font-semibold text-red-600">Alasan wajib diisi — tercatat di jejak audit.</p>
+      ) : helperText ? (
+        <p className="text-[11px] font-medium text-slate-400">{helperText}</p>
+      ) : null}
     </div>
   )
 }
@@ -453,6 +464,7 @@ export function EditAttendanceModal({
 }) {
   const router = useRouter()
   const titleId = useId()
+  const catatanId = useId()
   const [saving, setSaving] = useState(false)
   const [tried, setTried] = useState(false)
   const [, startTransition] = useTransition()
@@ -461,10 +473,14 @@ export function EditAttendanceModal({
   const asalPulang = normJam(row.clock_out)
   const shiftMasuk = row.shift_jam_masuk ?? null
   const shiftKeluar = row.shift_jam_keluar ?? null
+  const catatanAwal = (row.notes ?? '').trim()
+  const bebasTelatAwal = row.in_status_raw === 'tepat' && catatanAwal.length > 0
 
   const [adaMasuk, setAdaMasuk] = useState(!!asalMasuk)
   const [jamMasuk, setJamMasuk] = useState(asalMasuk || shiftMasuk || '')
   const [alfa, setAlfa] = useState(row.in_status_raw === 'alpha')
+  const [bebasTelat, setBebasTelat] = useState(bebasTelatAwal)
+  const [catatanIzin, setCatatanIzin] = useState(catatanAwal)
 
   const [adaPulang, setAdaPulang] = useState(!!asalPulang)
   const [jamPulang, setJamPulang] = useState(asalPulang || shiftKeluar || '')
@@ -474,9 +490,8 @@ export function EditAttendanceModal({
 
   const perluOutlet = (adaMasuk && !asalMasuk) || (adaPulang && !asalPulang)
 
-  // Status tidak dipilih manual: database (koreksi_absensi → hitung_status_absen) selalu
-  // menghitung ulang dari jam. Di sini hanya pratinjau dengan aturan yang sama.
-  // Outlet acuan = outlet baris yang sudah ada, atau outlet pilihan untuk absen baru.
+  // Status dihitung database (koreksi_absensi_v2 → hitung_status_absen) kecuali
+  // Alfa atau Hilangkan label telat (bebasTelat dengan catatan wajib).
   const outletMasuk = asalMasuk ? row.outlet_id : outletId
   const outletPulang = asalPulang ? row.out_outlet_id || row.outlet_id : outletId
 
@@ -513,18 +528,28 @@ export function EditAttendanceModal({
     jamKeluar: shiftKeluar ?? cfgPulang.jamKeluar,
     toleransiMenit: cfgPulang.toleransiMenit,
   }
+  const hasilMasukHitungan = aturanMasuk && isJam(jamMasuk) ? hitungStatusMasuk(jamMasuk, aturanMasuk) : null
+  const jamSebenarnyaTelat = hasilMasukHitungan
+    ? hasilMasukHitungan.status === 'telat' || hasilMasukHitungan.status === 'telat_toleransi'
+    : row.status === 'terlambat' || row.status === 'telat_toleransi' || bebasTelatAwal
+  const bebasTelatAktif = adaMasuk && bebasTelat && !alfa && jamSebenarnyaTelat
+
   const hasilMasuk = alfa
     ? { status: 'alpha', menit: 0 }
-    : aturanMasuk && isJam(jamMasuk)
-      ? hitungStatusMasuk(jamMasuk, aturanMasuk)
-      : null
+    : bebasTelatAktif
+      ? { status: 'bebas_telat', menit: 0 }
+      : hasilMasukHitungan
   const hasilPulang = aturanPulang && isJam(jamPulang) ? hitungStatusPulang(jamPulang, aturanPulang) : null
   const pulangBaru = hasilPulang ? tampilPulang(hasilPulang.status, hasilPulang.menit) : null
   const acuanMasuk = alfa
     ? 'Ditandai manual'
-    : aturanMasuk
-      ? `Acuan ${shiftMasuk ? 'shift' : 'jam outlet'} ${aturanMasuk.jamMasuk} · toleransi ${aturanMasuk.toleransiMenit} mnt`
-      : null
+    : bebasTelatAktif
+      ? hasilMasukHitungan
+        ? `Semula ${LABEL_STATUS[hasilMasukHitungan.status]?.label ?? 'Telat'} (${hasilMasukHitungan.menit} mnt) · dihapus dgn izin`
+        : 'Label telat dihapus dgn catatan izin'
+      : aturanMasuk
+        ? `Acuan ${shiftMasuk ? 'shift' : 'jam outlet'} ${aturanMasuk.jamMasuk} · toleransi ${aturanMasuk.toleransiMenit} mnt`
+        : null
   const acuanPulang = aturanPulang ? `Acuan ${shiftKeluar ? 'shift' : 'jam outlet'} ${aturanPulang.jamKeluar}` : null
 
   const masalah = (() => {
@@ -535,21 +560,42 @@ export function EditAttendanceModal({
     if (perluOutlet && !outletId) return 'Pilih outlet untuk absen yang ditambahkan.'
     return null
   })()
-  const alasanKurang = alasan.trim().length < 3
+  const catatanIzinTrim = catatanIzin.trim()
+  const catatanIzinKurang = bebasTelatAktif && catatanIzinTrim.length < 3
+  const alasanTrim = alasan.trim()
+  const alasanEfektif =
+    alasanTrim.length >= 3
+      ? alasanTrim
+      : bebasTelatAktif && catatanIzinTrim.length >= 3
+        ? `Hilangkan label telat: ${catatanIzinTrim}`
+        : alasanTrim
+  const alasanKurang = !bebasTelatAktif && alasanEfektif.length < 3
 
   // Ringkasan perubahan untuk dibaca sekilas sebelum simpan.
   const perubahan: string[] = []
   if (adaMasuk !== !!asalMasuk) perubahan.push(adaMasuk ? `Tambah masuk ${jamMasuk}` : `Hapus masuk ${asalMasuk}`)
   else if (adaMasuk && jamMasuk !== asalMasuk) perubahan.push(`Masuk ${asalMasuk} → ${jamMasuk}`)
-  // Termasuk saat jam tak berubah tapi status tersimpan basi (koreksi lama) —
-  // simpan ulang akan meluruskannya.
-  if (
-    adaMasuk &&
-    hasilMasuk &&
-    (hasilMasuk.status !== statusMasukAwal(row) ||
-      (hasilMasuk.status !== 'tepat' && hasilMasuk.status !== 'alpha' && hasilMasuk.menit !== (row.late_minutes ?? 0)))
-  )
-    perubahan.push(`Status masuk → ${LABEL_STATUS[hasilMasuk.status]?.label}${menitTampil(hasilMasuk.status, hasilMasuk.menit)}`)
+  if (adaMasuk) {
+    if (bebasTelatAktif && !bebasTelatAwal) {
+      perubahan.push('Status masuk → Hadir (Label telat dihapus)')
+    } else if (!bebasTelatAktif && bebasTelatAwal) {
+      perubahan.push(
+        `Kembalikan status telat → ${
+          hasilMasuk ? `${LABEL_STATUS[hasilMasuk.status]?.label}${menitTampil(hasilMasuk.status, hasilMasuk.menit)}` : 'Otomatis'
+        }`
+      )
+    } else if (
+      !bebasTelatAktif &&
+      hasilMasuk &&
+      (hasilMasuk.status !== statusMasukAwal(row) ||
+        (hasilMasuk.status !== 'tepat' && hasilMasuk.status !== 'alpha' && hasilMasuk.menit !== (row.late_minutes ?? 0)))
+    ) {
+      perubahan.push(`Status masuk → ${LABEL_STATUS[hasilMasuk.status]?.label}${menitTampil(hasilMasuk.status, hasilMasuk.menit)}`)
+    }
+    if (bebasTelatAktif && catatanIzinTrim !== catatanAwal) {
+      perubahan.push(catatanIzinTrim.length >= 3 ? `Catatan izin → "${catatanIzinTrim}"` : 'Catatan izin wajib diisi')
+    }
+  }
   if (adaPulang !== !!asalPulang) perubahan.push(adaPulang ? `Tambah pulang ${jamPulang}` : `Hapus pulang ${asalPulang}`)
   else if (adaPulang && jamPulang !== asalPulang) perubahan.push(`Pulang ${asalPulang} → ${jamPulang}`)
   const pulangAwal = tampilPulang(row.out_status, row.out_minutes ?? 0)
@@ -562,7 +608,7 @@ export function EditAttendanceModal({
 
   const simpan = async () => {
     setTried(true)
-    if (masalah || alasanKurang || saving) return
+    if (masalah || catatanIzinKurang || alasanKurang || saving) return
     setSaving(true)
     const hasil = await koreksiAbsensi({
       staffId: row.staff_id,
@@ -570,8 +616,10 @@ export function EditAttendanceModal({
       outletId: perluOutlet ? outletId : null,
       jamMasuk: adaMasuk ? jamMasuk : null,
       alfa: adaMasuk && alfa,
+      bebasTelat: bebasTelatAktif,
+      catatanIzin: bebasTelatAktif ? catatanIzinTrim : null,
       jamPulang: adaPulang ? jamPulang : null,
-      alasan,
+      alasan: alasanEfektif,
     })
     setSaving(false)
     if (!hasil.ok) {
@@ -616,9 +664,97 @@ export function EditAttendanceModal({
               ]}
             />
             <StatusPreview hasil={hasilMasuk} acuan={acuanMasuk} memuat={!cfgMasuk && !galatAturan} galat={galatAturan} />
+
+            {(jamSebenarnyaTelat || bebasTelat) && !alfa && (
+              <div
+                className={`rounded-xl border p-3 transition-colors ${
+                  bebasTelatAktif ? 'border-emerald-200 bg-emerald-50/60' : 'border-amber-200 bg-amber-50/40'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-2">
+                    <ShieldCheck
+                      size={15}
+                      className={`mt-0.5 shrink-0 ${bebasTelatAktif ? 'text-emerald-600' : 'text-amber-600'}`}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-xs font-extrabold text-slate-800">Hilangkan label telat</p>
+                      <p className="text-[10px] font-semibold text-slate-500">
+                        Hapus status telat di Admin &amp; HR (catatan wajib)
+                      </p>
+                    </div>
+                  </div>
+                  <Toggle
+                    checked={bebasTelatAktif}
+                    onChange={(v) => {
+                      setBebasTelat(v)
+                      if (v) setAlfa(false)
+                    }}
+                    label="Hilangkan label telat"
+                  />
+                </div>
+
+                {bebasTelatAktif && (
+                  <div className="mt-3 space-y-2 border-t border-emerald-200/70 pt-3">
+                    <label
+                      htmlFor={catatanId}
+                      className="block text-[10px] font-extrabold uppercase tracking-wide text-emerald-800"
+                    >
+                      Catatan Izin / Dispensasi <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {CATATAN_CEPAT_IZIN.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setCatatanIzin(c)}
+                          className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold transition-colors ${
+                            catatanIzin === c
+                              ? 'border-emerald-600 bg-emerald-600 text-white'
+                              : 'border-emerald-200 bg-white text-emerald-800 hover:border-emerald-400'
+                          }`}
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      id={catatanId}
+                      type="text"
+                      maxLength={200}
+                      value={catatanIzin}
+                      onChange={(e) => setCatatanIzin(e.target.value)}
+                      placeholder="Wajib isi catatan izin (cth: Udah izin ke SPV)..."
+                      className={`w-full rounded-xl border bg-white px-3 py-2 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 ${
+                        tried && catatanIzinKurang
+                          ? 'border-red-300 focus:ring-red-100'
+                          : 'border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500/15'
+                      }`}
+                    />
+                    {tried && catatanIzinKurang ? (
+                      <p className="text-[11px] font-bold text-red-600">
+                        Catatan izin wajib diisi minimal 3 karakter untuk menghilangkan label telat.
+                      </p>
+                    ) : (
+                      <p className="text-[10px] font-semibold text-emerald-700">
+                        Tampil di Rekap Admin &amp; Dashboard HR serta menghapus potongan menit telat.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-between gap-3 px-1">
               <span className="text-xs font-bold text-slate-600">Tandai Alfa</span>
-              <Toggle checked={alfa} onChange={setAlfa} label="Tandai Alfa" />
+              <Toggle
+                checked={alfa}
+                onChange={(v) => {
+                  setAlfa(v)
+                  if (v) setBebasTelat(false)
+                }}
+                label="Tandai Alfa"
+              />
             </div>
           </SideCard>
 
@@ -640,7 +776,7 @@ export function EditAttendanceModal({
                 ...(asalPulang && asalPulang !== aturanPulang?.jamKeluar ? [{ label: `Jam asal ${asalPulang}`, value: asalPulang }] : []),
               ]}
             />
-            <StatusPreview hasil={pulangBaru}acuan={acuanPulang} memuat={!cfgPulang && !galatAturan} galat={galatAturan} />
+            <StatusPreview hasil={pulangBaru} acuan={acuanPulang} memuat={!cfgPulang && !galatAturan} galat={galatAturan} />
           </SideCard>
         </div>
 
@@ -662,8 +798,10 @@ export function EditAttendanceModal({
           value={alasan}
           onChange={setAlasan}
           quick={ALASAN_CEPAT_EDIT}
-          placeholder="Tulis alasan lain bila perlu…"
+          placeholder={bebasTelatAktif ? 'Kosongkan bila sama dengan catatan izin di atas…' : 'Tulis alasan lain bila perlu…'}
           showError={tried && alasanKurang}
+          required={!bebasTelatAktif}
+          helperText={bebasTelatAktif ? 'Otomatis tercatat mengikuti catatan izin bila dikosongkan.' : undefined}
         />
       </div>
 

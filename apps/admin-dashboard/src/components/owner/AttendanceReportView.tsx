@@ -16,6 +16,7 @@ import {
   Smartphone,
   Pencil,
   Trash2,
+  FileText,
 } from 'lucide-react'
 import type { Outlet } from '@/lib/types'
 import { StealthPhotoModal, type StealthPhotoInfo } from './StealthPhotoModal'
@@ -432,6 +433,14 @@ export function AttendanceReportView({
                           <XCircle size={12} /> Alfa
                         </span>
                       )}
+                      {row.notes && (
+                        <div className="mt-1.5">
+                          <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 border border-slate-200">
+                            <FileText size={11} className="text-slate-500 shrink-0" />
+                            <span>{row.notes}</span>
+                          </span>
+                        </div>
+                      )}
                     </td>
 
                     {/* Status Pulang & Durasi */}
@@ -451,8 +460,6 @@ export function AttendanceReportView({
                           )}
                           <p className="text-[10px] font-bold text-slate-500">Jam {row.clock_out.slice(0, 5)} WIB</p>
                         </div>
-                      ) : row.notes ? (
-                        <span className="text-slate-600 text-[11px] font-medium max-w-xs block">{row.notes}</span>
                       ) : (
                         <span className="text-slate-400 text-[11px] font-medium">-</span>
                       )}

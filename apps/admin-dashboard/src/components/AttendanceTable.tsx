@@ -157,6 +157,9 @@ export function AttendanceTable({ rows, onEdit, onDelete }: Props) {
                         {badge.label}
                       </span>
                     )}
+                    {row.notes && row.notes !== 'Telat dalam toleransi' && (
+                      <div className="mt-1 text-xs font-medium text-suka-gray-500">{row.notes}</div>
+                    )}
                   </td>
 
                   {/* Terlambat */}

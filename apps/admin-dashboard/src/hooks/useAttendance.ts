@@ -49,7 +49,7 @@ export function useAttendance(filter: AttendanceFilterValues) {
         .from('attendance')
         .select(`
           id, outlet_staff_id, outlet_id, type, ts_server, status,
-          selfie_url, gps_lat, gps_lng, telat_menit, is_manual_button,
+          selfie_url, gps_lat, gps_lng, telat_menit, is_manual_button, catatan,
           outlets!attendance_outlet_id_fkey(name)
         `)
         .order('ts_server', { ascending: false })
@@ -80,7 +80,7 @@ export function useAttendance(filter: AttendanceFilterValues) {
           .from('attendance')
           .select(`
             id, outlet_staff_id, outlet_id, type, ts_server, status,
-            selfie_url, gps_lat, gps_lng, telat_menit, is_manual_button,
+            selfie_url, gps_lat, gps_lng, telat_menit, is_manual_button, catatan,
             outlets!attendance_outlet_id_fkey(name)
           `)
           .in('outlet_staff_id', staffIds)
@@ -175,6 +175,7 @@ export function useAttendance(filter: AttendanceFilterValues) {
             lat: null,
             lng: null,
             is_mock_location: false,
+            source: 'attendance',
             created_at: r.ts_server,
             outlet_staff: r.outlet_staff,
             outlets: r.outlets,
@@ -182,17 +183,21 @@ export function useAttendance(filter: AttendanceFilterValues) {
         }
 
         const item = grouped.get(key)!
+        const wibTime = (ts: string | null) =>
+          ts ? new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }) : null
         if (r.type === 'in') {
           // Outlet baris mengikuti outlet absen masuk.
           item.outlet_id = r.outlet_id
           item.outlets = r.outlets
-          item.clock_in = r.ts_server
+          item.clock_in = wibTime(r.ts_server)
           item.photo_url = r.selfie_url
             ? (r.selfie_url.startsWith('http') ? r.selfie_url : supabase.storage.from('selfies').getPublicUrl(r.selfie_url).data.publicUrl)
             : null
           if (r.gps_lat) item.lat = Number(r.gps_lat)
           if (r.gps_lng) item.lng = Number(r.gps_lng)
-          if (r.is_manual_button) item.notes = 'Absen Manual'
+          const noteParts: string[] = []
+          if (r.catatan && String(r.catatan).trim()) noteParts.push(String(r.catatan).trim())
+          if (r.is_manual_button) noteParts.push('Absen Manual')
           if (r.status === 'telat' || r.status === 'terlambat') {
             item.status = 'terlambat'
             item.late_minutes = r.telat_menit || 0
@@ -201,12 +206,13 @@ export function useAttendance(filter: AttendanceFilterValues) {
             item.status = 'hadir'
             item.status_in = 'telat_toleransi'
             item.late_minutes = r.telat_menit || 0
-            item.notes = item.notes ? item.notes + ', Telat dalam toleransi' : 'Telat dalam toleransi'
+            noteParts.push('Telat dalam toleransi')
           }
+          if (noteParts.length > 0) item.notes = noteParts.join(', ')
         } else if (r.type === 'out') {
           item.out_outlet_id = r.outlet_id
           item.out_outlets = r.outlets
-          item.clock_out = r.ts_server
+          item.clock_out = wibTime(r.ts_server)
           item.out_status = r.status ?? null
           item.out_minutes = r.telat_menit ?? 0
           item.clock_out_photo_url = r.selfie_url

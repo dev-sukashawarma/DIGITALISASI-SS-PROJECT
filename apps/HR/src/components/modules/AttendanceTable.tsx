@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Eye, MapPin } from 'lucide-react'
+import { Eye, FileText, MapPin } from 'lucide-react'
 import type { AttendanceLog } from '@/lib/types'
 import { formatJamWib } from '@/lib/format'
 import { AttendancePhotoModal, type AttendancePhotoInfo } from './AttendancePhotoModal'
@@ -83,8 +83,13 @@ export function AttendanceTable({ rows }: { rows: AttendanceLog[] }) {
                   </td>
                   <td className="px-4 py-3">
                     {statusBadge(r.status, r.late_minutes, r.status_in)}
-                    {r.sumber && r.sumber !== 'absen' && r.notes && (
-                      <div className="mt-1 max-w-[220px] text-[11px] text-suka-gray-500 leading-snug">{r.notes}</div>
+                    {r.notes && r.notes !== 'Telat dalam toleransi' && (
+                      <div className="mt-1.5">
+                        <span className="inline-flex items-center gap-1 rounded-lg bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-600 border border-stone-200 max-w-[220px]">
+                          <FileText size={11} className="text-stone-500 shrink-0" />
+                          <span className="truncate">{r.notes}</span>
+                        </span>
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-3 text-center">

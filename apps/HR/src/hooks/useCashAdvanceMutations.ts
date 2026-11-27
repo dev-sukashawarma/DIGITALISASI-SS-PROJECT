@@ -43,6 +43,7 @@ export function useCashAdvanceMutations() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cash-advances'] })
       queryClient.invalidateQueries({ queryKey: ['perizinan-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['pending-kasbons'] })
       queryClient.invalidateQueries({ queryKey: ['hr-activity'] })
     },
   })
@@ -138,6 +139,7 @@ export function useCashAdvanceMutations() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cash-advances'] })
       queryClient.invalidateQueries({ queryKey: ['perizinan-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['pending-kasbons'] })
       queryClient.invalidateQueries({ queryKey: ['hr-activity'] })
     },
   })
@@ -161,6 +163,7 @@ export function useCashAdvanceMutations() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cash-advances'] })
       queryClient.invalidateQueries({ queryKey: ['perizinan-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['pending-kasbons'] })
       queryClient.invalidateQueries({ queryKey: ['hr-activity'] })
     },
   })

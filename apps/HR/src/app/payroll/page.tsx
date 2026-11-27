@@ -30,6 +30,7 @@ import { PayrollTable } from '@/components/modules/PayrollTable'
 import { PayrollSlipForm } from '@/components/modules/PayrollSlipForm'
 import { BulkWAModal } from '@/components/modules/BulkWAModal'
 import { KasbonGuardModal, type PendingKasbonItem } from '@/components/modules/KasbonGuardModal'
+import { filterPendingKasbonsForGuard, type RawPendingKasbonRow } from '@/lib/kasbon/pendingGuard'
 import { FinalizeConfirmModal } from '@/components/modules/FinalizeConfirmModal'
 import { formatRupiah } from '@/lib/format'
 import { exportCsv } from '@/lib/exportCsv'
@@ -100,12 +101,13 @@ export default function PayrollPage() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('cash_advances')
-        .select('id, staff_id, amount, remaining, created_at, reason, outlet_staff!cash_advances_staff_id_fkey(name, role, outlets!outlet_staff_outlet_id_fkey(name))')
-        .eq('status_hr', 'pending')
+        .select('id, staff_id, amount, remaining, created_at, reason, status, status_hr, outlet_staff!cash_advances_staff_id_fkey(id, name, username, role, account_category, email, outlet_id, outlets!outlet_staff_outlet_id_fkey(id, name, slug))')
+        .or('status_hr.eq.pending,status_hr.is.null')
+        .neq('status', 'paid_off')
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      return (data || []) as unknown as PendingKasbonItem[]
+      return filterPendingKasbonsForGuard((data || []) as unknown as RawPendingKasbonRow[]) as PendingKasbonItem[]
     },
   })
 

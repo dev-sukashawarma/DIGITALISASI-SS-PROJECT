@@ -158,6 +158,7 @@ export function useCashAdvances(params: CashAdvanceListParams) {
     const invalidate = () => {
       queryClient.invalidateQueries({ queryKey: ['cash-advances'] })
       queryClient.invalidateQueries({ queryKey: ['perizinan-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['pending-kasbons'] })
     }
     const channel = supabase
       .channel(`hr-cash-advances-${channelId}`)

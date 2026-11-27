@@ -1,9 +1,194 @@
+import * as XLSX from 'xlsx'
 import type { ReconciliationSnapshotResponse } from '@/app/actions/jurnalMutasi'
 
 function escapeCsv(value: any): string {
   if (value === null || value === undefined) return '""'
   const str = String(value).replace(/"/g, '""')
   return `"${str}"`
+}
+
+function triggerBlobDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.setAttribute('href', url)
+  link.setAttribute('download', filename)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+function sanitizeOutletFilename(outletName: string): string {
+  return outletName.replace(/[^a-zA-Z0-9]/g, '_')
+}
+
+function formatReportMetaRows(data: ReconciliationSnapshotResponse): Array<[string, string]> {
+  const { outlet, period, audit_note } = data
+  const rows: Array<[string, string]> = [
+    ['Outlet', outlet.name],
+    ['Mode Periode', period.mode === 'opname_session' ? 'Sesi Opname' : 'Rentang Tanggal'],
+    [
+      'Rentang Tanggal Cut-Off',
+      `${new Date(period.start_date).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} s/d ${new Date(period.end_date).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB`,
+    ],
+  ]
+  if (period.opname_terpilih) {
+    rows.push(['Sesi Opname Terpilih', `${period.opname_terpilih.tanggal} (${period.opname_terpilih.tipe})`])
+  }
+  rows.push(['Waktu Unduh', new Date().toLocaleString('id-ID')])
+  if (audit_note) {
+    rows.push(['Catatan Audit Manajemen', audit_note])
+  }
+  return rows
+}
+
+export interface SummaryCardExportRow {
+  kartu: string
+  nilai_rp: number
+  keterangan: string
+}
+
+/**
+ * Menyusun daftar nilai kartu ringkasan sesuai tampilan dashboard Jurnal & Rekonsiliasi
+ * (4 kartu untuk konsolidasi Semua Outlet, 8 kartu untuk outlet spesifik).
+ */
+export function buildSummaryCardsRows(data: ReconciliationSnapshotResponse): SummaryCardExportRow[] {
+  const { outlet, totals, items } = data
+  const isAll = outlet.id === 'ALL'
+
+  const omzetNoteParts = [`${totals.order_count.toLocaleString('id-ID')} order selesai`]
+  if (totals.potongan_rp > 0) {
+    omzetNoteParts.push(`diskon Rp ${totals.potongan_rp.toLocaleString('id-ID')}`)
+  }
+
+  const pakaiNoteParts = ['Serapan Resep BOM · harga master']
+  if (totals.total_pakai_rp_riil !== undefined && totals.total_pakai_rp_riil !== totals.total_pakai_rp) {
+    pakaiNoteParts.push(`Riil (harga SJ): -Rp ${totals.total_pakai_rp_riil.toLocaleString('id-ID')}`)
+  }
+
+  const rows: SummaryCardExportRow[] = [
+    {
+      kartu: 'Omzet Penjualan',
+      nilai_rp: totals.omzet_rp,
+      keterangan: omzetNoteParts.join(' · '),
+    },
+  ]
+
+  if (!isAll) {
+    rows.push({
+      kartu: '1. Saldo Awal',
+      nilai_rp: totals.total_awal_rp,
+      keterangan: 'Stok awal periode',
+    })
+  }
+
+  rows.push(
+    {
+      kartu: isAll ? 'Masuk (Inbound)' : '2. Masuk (Inbound)',
+      nilai_rp: totals.total_masuk_rp_master,
+      keterangan: 'Kiriman & Pembelian',
+    },
+    {
+      kartu: isAll ? 'Pemakaian POS' : '3. Pemakaian Menu',
+      nilai_rp: totals.total_pakai_rp,
+      keterangan: pakaiNoteParts.join(' · '),
+    },
+    {
+      kartu: isAll ? 'Waste' : '4. Waste / Rusak',
+      nilai_rp: totals.total_waste_rp,
+      keterangan: 'Laporan kerusakan',
+    }
+  )
+
+  if (!isAll) {
+    const takDihitung = items.filter((i) => !i.has_opname)
+    const takDihitungRp = takDihitung.reduce((acc, i) => acc + (i.stok_sistem_rp || 0), 0)
+    const surplus = totals.total_selisih_rp >= 0
+
+    const sistemNotes = ['Menurut catatan: 1 + 2 − 3 − 4']
+    if (totals.total_mutasi_lain_rp && Math.abs(totals.total_mutasi_lain_rp) >= 1) {
+      const sign = totals.total_mutasi_lain_rp > 0 ? '+' : '-'
+      sistemNotes.push(`termasuk mutasi lain ${sign}Rp ${Math.abs(totals.total_mutasi_lain_rp).toLocaleString('id-ID')}`)
+    }
+
+    const fisikNotes = ['Jadi saldo awal sesi berikutnya']
+    if (takDihitung.length > 0) {
+      fisikNotes.push(`+ ${takDihitung.length} bahan tak dihitung (Rp ${takDihitungRp.toLocaleString('id-ID')} menurut catatan)`)
+    }
+
+    const selisihNotes = [`Hasil hitung − seharusnya · ${surplus ? 'lebih dari catatan' : 'kurang dari catatan'}`]
+    if (takDihitung.length > 0) {
+      selisihNotes.push('hanya bahan yang dihitung')
+    }
+
+    rows.push(
+      {
+        kartu: '5. Seharusnya Ada',
+        nilai_rp: totals.total_sistem_rp,
+        keterangan: sistemNotes.join(' · '),
+      },
+      {
+        kartu: '6. Hasil Hitung Opname',
+        nilai_rp: totals.total_fisik_rp,
+        keterangan: fisikNotes.join(' · '),
+      },
+      {
+        kartu: '7. Selisih',
+        nilai_rp: totals.total_selisih_rp,
+        keterangan: selisihNotes.join(' · '),
+      }
+    )
+  }
+
+  return rows
+}
+
+/**
+ * Ekspor nilai kartu ringkasan Rekonsiliasi & Jurnal Bahan Baku ke file CSV.
+ */
+export function exportSummaryCardsToCsv(data: ReconciliationSnapshotResponse) {
+  const lines: string[] = []
+  lines.push('RINGKASAN KARTU REKONSILIASI & JURNAL BAHAN BAKU')
+  for (const [label, value] of formatReportMetaRows(data)) {
+    lines.push(`${label};${escapeCsv(value)}`)
+  }
+  lines.push('')
+  lines.push(['Kartu Ringkasan', 'Nilai (Rp)', 'Keterangan'].map(escapeCsv).join(';'))
+
+  for (const row of buildSummaryCardsRows(data)) {
+    lines.push([row.kartu, row.nilai_rp, row.keterangan].map(escapeCsv).join(';'))
+  }
+
+  const csvContent = '\uFEFF' + lines.join('\r\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const cleanOutlet = sanitizeOutletFilename(data.outlet.name)
+  const dateStamp = new Date().toISOString().slice(0, 10)
+  triggerBlobDownload(blob, `Ringkasan_Kartu_Rekonsiliasi_${cleanOutlet}_${dateStamp}.csv`)
+}
+
+/**
+ * Ekspor nilai kartu ringkasan Rekonsiliasi & Jurnal Bahan Baku ke file Excel (.xls).
+ */
+export function exportSummaryCardsToXls(data: ReconciliationSnapshotResponse) {
+  const aoa: Array<Array<string | number>> = [
+    ['RINGKASAN KARTU REKONSILIASI & JURNAL BAHAN BAKU'],
+    ...formatReportMetaRows(data),
+    [],
+    ['Kartu Ringkasan', 'Nilai (Rp)', 'Keterangan'],
+    ...buildSummaryCardsRows(data).map((row) => [row.kartu, row.nilai_rp, row.keterangan]),
+  ]
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+  ws['!cols'] = [{ wch: 28 }, { wch: 20 }, { wch: 52 }]
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Ringkasan Kartu')
+
+  const buffer = XLSX.write(wb, { bookType: 'biff8', type: 'array' })
+  const blob = new Blob([buffer], { type: 'application/vnd.ms-excel' })
+  const cleanOutlet = sanitizeOutletFilename(data.outlet.name)
+  const dateStamp = new Date().toISOString().slice(0, 10)
+  triggerBlobDownload(blob, `Ringkasan_Kartu_Rekonsiliasi_${cleanOutlet}_${dateStamp}.xls`)
 }
 
 export function exportReconciliationToCsv(data: ReconciliationSnapshotResponse) {

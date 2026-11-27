@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createOrderOnlineAdminClient } from '@/lib/supabase/order-online-client'
 import { getPromoStatus, validateSchedule } from '@/lib/promoSchedule'
-import { findPromoOutletOverlaps, isRowAssigned, promoOutletKey, resolvePromoOutletIds } from '@/lib/promoOutlets'
+import { findPromoOutletOverlaps, isRowAssigned, normalizeQuotaLimit, promoOutletKey, resolveOutletUsageLimit, resolvePromoOutletIds } from '@/lib/promoOutlets'
 import { resolveRewardMenuForOutlet, LEGACY_REWARD_MENU_NAME } from '@/lib/promoReward'
 import crypto from 'crypto'
 
@@ -119,13 +119,25 @@ export async function savePromosAction(
       if (!Number.isInteger(p.buy_quantity) || p.buy_quantity < 1 || !Number.isInteger(p.get_quantity) || p.get_quantity < 1) {
         return { success: false, error: 'Jumlah beli dan gratis Buy X Get Y wajib bilangan bulat minimal 1.' }
       }
-      if (p.usage_limit !== null && p.usage_limit !== undefined && p.usage_limit !== '') {
-        p.usage_limit = Number(p.usage_limit)
-        if (!Number.isInteger(p.usage_limit) || p.usage_limit < 1) {
+      const baseLimit = normalizeQuotaLimit(p.usage_limit)
+      if (baseLimit !== null) {
+        if (!Number.isInteger(baseLimit) || baseLimit < 1) {
           return { success: false, error: 'Batas kuota Buy X Get Y wajib bilangan bulat minimal 1.' }
         }
+        p.usage_limit = baseLimit
       } else {
         p.usage_limit = null
+      }
+      if (p.quota_scope !== 'global') {
+        for (const outletId of promoTargets) {
+          const outletLimit = resolveOutletUsageLimit(p, outletId)
+          if (outletLimit !== null && (!Number.isInteger(outletLimit) || outletLimit < 1)) {
+            return {
+              success: false,
+              error: `${labelOf(p)}: batas kuota untuk outlet ${outletNameById.get(outletId) || outletId} wajib bilangan bulat minimal 1 atau dikosongkan.`,
+            }
+          }
+        }
       }
       // Fitur ini hanya untuk transaksi POS kasir; jangan percaya state form saja.
       p.apply_to_food_apps = false
@@ -146,6 +158,17 @@ export async function savePromosAction(
         }
       }
     }
+      if (p.discount_type !== 'buy_one_get_one' && p.scope === 'global') {
+        for (const outletId of promoTargets) {
+          const outletLimit = resolveOutletUsageLimit(p, outletId)
+          if (outletLimit !== null && (!Number.isInteger(outletLimit) || outletLimit < 1)) {
+            return {
+              success: false,
+              error: `${labelOf(p)}: batas kuota untuk outlet ${outletNameById.get(outletId) || outletId} wajib bilangan bulat minimal 1 atau dikosongkan.`,
+            }
+          }
+        }
+      }
     const scheduleError = validateSchedule(p)
     if (scheduleError) return { success: false, error: `${labelOf(p)}: ${scheduleError}` }
     const hasDailySchedule = Array.isArray(p.daily_schedule) && p.daily_schedule.length > 0
@@ -242,7 +265,8 @@ export async function savePromosAction(
       const isBuyOneGetOne = p.discount_type === 'buy_one_get_one'
       const quotaScope = isBuyOneGetOne && p.quota_scope === 'global' ? 'global' : 'per_outlet'
       const quotaPool = quotaScope === 'global' ? quotaPoolByPromoIndex.get(i) : null
-      const usageLimit = p.usage_limit == null || p.usage_limit === '' ? null : Number(p.usage_limit)
+      const rawLimit = quotaScope === 'global' ? normalizeQuotaLimit(p.usage_limit) : resolveOutletUsageLimit(p, outletId)
+      const usageLimit = rawLimit !== null && Number.isInteger(rawLimit) && rawLimit >= 1 ? rawLimit : null
 
       toUpsertMap.set(key, {
         id: existingId || crypto.randomUUID(),

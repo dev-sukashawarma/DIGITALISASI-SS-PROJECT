@@ -47,12 +47,14 @@ export default async function AdminPromoPage() {
     const outletIds = initialOutlets.map(outlet => outlet.id)
     const promoRes = await supabase
       .from('outlet_promos')
-      .select('*')
+      .select(
+        'id, outlet_id, scope, menu_item_id, discount_type, discount_value, is_active, is_assigned, min_purchase, usage_limit, current_usage, quota_scope, quota_pool_id, start_date, end_date, daily_start_time, daily_end_time, daily_schedule, apply_to_food_apps, promo_name, buy_quantity, get_quantity, reward_menu_item_id, excluded_menu_item_ids',
+      )
       .in('outlet_id', outletIds)
 
     // Satu promo yang dilihat admin = kumpulan baris per outlet yang
-    // konfigurasinya identik. Baris dengan konfigurasi berbeda pada scope +
-    // menu yang sama tampil sebagai promo terpisah dengan outletnya sendiri.
+    // konfigurasinya identik (termasuk bila hanya usage_limit per outlet yang
+    // berbeda). Baris dengan aturan promo berbeda tetap tampil terpisah.
     initialPromos = groupPromoRows(promoRes.data || [], outletIds).map((group, index) => {
       const p: any = group.representative
 
@@ -75,6 +77,8 @@ export default async function AdminPromoPage() {
         group_id: `${group.key}#${index}`,
         outlet_ids: group.outletIds,
         current_usage: group.currentUsage,
+        outlet_usage_limits: group.hasCustomOutletQuotas ? group.outletUsageLimits : null,
+        outlet_usages: group.outletUsages,
         discount_value: p.discount_value === 0.01 ? 0 : p.discount_value,
         sync_to_order_online: isSynced
       }

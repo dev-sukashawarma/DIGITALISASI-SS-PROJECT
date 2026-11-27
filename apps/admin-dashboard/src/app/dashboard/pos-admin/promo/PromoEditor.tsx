@@ -7,7 +7,7 @@ import { DateTimeField, Segmented, Stepper, Switch, TimeInput } from '@/componen
 import { formatWib, fromWibInputValue, toWibInputValue, WIB_LABEL } from '@/lib/timezone'
 import { getPromoStatus } from '@/lib/promoSchedule'
 import PromoDailyScheduleEditor from './PromoDailyScheduleEditor'
-import { MenuExclusionPicker, MenuThumb, OutletScopeBadge, OutletScopePicker, RewardMenuPicker, StatusBadge, promoRule, rupiah } from './promoParts'
+import { MenuExclusionPicker, MenuThumb, OutletQuotaEditor, OutletScopeBadge, OutletScopePicker, RewardMenuPicker, StatusBadge, promoRule, rupiah } from './promoParts'
 import type { MenuItem, Outlet, OutletPromo, PromoField } from './promoTypes'
 
 const INPUT =
@@ -65,7 +65,7 @@ export function PromoTicket({
 }) {
   const isBxgy = promo.discount_type === 'buy_one_get_one'
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-suka-orange/25 bg-gradient-to-br from-suka-orange/10 via-suka-cream to-white">
+    <div className="relative overflow-hidden rounded-2xl border border-suka-orange/25 bg-suka-cream/70">
       <div className={stacked ? "flex flex-col items-start gap-3 p-4" : "flex items-center gap-3 p-4"}>
         {isBxgy && trigger && reward ? (
           <div className="flex shrink-0 items-center gap-1.5">
@@ -155,6 +155,36 @@ export default function PromoEditor({
   const today = mounted ? toWibInputValue(new Date(now).toISOString()).slice(0, 10) : undefined
   const hasDailyHours = !!(promo.daily_start_time || promo.daily_end_time)
   const quotaShared = isBxgy && promo.quota_scope === 'global'
+  const isCustomOutletQuota = !quotaShared && promo.outlet_usage_limits != null
+  const quotaMode: 'uniform' | 'custom' | 'global' = quotaShared ? 'global' : isCustomOutletQuota ? 'custom' : 'uniform'
+
+  const handleQuotaModeChange = (nextMode: 'uniform' | 'custom' | 'global') => {
+    if (nextMode === 'global') {
+      onChange('quota_scope', 'global')
+      onChange('outlet_usage_limits', null)
+      return
+    }
+    if (nextMode === 'custom') {
+      const nextLimits: Record<string, number | null> = {}
+      for (const id of outletIds) {
+        const existing = promo.outlet_usage_limits && Object.prototype.hasOwnProperty.call(promo.outlet_usage_limits, id)
+          ? promo.outlet_usage_limits[id]
+          : (promo.usage_limit ?? null)
+        nextLimits[id] = existing ?? null
+      }
+      onChange('quota_scope', 'per_outlet')
+      onChange('outlet_usage_limits', nextLimits)
+      return
+    }
+    const firstCustomLimit = promo.outlet_usage_limits
+      ? Object.values(promo.outlet_usage_limits).find((v): v is number => typeof v === 'number' && v > 0) ?? null
+      : null
+    onChange('quota_scope', 'per_outlet')
+    if (!promo.usage_limit && firstCustomLimit) {
+      onChange('usage_limit', firstCustomLimit)
+    }
+    onChange('outlet_usage_limits', null)
+  }
 
   const typeOptions = [
     { value: 'percentage' as const, label: 'Diskon %', icon: <Percent className="h-3.5 w-3.5" /> },
@@ -318,63 +348,102 @@ export default function PromoEditor({
       </Section>
 
       <Section icon={<Wallet className="h-4 w-4" />} title="Syarat & kuota">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {!isBxgy && (
-              <div className="space-y-1.5">
-                <span className="text-xs font-bold text-slate-600">Minimum belanja</span>
-                <CurrencyInput
-                  aria-label="Minimum belanja"
-                  value={promo.min_purchase || 0}
-                  onChange={v => onChange('min_purchase', v || null)}
-                  className={`${INPUT} pl-10`}
-                />
-                <p className="text-[11px] text-slate-500">Biarkan 0 jika tanpa minimum.</p>
-              </div>
-            )}
-            {(isGlobal || isBxgy) && (
-              <div className="space-y-1.5">
-                <span className="text-xs font-bold text-slate-600">Batas kuota pemakaian</span>
-                {isBxgy && (
-                  <Segmented
-                    label="Pola kuota"
-                    value={promo.quota_scope || 'per_outlet'}
-                    onChange={v => onChange('quota_scope', v)}
-                    options={[
-                      { value: 'per_outlet', label: 'Per outlet' },
-                      { value: 'global', label: 'Gabungan semua outlet' },
-                    ]}
-                  />
-                )}
-                <input
-                  aria-label="Batas kuota"
-                  inputMode="numeric"
-                  placeholder="Tanpa batas"
-                  value={promo.usage_limit || ''}
-                  onChange={e => {
-                    const n = Number(e.target.value.replace(/\D/g, ''))
-                    onChange('usage_limit', n > 0 ? n : null)
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {!isBxgy && (
+            <div className="space-y-1.5">
+              <span className="text-xs font-bold text-slate-600">Minimum belanja</span>
+              <CurrencyInput
+                aria-label="Minimum belanja"
+                value={promo.min_purchase || 0}
+                onChange={v => onChange('min_purchase', v || null)}
+                className={`${INPUT} pl-10`}
+              />
+              <p className="text-[11px] text-slate-500">Biarkan 0 jika tanpa minimum.</p>
+            </div>
+          )}
+          {(isGlobal || isBxgy) && (
+            <div className={`space-y-2.5 ${isCustomOutletQuota || isBxgy ? 'lg:col-span-2' : ''}`}>
+              <span className="block text-xs font-bold text-slate-600">Batas kuota pemakaian</span>
+              <Segmented
+                label="Pola kuota"
+                value={quotaMode}
+                onChange={handleQuotaModeChange}
+                options={
+                  isBxgy
+                    ? [
+                        { value: 'uniform', label: 'Sama tiap outlet' },
+                        { value: 'custom', label: 'Beda tiap outlet' },
+                        { value: 'global', label: 'Gabungan outlet' },
+                      ]
+                    : [
+                        { value: 'uniform', label: 'Sama tiap outlet' },
+                        { value: 'custom', label: 'Beda tiap outlet' },
+                      ]
+                }
+              />
+
+              {isCustomOutletQuota ? (
+                <OutletQuotaEditor
+                  outlets={outlets}
+                  selectedIds={outletIds}
+                  limits={promo.outlet_usage_limits || {}}
+                  usages={promo.outlet_usages}
+                  defaultLimit={promo.usage_limit}
+                  onChangeLimit={(outletId, limit) => {
+                    const next: Record<string, number | null> = {}
+                    for (const id of outletIds) {
+                      next[id] =
+                        id === outletId
+                          ? limit
+                          : promo.outlet_usage_limits && Object.prototype.hasOwnProperty.call(promo.outlet_usage_limits, id)
+                            ? promo.outlet_usage_limits[id]
+                            : (promo.usage_limit ?? null)
+                    }
+                    onChange('outlet_usage_limits', next)
                   }}
-                  className={INPUT}
+                  onApplyAll={limit => {
+                    const next: Record<string, number | null> = {}
+                    for (const id of outletIds) next[id] = limit
+                    onChange('usage_limit', limit)
+                    onChange('outlet_usage_limits', next)
+                  }}
                 />
-                <p className="text-[11px] text-slate-500">
-                  {isBxgy ? (quotaShared ? 'Satu kuota dipakai bersama semua outlet.' : 'Setiap outlet punya kuota sendiri.') : 'Kosongkan jika kuota tak terbatas.'}
-                </p>
-                {promo.usage_limit ? (
-                  <div className="space-y-1">
-                    <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                      <div
-                        className="h-full rounded-full bg-suka-orange transition-[width] duration-300"
-                        style={{ width: `${Math.min(100, ((promo.current_usage || 0) / promo.usage_limit) * 100)}%` }}
-                      />
+              ) : (
+                <div className="max-w-md space-y-1.5">
+                  <input
+                    aria-label="Batas kuota"
+                    inputMode="numeric"
+                    placeholder="Tanpa batas"
+                    value={promo.usage_limit || ''}
+                    onChange={e => {
+                      const n = Number(e.target.value.replace(/\D/g, ''))
+                      onChange('usage_limit', n > 0 ? n : null)
+                    }}
+                    className={INPUT}
+                  />
+                  <p className="text-[11px] text-slate-500">
+                    {quotaShared
+                      ? 'Satu kuota dipakai bersama seluruh outlet yang dipilih.'
+                      : 'Setiap outlet terpilih mendapat batas kuota yang sama. Kosongkan jika tak terbatas.'}
+                  </p>
+                  {promo.usage_limit ? (
+                    <div className="space-y-1">
+                      <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full bg-suka-orange transition-[width] duration-300"
+                          style={{ width: `${Math.min(100, ((promo.current_usage || 0) / promo.usage_limit) * 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-[11px] font-semibold text-slate-600">
+                        Terpakai{quotaShared ? ' semua outlet' : ' tertinggi per outlet'}: {promo.current_usage || 0} / {promo.usage_limit}
+                      </p>
                     </div>
-                    <p className="text-[11px] font-semibold text-slate-600">
-                      Terpakai{quotaShared ? ' semua outlet' : ''}: {promo.current_usage || 0} / {promo.usage_limit}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </Section>
 
       <Section icon={<Smartphone className="h-4 w-4" />} title="Kanal penjualan">

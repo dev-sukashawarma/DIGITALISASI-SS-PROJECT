@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useRef, useState, useEffect } from 'react'
-import { Check, ChevronDown, Search, Store, UtensilsCrossed, X } from 'lucide-react'
+import { Check, ChevronDown, Copy, Search, Store, UtensilsCrossed, X } from 'lucide-react'
 import { CheckMark } from '@/components/ui/controls'
 import { isRewardEligible } from '@/lib/promoReward'
 import { STATUS_LABEL, type PromoStatus } from '@/lib/promoSchedule'
@@ -362,6 +362,223 @@ export function OutletScopeBadge({ outlets, selectedIds }: { outlets: Outlet[]; 
       <Store className="h-3 w-3" />
       {all ? 'Semua outlet' : `${count} outlet`}
     </span>
+  )
+}
+
+/* ───────────────────────── Kuota per outlet ───────────────────────── */
+
+/**
+ * Pengatur kuota berbeda tiap cabang dalam satu kartu promo yang sama.
+ * Menampilkan ringkasan total kuota & pemakaian, alat samakan cepat, pencarian
+ * cabang, serta input angka kuota + indikator pemakaian tiap outlet terpilih.
+ */
+export function OutletQuotaEditor({
+  outlets,
+  selectedIds,
+  limits,
+  usages = {},
+  defaultLimit,
+  onChangeLimit,
+  onApplyAll,
+}: {
+  outlets: Outlet[]
+  selectedIds: string[]
+  limits: Record<string, number | null>
+  usages?: Record<string, number>
+  defaultLimit?: number | null
+  onChangeLimit: (outletId: string, limit: number | null) => void
+  onApplyAll: (limit: number | null) => void
+}) {
+  const [query, setQuery] = useState('')
+  const [bulkDraft, setBulkDraft] = useState('')
+
+  const selectedOutlets = useMemo(() => {
+    const selectedSet = new Set(selectedIds)
+    return outlets.filter(o => selectedSet.has(o.id))
+  }, [outlets, selectedIds])
+
+  const keyword = query.trim().toLowerCase()
+  const visibleOutlets = useMemo(
+    () => (keyword ? selectedOutlets.filter(o => o.name.toLowerCase().includes(keyword)) : selectedOutlets),
+    [selectedOutlets, keyword],
+  )
+
+  const summary = useMemo(() => {
+    let totalQuota = 0
+    let totalUsed = 0
+    let limitedCount = 0
+    for (const o of selectedOutlets) {
+      const lim = Object.prototype.hasOwnProperty.call(limits, o.id) ? limits[o.id] : (defaultLimit ?? null)
+      const used = usages[o.id] || 0
+      totalUsed += used
+      if (lim && lim > 0) {
+        totalQuota += lim
+        limitedCount += 1
+      }
+    }
+    return {
+      totalOutlets: selectedOutlets.length,
+      limitedCount,
+      unlimitedCount: selectedOutlets.length - limitedCount,
+      totalQuota,
+      totalUsed,
+    }
+  }, [selectedOutlets, limits, usages, defaultLimit])
+
+  if (selectedOutlets.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center text-xs font-semibold text-slate-500">
+        Pilih minimal satu cabang pada bagian Outlet di atas untuk mengatur kuota masing-masing cabang.
+      </div>
+    )
+  }
+
+  const handleBulkApply = () => {
+    const digits = bulkDraft.replace(/\D/g, '')
+    const parsed = digits ? Number(digits) : 0
+    onApplyAll(parsed > 0 ? parsed : null)
+  }
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-3.5">
+      {/* Ringkasan total kuota & pemakaian */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          <span className="font-extrabold text-slate-800">{summary.totalOutlets} cabang terpilih</span>
+          <span className="text-slate-300">·</span>
+          <span className="font-semibold text-slate-600">
+            Total kuota:{' '}
+            <strong className="font-extrabold text-suka-brown">
+              {summary.limitedCount > 0 ? summary.totalQuota.toLocaleString('id-ID') : 'Tanpa batas'}
+            </strong>
+            {summary.limitedCount > 0 && summary.unlimitedCount > 0
+              ? ` (${summary.unlimitedCount} cabang tanpa batas)`
+              : ''}
+          </span>
+        </div>
+        <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700">
+          Terpakai: {summary.totalUsed.toLocaleString('id-ID')}
+          {summary.limitedCount === summary.totalOutlets && summary.totalQuota > 0
+            ? ` / ${summary.totalQuota.toLocaleString('id-ID')}`
+            : ''}
+        </span>
+      </div>
+
+      {/* Bilah cari cabang & isi cepat */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        {selectedOutlets.length > 4 && (
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Cari cabang..."
+              aria-label="Cari cabang kuota"
+              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-8 text-xs font-semibold text-slate-900 outline-none transition-colors focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/15 sm:text-sm"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                aria-label="Bersihkan pencarian cabang"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer rounded-md p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+        <div className="flex items-center gap-1.5 sm:ml-auto">
+          <input
+            type="text"
+            inputMode="numeric"
+            value={bulkDraft}
+            onChange={e => setBulkDraft(e.target.value.replace(/\D/g, ''))}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                handleBulkApply()
+              }
+            }}
+            placeholder="Isi awal (mis. 50)"
+            aria-label="Nilai kuota massal"
+            className="w-36 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 outline-none transition-colors placeholder:font-medium placeholder:text-slate-400 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/15 sm:text-sm"
+          />
+          <button
+            type="button"
+            onClick={handleBulkApply}
+            className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-suka-brown transition-colors hover:border-suka-orange hover:bg-suka-orange/5"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            Samakan semua
+          </button>
+        </div>
+      </div>
+
+      {/* Daftar kuota per cabang */}
+      {visibleOutlets.length === 0 ? (
+        <p className="rounded-xl border border-slate-200 bg-white px-3 py-4 text-center text-xs font-medium text-slate-500">
+          Cabang tidak ditemukan.
+        </p>
+      ) : (
+        <div className="grid max-h-80 grid-cols-1 gap-2 overflow-y-auto pr-0.5 sm:grid-cols-2">
+          {visibleOutlets.map(outlet => {
+            const limit = Object.prototype.hasOwnProperty.call(limits, outlet.id)
+              ? limits[outlet.id]
+              : (defaultLimit ?? null)
+            const used = usages[outlet.id] || 0
+            const hasLimit = typeof limit === 'number' && limit > 0
+            const exhausted = hasLimit && used >= limit
+            const pct = hasLimit ? Math.min(100, (used / limit) * 100) : 0
+
+            return (
+              <div
+                key={outlet.id}
+                className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 transition-colors focus-within:border-suka-orange"
+              >
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="truncate text-xs font-bold text-slate-800 sm:text-sm" title={outlet.name}>
+                    {outlet.name}
+                  </p>
+                  <div className="space-y-1">
+                    <p className={`text-[11px] font-semibold ${exhausted ? 'text-rose-600' : 'text-slate-500'}`}>
+                      {hasLimit ? `Terpakai ${used} / ${limit}` : `Terpakai ${used} · Tanpa batas`}
+                    </p>
+                    {hasLimit && (
+                      <div className="h-1 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className={`h-full rounded-full transition-[width] duration-300 ${exhausted ? 'bg-rose-500' : 'bg-suka-orange'}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="w-24 shrink-0">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    aria-label={`Kuota ${outlet.name}`}
+                    placeholder="Bebas"
+                    value={hasLimit ? String(limit) : ''}
+                    onChange={e => {
+                      const n = Number(e.target.value.replace(/\D/g, ''))
+                      onChangeLimit(outlet.id, n > 0 ? n : null)
+                    }}
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-right text-sm font-extrabold text-slate-900 outline-none transition-colors placeholder:font-medium placeholder:text-slate-400 focus:border-suka-orange focus:bg-white focus:ring-2 focus:ring-suka-orange/15"
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <p className="text-[11px] font-medium text-slate-500">
+        Kosongkan kolom angka pada cabang tertentu jika cabang tersebut tidak dibatasi kuota.
+      </p>
+    </div>
   )
 }
 

@@ -120,6 +120,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
     min_purchase: null,
     usage_limit: null,
     current_usage: 0,
+    outlet_usage_limits: null,
     quota_scope: 'per_outlet',
     start_date: null,
     end_date: null,
@@ -134,22 +135,36 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
     ...(scope === 'global' ? { excluded_menu_item_ids: [] } : {}),
   })
 
-  const applyChange = (base: OutletPromo, field: PromoField, value: any): OutletPromo => ({
-    ...base,
-    [field]: value,
-    ...(field === 'discount_type' && value === 'buy_one_get_one'
-      ? {
-          discount_value: 0.01,
-          min_purchase: null,
-          apply_to_food_apps: false,
-          sync_to_order_online: false,
-          excluded_menu_item_ids: [],
-          buy_quantity: base.buy_quantity ?? 1,
-          get_quantity: base.get_quantity ?? 1,
-          quota_scope: base.quota_scope ?? 'per_outlet',
-        }
-      : {}),
-  })
+  const applyChange = (base: OutletPromo, field: PromoField, value: any): OutletPromo => {
+    let syncedOutletLimits = base.outlet_usage_limits
+    if (field === 'outlet_ids' && base.outlet_usage_limits != null && Array.isArray(value)) {
+      const nextMap: Record<string, number | null> = {}
+      for (const id of value as string[]) {
+        nextMap[id] = Object.prototype.hasOwnProperty.call(base.outlet_usage_limits, id)
+          ? base.outlet_usage_limits[id]
+          : (base.usage_limit ?? null)
+      }
+      syncedOutletLimits = nextMap
+    }
+
+    return {
+      ...base,
+      ...(syncedOutletLimits !== base.outlet_usage_limits ? { outlet_usage_limits: syncedOutletLimits } : {}),
+      [field]: value,
+      ...(field === 'discount_type' && value === 'buy_one_get_one'
+        ? {
+            discount_value: 0.01,
+            min_purchase: null,
+            apply_to_food_apps: false,
+            sync_to_order_online: false,
+            excluded_menu_item_ids: [],
+            buy_quantity: base.buy_quantity ?? 1,
+            get_quantity: base.get_quantity ?? 1,
+            quota_scope: base.quota_scope ?? 'per_outlet',
+          }
+        : {}),
+    }
+  }
 
   /** Ubah satu promo; promo rancangan yang belum ada di state dibuat saat itu juga. */
   const handlePromoChange = (groupId: string, scope: 'global' | 'item', menuId: string | null, field: PromoField, value: any) => {
@@ -368,15 +383,25 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
-                  type="search"
+                  type="text"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Cari menu..."
                   aria-label="Cari menu"
-                  className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/15"
+                  className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-10 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/15"
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    aria-label="Bersihkan pencarian menu"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 cursor-pointer rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
               <div role="radiogroup" aria-label="Saring menu" className="flex gap-1 rounded-2xl bg-slate-100 p-1">
                 {([

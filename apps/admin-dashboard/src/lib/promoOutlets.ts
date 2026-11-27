@@ -26,7 +26,9 @@ export type PromoOutletRow = {
   scope: PromoScope
   menu_item_id?: string | null
   is_assigned?: boolean | null
+  quota_scope?: 'global' | 'per_outlet' | string | null
   quota_pool_id?: string | null
+  usage_limit?: number | null
   current_usage?: number | null
 }
 
@@ -34,6 +36,35 @@ export type PromoOutletSelection = {
   scope: PromoScope
   menu_item_id?: string | null
   outlet_ids?: string[] | null
+}
+
+/** Normalisasi angka batas kuota; kosong/null = tanpa batas. */
+export function normalizeQuotaLimit(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const n = Number(value)
+  return Number.isNaN(n) ? NaN : n
+}
+
+/**
+ * Ambil batas kuota untuk satu outlet spesifik.
+ * - Pola global pool: memakai `usage_limit` bersama.
+ * - Pola per outlet dengan peta `outlet_usage_limits`: memakai angka khusus outlet itu
+ *   bila ada di peta, atau jatuh ke `usage_limit` bawaan bila outlet baru ditambahkan.
+ */
+export function resolveOutletUsageLimit(
+  promo: {
+    quota_scope?: string | null
+    usage_limit?: unknown
+    outlet_usage_limits?: Record<string, number | null> | null
+  },
+  outletId: string,
+): number | null {
+  if (promo.quota_scope === 'global') return normalizeQuotaLimit(promo.usage_limit)
+  const map = promo.outlet_usage_limits
+  if (map && typeof map === 'object' && Object.prototype.hasOwnProperty.call(map, outletId)) {
+    return normalizeQuotaLimit(map[outletId])
+  }
+  return normalizeQuotaLimit(promo.usage_limit)
 }
 
 /** Identitas kunci baris per outlet: (scope, menu). Satu outlet = satu baris per kunci. */
@@ -92,7 +123,15 @@ const normalizeConfigValue = (field: string, value: unknown): unknown => {
 
 /** Sidik jari konfigurasi; baris dengan sidik jari sama = satu promo logis. */
 export function promoConfigSignature(row: Record<string, unknown>): string {
-  return JSON.stringify(PROMO_CONFIG_FIELDS.map(field => normalizeConfigValue(field, row[field])))
+  return JSON.stringify(
+    PROMO_CONFIG_FIELDS.map(field => {
+      // Pada kuota per-outlet, angka usage_limit boleh berbeda tiap cabang
+      // dalam satu kartu promo yang sama. Hanya kuota gabungan (global pool)
+      // yang mengikat usage_limit sebagai satu konfigurasi bersama.
+      if (field === 'usage_limit' && row.quota_scope !== 'global') return null
+      return normalizeConfigValue(field, row[field])
+    }),
+  )
 }
 
 /**
@@ -123,6 +162,31 @@ export type GroupedPromo<Row extends PromoOutletRow> = {
   representative: Row
   outletIds: string[]
   currentUsage: number
+  /** Peta batas kuota per outlet_id untuk cabang dalam grup ini. */
+  outletUsageLimits: Record<string, number | null>
+  /** Peta pemakaian saat ini per outlet_id untuk cabang dalam grup ini. */
+  outletUsages: Record<string, number>
+  /** True bila cabang terpilih punya angka usage_limit per-outlet yang berbeda-beda. */
+  hasCustomOutletQuotas: boolean
+}
+
+function summarizeOutletQuotas<Row extends PromoOutletRow>(
+  rows: Row[],
+  outletIds: string[],
+  representative: Row,
+) {
+  const outletUsageLimits: Record<string, number | null> = {}
+  const outletUsages: Record<string, number> = {}
+  for (const row of rows) {
+    if (!row.outlet_id) continue
+    const limit = normalizeQuotaLimit(row.usage_limit)
+    outletUsageLimits[row.outlet_id] = limit !== null && Number.isFinite(limit) ? limit : null
+    outletUsages[row.outlet_id] = Math.max(0, Number(row.current_usage) || 0)
+  }
+  const distinctLimits = new Set(outletIds.map(id => outletUsageLimits[id] ?? null))
+  const hasCustomOutletQuotas =
+    representative.quota_scope !== 'global' && outletIds.length > 1 && distinctLimits.size > 1
+  return { outletUsageLimits, outletUsages, hasCustomOutletQuotas }
 }
 
 /**
@@ -162,7 +226,13 @@ export function groupPromoRows<Row extends PromoOutletRow>(
     if (assigned.length === 0) {
       // Kalau semua outlet dilepas, nilai form tetap diambil dari baris mana pun
       // supaya konfigurasinya tidak hilang saat admin membuka halaman lagi.
-      result.push({ key, representative: bucket[0], outletIds: [], currentUsage: usageOf(bucket, bucket[0], bucket) })
+      result.push({
+        key,
+        representative: bucket[0],
+        outletIds: [],
+        currentUsage: usageOf(bucket, bucket[0], bucket),
+        ...summarizeOutletQuotas(bucket, [], bucket[0]),
+      })
       continue
     }
 
@@ -177,7 +247,13 @@ export function groupPromoRows<Row extends PromoOutletRow>(
     for (const group of bySignature.values()) {
       const representative = group[0]
       const outletIds = activeOutletIds.filter(id => group.some(row => row.outlet_id === id))
-      result.push({ key, representative, outletIds, currentUsage: usageOf(group, representative, bucket) })
+      result.push({
+        key,
+        representative,
+        outletIds,
+        currentUsage: usageOf(group, representative, bucket),
+        ...summarizeOutletQuotas(group, outletIds, representative),
+      })
     }
   }
 

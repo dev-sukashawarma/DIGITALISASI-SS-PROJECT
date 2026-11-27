@@ -5,6 +5,7 @@ import {
   isRowAssigned,
   promoConfigSignature,
   promoOutletKey,
+  resolveOutletUsageLimit,
   resolvePromoOutletIds,
   type PromoOutletRow,
 } from './promoOutlets'
@@ -206,6 +207,60 @@ describe('groupPromoRows — konfigurasi berbeda per outlet', () => {
 
     expect(grouped).toHaveLength(1)
     expect(grouped[0].outletIds).toEqual(['o1'])
+  })
+
+  it('menggabungkan cabang dengan usage_limit per-outlet berbeda ke dalam satu kartu promo', () => {
+    const grouped = groupPromoRows(
+      [
+        { ...row({ outlet_id: 'o1', id: 'a', usage_limit: 150, current_usage: 10 }), discount_type: 'buy_one_get_one', discount_value: 0.01, quota_scope: 'per_outlet' },
+        { ...row({ outlet_id: 'o2', id: 'b', usage_limit: 58, current_usage: 4 }), discount_type: 'buy_one_get_one', discount_value: 0.01, quota_scope: 'per_outlet' },
+        { ...row({ outlet_id: 'o3', id: 'c', usage_limit: 50, current_usage: 0 }), discount_type: 'buy_one_get_one', discount_value: 0.01, quota_scope: 'per_outlet' },
+      ] as unknown as PromoOutletRow[],
+      OUTLETS,
+    )
+
+    expect(grouped).toHaveLength(1)
+    expect(grouped[0].outletIds).toEqual(['o1', 'o2', 'o3'])
+    expect(grouped[0].hasCustomOutletQuotas).toBe(true)
+    expect(grouped[0].outletUsageLimits).toEqual({ o1: 150, o2: 58, o3: 50 })
+    expect(grouped[0].outletUsages).toEqual({ o1: 10, o2: 4, o3: 0 })
+  })
+
+  it('menandai hasCustomOutletQuotas = false bila seluruh cabang punya usage_limit seragam', () => {
+    const grouped = groupPromoRows(
+      [
+        row({ outlet_id: 'o1', id: 'a', usage_limit: 100, quota_scope: 'per_outlet' }),
+        row({ outlet_id: 'o2', id: 'b', usage_limit: 100, quota_scope: 'per_outlet' }),
+      ],
+      OUTLETS,
+    )
+
+    expect(grouped).toHaveLength(1)
+    expect(grouped[0].hasCustomOutletQuotas).toBe(false)
+    expect(grouped[0].outletUsageLimits).toEqual({ o1: 100, o2: 100 })
+  })
+})
+
+describe('resolveOutletUsageLimit', () => {
+  it('mengambil kuota spesifik per cabang bila ada di outlet_usage_limits', () => {
+    const promo = {
+      quota_scope: 'per_outlet',
+      usage_limit: 50,
+      outlet_usage_limits: { o1: 150, o2: 58, o3: null },
+    }
+    expect(resolveOutletUsageLimit(promo, 'o1')).toBe(150)
+    expect(resolveOutletUsageLimit(promo, 'o2')).toBe(58)
+    expect(resolveOutletUsageLimit(promo, 'o3')).toBeNull()
+    expect(resolveOutletUsageLimit(promo, 'outlet-baru')).toBe(50)
+  })
+
+  it('selalu memakai usage_limit utama saat quota_scope = global', () => {
+    const promo = {
+      quota_scope: 'global',
+      usage_limit: 2000,
+      outlet_usage_limits: { o1: 150 },
+    }
+    expect(resolveOutletUsageLimit(promo, 'o1')).toBe(2000)
   })
 })
 

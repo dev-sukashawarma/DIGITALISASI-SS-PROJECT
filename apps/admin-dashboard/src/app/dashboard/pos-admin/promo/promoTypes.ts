@@ -32,6 +32,10 @@ export type OutletPromo = {
   min_purchase?: number | null
   usage_limit?: number | null
   current_usage?: number
+  /** Kuota berbeda tiap outlet (hanya saat quota_scope = 'per_outlet'). Null/undefined = kuota seragam memakai usage_limit. */
+  outlet_usage_limits?: Record<string, number | null> | null
+  /** Pemakaian saat ini per outlet untuk pemantauan kuota per cabang. */
+  outlet_usages?: Record<string, number>
   quota_scope?: 'global' | 'per_outlet'
   quota_pool_id?: string | null
   start_date?: string | null

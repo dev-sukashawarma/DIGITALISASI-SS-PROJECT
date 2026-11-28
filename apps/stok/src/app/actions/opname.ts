@@ -108,13 +108,32 @@ export async function approveOpname(opnameId: string): Promise<void> {
   const supabase = makeServiceClient()
   const { data: opname, error: opnameError } = await supabase
     .from('opname')
-    .select('outlet_id')
+    .select('id, outlet_id, tanggal, created_at')
     .eq('id', opnameId)
     .maybeSingle()
   if (opnameError) throw new Error(opnameError.message)
   if (!opname) throw new Error('Opname tidak ditemukan')
 
   const staffId = await requireOpnameApprover(opname.outlet_id)
+
+  // Guard: cegah approval/finalisasi draf opname lama jika sudah ada opname
+  // final yang lebih baru di outlet yang sama (mencegah saldo stok & jendela
+  // audit terbalik seperti kasus Kalisari 1 Nov difinalisasi 5 Nov).
+  const { data: newerFinalized } = await supabase
+    .from('opname')
+    .select('id, tanggal')
+    .eq('outlet_id', opname.outlet_id)
+    .eq('status', 'finalized')
+    .gt('created_at', opname.created_at)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (newerFinalized) {
+    throw new Error(
+      `Tidak dapat menyetujui opname tanggal ${opname.tanggal} karena sudah ada opname final yang lebih baru (${newerFinalized.tanggal}) di outlet ini. Tolak draf lama ini agar saldo stok dan periode audit tidak rusak.`
+    )
+  }
 
   const { error } = await supabase.rpc('approve_opname', {
     p_opname_id: opnameId,
@@ -483,7 +502,7 @@ export async function finalizeOpnameClientAction(
 
     const { data: opname, error: opErr } = await serviceClient
       .from('opname')
-      .select('id, outlet_id, status')
+      .select('id, outlet_id, status, tanggal, created_at')
       .eq('id', opnameId)
       .maybeSingle()
 
@@ -492,6 +511,23 @@ export async function finalizeOpnameClientAction(
     if (opname.status === 'finalized') return { error: null }
 
     await assertStaffCanAccessOutlet(serviceClient, staffId, opname.outlet_id)
+
+    // Guard: cegah finalisasi draf lama setelah ada opname final lebih baru di outlet ini.
+    const { data: newerFinalized } = await serviceClient
+      .from('opname')
+      .select('id, tanggal')
+      .eq('outlet_id', opname.outlet_id)
+      .eq('status', 'finalized')
+      .gt('created_at', opname.created_at)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (newerFinalized) {
+      return {
+        error: `Tidak dapat memfinalisasi draf opname tanggal ${opname.tanggal} karena sudah ada opname final yang lebih baru (${newerFinalized.tanggal}) di outlet ini. Draf lama tidak boleh difinalisasi belakangan agar saldo stok dan periode audit tidak rusak.`,
+      }
+    }
 
     // Guard: Pastikan tidak ada Surat Jalan menggantung berstatus 'dikirim'
     // yang barang fisiknya sudah ada di outlet tapi belum diverifikasi di sistem.

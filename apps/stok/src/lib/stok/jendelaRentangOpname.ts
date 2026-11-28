@@ -27,10 +27,70 @@
  */
 export const BATAS_MUNDUR_BASELINE_HARI = 31
 
+/**
+ * Toleransi maksimal keterlambatan finalisasi melewati tengah malam tanggal
+ * opname penutup (24 jam → approval pagi/siang esok hari masih sah, sedangkan
+ * draf lama yang baru difinalisasi beberapa hari kemudian tidak dipakai
+ * sebagai batas jendela hari itu).
+ */
+export const TOLERANSI_TUTUP_PENUTUP_MS = 24 * 60 * 60 * 1000
+
 export interface OpnameRingkas {
   id: string
   outlet_id: string
   created_at: string
+  updated_at?: string | null
+  finalized_at?: string | null
+  status?: string | null
+}
+
+/** Estimasi waktu tutup sebuah opname dari map waktuTutup (ledger) atau metadata opname. */
+function waktuTutupEfektif(o: OpnameRingkas, waktuTutup?: Map<string, string>): string {
+  const dariMap = waktuTutup?.get(o.id)
+  if (dariMap) return dariMap
+  if (o.finalized_at) return o.finalized_at
+  if (o.updated_at && (!o.status || o.status === 'finalized')) return o.updated_at
+  return o.created_at
+}
+
+/**
+ * Deteksi opname yang difinalisasi melompati opname lebih baru di outlet yang sama:
+ * ada opname B dengan `B.created_at > A.created_at` namun `waktuTutup(B) < waktuTutup(A)`.
+ * Contoh nyata: MITRA KALISARI opname 1 Nov (dibuat 1 Nov 22:39) baru difinalisasi
+ * 5 Nov 21:20, sesudah opname 2–4 Nov tutup lebih dulu. Opname seperti ini tidak
+ * pernah mempengaruhi saldo sistem pada 1–4 Nov dan justru membalik jendela audit
+ * (`start > end`) bila dipilih sebagai baseline.
+ */
+export function deteksiOpnameTerlambatLintasSesi<T extends OpnameRingkas>(
+  opnames: T[],
+  waktuTutup?: Map<string, string>
+): Set<string> {
+  const perOutlet = new Map<string, T[]>()
+  for (const o of opnames) {
+    const list = perOutlet.get(o.outlet_id)
+    if (list) list.push(o)
+    else perOutlet.set(o.outlet_id, [o])
+  }
+
+  const terlambat = new Set<string>()
+  for (const list of perOutlet.values()) {
+    // Urut created_at naik; scan dari belakang sambil melacak waktuTutup terkecil
+    // dari opname yang lebih baru.
+    const urut = [...list].sort(
+      (a, b) => keMikrodetik(a.created_at) - keMikrodetik(b.created_at)
+    )
+    let minTutupLebihBaru = Infinity
+    for (let i = urut.length - 1; i >= 0; i--) {
+      const cur = urut[i]
+      const tCur = keMikrodetik(waktuTutupEfektif(cur, waktuTutup))
+      if (tCur > minTutupLebihBaru) {
+        terlambat.add(cur.id)
+      } else {
+        minTutupLebihBaru = tCur
+      }
+    }
+  }
+  return terlambat
 }
 
 export interface PilihanOpnameOutlet<T extends OpnameRingkas = OpnameRingkas> {
@@ -88,31 +148,58 @@ export function rentangGabungan(list: Iterable<JendelaWaktu>): JendelaWaktu {
 /**
  * Pilih opname baseline & penutup per outlet dari daftar opname finalized
  * (urutan bebas). Outlet tanpa opname tetap mendapat entri { null, null }.
+ *
+ * Opname yang difinalisasi telat melompati sesi lebih baru (mis. draf 1 Nov
+ * baru difinalisasi 5 Nov, sesudah opname 2 Nov tutup) atau melampaui batas
+ * toleransi tanggal secara otomatis dilewati agar periode audit tidak pernah
+ * terbalik (`start >= end`).
  */
 export function pilihOpnameRentang<T extends OpnameRingkas>(args: {
   outletIds: string[]
   startDate: string
   endDate: string
   opnames: T[]
+  waktuTutup?: Map<string, string>
 }): Map<string, PilihanOpnameOutlet<T>> {
-  const awalMulai = keMikrodetik(batasHariWIB(args.startDate).awalIso)
+  const mulaiHari = batasHariWIB(args.startDate)
+  const awalMulai = keMikrodetik(mulaiHari.awalIso)
+  const akhirMulai = keMikrodetik(mulaiHari.akhirIso)
   const batasMundur = awalMulai - BATAS_MUNDUR_BASELINE_HARI * 86_400_000_000
   const akhirHari = batasHariWIB(args.endDate)
   const awalAkhir = keMikrodetik(akhirHari.awalIso)
   const akhirAkhir = keMikrodetik(akhirHari.akhirIso)
+  const batasTutupPenutup = akhirAkhir + TOLERANSI_TUTUP_PENUTUP_MS * 1000
+
+  const terlambat = deteksiOpnameTerlambatLintasSesi(args.opnames, args.waktuTutup)
 
   const out = new Map<string, PilihanOpnameOutlet<T>>()
   for (const id of args.outletIds) out.set(id, { awal: null, penutup: null })
 
+  // Tahap 1: pilih opname penutup pada tanggal akhir (WIB)
   for (const o of args.opnames) {
     const p = out.get(o.outlet_id)
-    if (!p) continue
+    if (!p || terlambat.has(o.id)) continue
+    const t = keMikrodetik(o.created_at)
+    if (t >= awalAkhir && t <= akhirAkhir) {
+      const tTutup = keMikrodetik(waktuTutupEfektif(o, args.waktuTutup))
+      if (tTutup > batasTutupPenutup) continue
+      if (!p.penutup || t > keMikrodetik(p.penutup.created_at)) p.penutup = o
+    }
+  }
+
+  // Tahap 2: pilih opname baseline sebelum 00:00 WIB tanggal mulai yang waktu
+  // tutupnya memang mendahului akhir jendela & tidak loncat hari lewat startDate.
+  for (const o of args.opnames) {
+    const p = out.get(o.outlet_id)
+    if (!p || terlambat.has(o.id)) continue
     const t = keMikrodetik(o.created_at)
     if (t < awalMulai && t >= batasMundur) {
+      const tTutup = keMikrodetik(waktuTutupEfektif(o, args.waktuTutup))
+      const batasEnd = p.penutup
+        ? keMikrodetik(waktuTutupEfektif(p.penutup, args.waktuTutup))
+        : akhirAkhir
+      if (tTutup >= batasEnd || tTutup > akhirMulai) continue
       if (!p.awal || t > keMikrodetik(p.awal.created_at)) p.awal = o
-    }
-    if (t >= awalAkhir && t <= akhirAkhir) {
-      if (!p.penutup || t > keMikrodetik(p.penutup.created_at)) p.penutup = o
     }
   }
   return out
@@ -121,7 +208,8 @@ export function pilihOpnameRentang<T extends OpnameRingkas>(args: {
 /**
  * Susun jendela per outlet dari pilihan opname + waktu tutupnya
  * (lib/stok/waktuTutupOpname). Waktu tutup yang tak diketahui jatuh ke
- * `created_at` opname.
+ * `created_at` opname. Jika setelah resolusi ledger ternyata `start >= end`,
+ * baseline dilepas ke `awalHari` agar jendela tidak pernah terbalik.
  */
 export function susunJendelaOutlet(args: {
   outletIds: string[]
@@ -137,10 +225,17 @@ export function susunJendelaOutlet(args: {
     const p = args.pilihan.get(id)
     const awal = p?.awal ?? null
     const penutup = p?.penutup ?? null
+    let start = awal ? args.waktuTutup.get(awal.id) ?? awal.created_at : awalHari
+    const end = penutup ? args.waktuTutup.get(penutup.id) ?? penutup.created_at : akhirHari
+    let awalId = awal?.id ?? null
+    if (awalId && keMikrodetik(start) >= keMikrodetik(end)) {
+      start = awalHari
+      awalId = null
+    }
     out.set(id, {
-      start: awal ? args.waktuTutup.get(awal.id) ?? awal.created_at : awalHari,
-      end: penutup ? args.waktuTutup.get(penutup.id) ?? penutup.created_at : akhirHari,
-      opname_awal_id: awal?.id ?? null,
+      start,
+      end,
+      opname_awal_id: awalId,
       opname_penutup_id: penutup?.id ?? null,
     })
   }

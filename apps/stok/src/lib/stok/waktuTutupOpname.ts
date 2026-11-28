@@ -14,12 +14,33 @@
  * Urutan sumber: baris ledger `opname_selisih` pertama milik opname itu →
  * `updated_at` (opname tanpa selisih apa pun tak menulis ledger) → `created_at`.
  */
+export interface OpnameWaktuRef {
+  id: string
+  created_at: string
+  updated_at?: string | null
+  finalized_at?: string | null
+  status?: string | null
+}
+
+/**
+ * Urutan sumber: baris ledger `opname_selisih` pertama milik opname itu →
+ * `finalized_at` → `updated_at` (opname tanpa selisih apa pun tak menulis
+ * ledger) → `created_at`.
+ */
 export function pilihWaktuTutupOpname(
-  opname: { created_at: string; updated_at?: string | null; status?: string | null },
+  opname: {
+    created_at: string
+    updated_at?: string | null
+    finalized_at?: string | null
+    status?: string | null
+  },
   waktuLedgerPertama: string | null | undefined
 ): string {
   if (waktuLedgerPertama) return waktuLedgerPertama
-  if (opname.status === 'finalized' && opname.updated_at) return opname.updated_at
+  if (opname.status === 'finalized') {
+    if (opname.finalized_at) return opname.finalized_at
+    if (opname.updated_at) return opname.updated_at
+  }
   return opname.created_at
 }
 
@@ -29,7 +50,7 @@ type ClientLike = {
 
 export async function ambilWaktuTutupOpname(
   supabase: ClientLike,
-  opname: { id: string; created_at: string; updated_at?: string | null; status?: string | null }
+  opname: OpnameWaktuRef
 ): Promise<string> {
   const { data } = await supabase
     .from('ledger_stok')
@@ -39,4 +60,30 @@ export async function ambilWaktuTutupOpname(
     .limit(1)
     .maybeSingle()
   return pilihWaktuTutupOpname(opname, data?.created_at)
+}
+
+/**
+ * Pilih opname baseline sebelumnya yang BENAR-BENAR sudah difinalisasi sebelum
+ * `endIso`. Jika ada draf lama yang baru difinalisasi belakangan setelah sesi
+ * berikutnya ditutup (mis. MITRA KALISARI opname 1 Nov baru difinalisasi 5 Nov
+ * 21:20 WIB, sesudah opname 2 Nov tutup 22:42 WIB), opname telat itu dilewati
+ * agar jendela audit tidak terbalik (`start >= end`) dan tetap cocok dengan
+ * kondisi saldo ledger saat `endIso`.
+ */
+export async function pilihOpnameSebelumValid<T extends OpnameWaktuRef>(
+  supabase: ClientLike,
+  kandidatDesc: T[],
+  endIso: string
+): Promise<{ opname: T; waktuTutup: string } | null> {
+  const endMs = Date.parse(endIso)
+  for (const cand of kandidatDesc) {
+    const waktuTutup = await ambilWaktuTutupOpname(supabase, cand)
+    const candMs = Date.parse(waktuTutup)
+    if (Number.isNaN(endMs) || Number.isNaN(candMs)) {
+      if (waktuTutup < endIso) return { opname: cand, waktuTutup }
+    } else if (candMs < endMs || (candMs === endMs && waktuTutup < endIso)) {
+      return { opname: cand, waktuTutup }
+    }
+  }
+  return null
 }

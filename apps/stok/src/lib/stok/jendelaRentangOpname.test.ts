@@ -91,6 +91,47 @@ describe('pilihOpnameRentang', () => {
     const r = pilihOpnameRentang({ outletIds: ['c'], startDate: '2026-11-21', endDate: '2026-11-22', opnames })
     expect(r.get('c')).toEqual({ awal: null, penutup: null })
   })
+
+  it('melewati opname telat finalisasi lintas sesi (kasus MITRA KALISARI 1 Nov difinalisasi 5 Nov)', () => {
+    const kalisari = [
+      { id: 'oct31', outlet_id: A, created_at: '2026-10-31T22:27:34+07:00', finalized_at: '2026-10-31T23:30:26+07:00' },
+      { id: 'nov01', outlet_id: A, created_at: '2026-11-01T22:39:22+07:00', finalized_at: '2026-11-05T21:20:40+07:00' },
+      { id: 'nov02', outlet_id: A, created_at: '2026-11-02T22:31:02+07:00', finalized_at: '2026-11-02T22:42:08+07:00' },
+      { id: 'nov05', outlet_id: A, created_at: '2026-11-05T22:47:34+07:00', finalized_at: '2026-11-05T23:00:15+07:00' },
+    ]
+    // Rentang 2 Nov: baseline mundur ke 31 Okt (bukan 1 Nov yang baru tutup 5 Nov!)
+    const rNov2 = pilihOpnameRentang({ outletIds: [A], startDate: '2026-11-02', endDate: '2026-11-02', opnames: kalisari })
+    expect(rNov2.get(A)?.awal?.id).toBe('oct31')
+    expect(rNov2.get(A)?.penutup?.id).toBe('nov02')
+
+    // Rentang 2 Nov - 5 Nov: baseline tetap 31 Okt (tidak loncat mulai 5 Nov 21:20!)
+    const rNov2to5 = pilihOpnameRentang({ outletIds: [A], startDate: '2026-11-02', endDate: '2026-11-05', opnames: kalisari })
+    expect(rNov2to5.get(A)?.awal?.id).toBe('oct31')
+    expect(rNov2to5.get(A)?.penutup?.id).toBe('nov05')
+
+    // Rentang 1 Nov saja (tanpa opname sesudahnya di kandidat): nov01 tetap ditolak karena tutup > 24 jam lewat 1 Nov
+    const rNov1 = pilihOpnameRentang({
+      outletIds: [A],
+      startDate: '2026-11-01',
+      endDate: '2026-11-01',
+      opnames: kalisari.slice(0, 2),
+    })
+    expect(rNov1.get(A)?.awal?.id).toBe('oct31')
+    expect(rNov1.get(A)?.penutup).toBeNull()
+  })
+
+  it('tetap menerima approval pagi keesokan hari (< 24 jam & tidak melompati opname baru)', () => {
+    const ops = [
+      { id: 'd23', outlet_id: A, created_at: '2026-11-23T22:43:43+07:00', finalized_at: '2026-11-24T11:09:23+07:00' },
+      { id: 'd24', outlet_id: A, created_at: '2026-11-24T22:30:00+07:00', finalized_at: '2026-11-24T22:45:00+07:00' },
+    ]
+    const r23 = pilihOpnameRentang({ outletIds: [A], startDate: '2026-11-23', endDate: '2026-11-23', opnames: ops })
+    expect(r23.get(A)?.penutup?.id).toBe('d23')
+
+    const r24 = pilihOpnameRentang({ outletIds: [A], startDate: '2026-11-24', endDate: '2026-11-24', opnames: ops })
+    expect(r24.get(A)?.awal?.id).toBe('d23')
+    expect(r24.get(A)?.penutup?.id).toBe('d24')
+  })
 })
 
 describe('susunJendelaOutlet', () => {
@@ -131,6 +172,27 @@ describe('susunJendelaOutlet', () => {
       waktuTutup: new Map(),
     })
     expect(j.get(A)?.start).toBe('2026-11-20T15:03:44Z')
+  })
+
+  it('tidak pernah menghasilkan jendela terbalik jika waktuTutup baseline >= end', () => {
+    const j = susunJendelaOutlet({
+      outletIds: [A],
+      startDate: '2026-11-02',
+      endDate: '2026-11-02',
+      pilihan: new Map([
+        [A, { awal: op('nov01', A, '2026-11-01T15:39:22Z'), penutup: op('nov02', A, '2026-11-02T15:31:02Z') }],
+      ]),
+      waktuTutup: new Map([
+        ['nov01', '2026-11-05T14:20:40Z'],
+        ['nov02', '2026-11-02T15:42:08Z'],
+      ]),
+    })
+    expect(j.get(A)).toEqual({
+      start: '2026-11-02T00:00:00+07:00',
+      end: '2026-11-02T15:42:08Z',
+      opname_awal_id: null,
+      opname_penutup_id: 'nov02',
+    })
   })
 })
 

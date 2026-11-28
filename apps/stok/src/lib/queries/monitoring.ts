@@ -2,7 +2,7 @@
 import { createSupabaseBrowserClient } from '@suka/auth';
 import { TEST_OUTLET_ID } from '@/lib/outletFilters';
 import { pemakaianPosPeriode } from '@/lib/stok/mutasiOrder';
-import { ambilWaktuTutupOpname } from '@/lib/stok/waktuTutupOpname';
+import { ambilWaktuTutupOpname, pilihOpnameSebelumValid } from '@/lib/stok/waktuTutupOpname';
 import { isOutletPapan, saringItemPapan, type OutletTypeStatus } from '@/lib/stok/outletPapan';
 import { awalHariWIBIso } from '@/lib/stok/waktuWIB';
 
@@ -265,21 +265,21 @@ async function fetchPemakaianPosOpname(
   supabase: SupabaseBrowserClient,
   outletId: string,
   bahanBakuId: string,
-  opname: { id: string; created_at: string; updated_at?: string | null; status?: string | null }
+  opname: { id: string; created_at: string; updated_at?: string | null; finalized_at?: string | null; status?: string | null }
 ): Promise<number> {
-  const { data: prev } = await supabase
+  // Batas jendela = saat finalisasi, bukan saat draf dibuat (sama dengan jurnal).
+  const end = await ambilWaktuTutupOpname(supabase, opname);
+  const { data: prevList } = await supabase
     .from('opname')
-    .select('id, created_at, updated_at, status')
+    .select('id, created_at, updated_at, finalized_at, status')
     .eq('outlet_id', outletId)
     .eq('status', 'finalized')
     .lt('created_at', opname.created_at)
     .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  // Batas jendela = saat finalisasi, bukan saat draf dibuat (sama dengan jurnal).
-  const end = await ambilWaktuTutupOpname(supabase, opname);
-  const start = prev
-    ? await ambilWaktuTutupOpname(supabase, prev)
+    .limit(15);
+  const prevValid = await pilihOpnameSebelumValid(supabase, prevList ?? [], end);
+  const start = prevValid
+    ? prevValid.waktuTutup
     : new Date(new Date(opname.created_at).getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   type Baris = { tipe: string; qty: number | string | null; ref_order_id: string | null; created_at: string };

@@ -1,5 +1,5 @@
 import { isMutasiOrder, pemakaianPosPerBahan, type BarisMutasi } from './mutasiOrder'
-import { ambilWaktuTutupOpname } from './waktuTutupOpname'
+import { ambilWaktuTutupOpname, pilihOpnameSebelumValid } from './waktuTutupOpname'
 
 type SupabaseLike = {
   from: (table: string) => any
@@ -9,6 +9,7 @@ export interface OpnameWindowTarget {
   id: string
   created_at: string
   updated_at?: string | null
+  finalized_at?: string | null
   status?: string | null
 }
 
@@ -57,15 +58,17 @@ export async function hitungPemakaianPosPeriodeOpname(
 
   const refCreatedAt = opname?.created_at ?? endIso
 
-  // 2. Batas awal periode (startIso) = tutup opname finalized sebelumnya (atau 7 hari lalu)
+  // 2. Batas awal periode (startIso) = tutup opname finalized sebelumnya yang
+  // benar-benar tutup sebelum endIso (lewati draf lama yang baru difinalisasi
+  // belakangan agar jendela tidak pernah terbalik), atau 7 hari lalu.
   let prevQuery = supabase
     .from('opname')
-    .select('id, created_at, updated_at, status')
+    .select('id, created_at, updated_at, finalized_at, status')
     .eq('outlet_id', outletId)
     .eq('status', 'finalized')
     .lt('created_at', refCreatedAt)
     .order('created_at', { ascending: false })
-    .limit(1)
+    .limit(15)
 
   if (opname?.id) {
     prevQuery = prevQuery.neq('id', opname.id)
@@ -74,9 +77,10 @@ export async function hitungPemakaianPosPeriodeOpname(
   const { data: prevList, error: prevErr } = await prevQuery
   if (prevErr) throw new Error(`Gagal memuat opname sebelumnya: ${prevErr.message}`)
 
+  const prevValid = await pilihOpnameSebelumValid(supabase, prevList ?? [], endIso)
   let startIso: string
-  if (prevList && prevList.length > 0) {
-    startIso = await ambilWaktuTutupOpname(supabase, prevList[0])
+  if (prevValid) {
+    startIso = prevValid.waktuTutup
   } else {
     const baseMs = Date.parse(refCreatedAt)
     startIso = new Date((Number.isNaN(baseMs) ? Date.now() : baseMs) - 7 * 86_400_000).toISOString()

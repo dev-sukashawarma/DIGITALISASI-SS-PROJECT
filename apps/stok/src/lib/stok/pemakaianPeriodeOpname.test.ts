@@ -148,4 +148,48 @@ describe('hitungPemakaianPosPeriodeOpname', () => {
 
     expect(res).toEqual({ ayam: 1500 })
   })
+
+  it('melewati opname sebelumnya yang telat difinalisasi belakangan agar jendela tidak terbalik', async () => {
+    const supabase = makeMockSupabase({
+      opname: [
+        {
+          id: 'op-oct31',
+          outlet_id: 'out-1',
+          status: 'finalized',
+          created_at: '2026-10-31T15:27:34.000Z',
+          updated_at: '2026-10-31T16:30:26.000Z',
+          finalized_at: '2026-10-31T16:30:26.000Z',
+        },
+        {
+          id: 'op-nov01-late',
+          outlet_id: 'out-1',
+          status: 'finalized',
+          created_at: '2026-11-01T15:39:22.000Z',
+          updated_at: '2026-11-05T14:20:40.000Z',
+          finalized_at: '2026-11-05T14:20:40.000Z',
+        },
+      ],
+      ledger_stok: [
+        { id: 'l-oct31', outlet_id: 'out-1', bahan_baku_id: 'ayam', tipe: 'opname_selisih', qty: -760, created_at: '2026-10-31T16:30:26.000Z', ref_opname_id: 'op-oct31' },
+        { id: 'l-nov01', outlet_id: 'out-1', bahan_baku_id: 'ayam', tipe: 'opname_selisih', qty: 4000, created_at: '2026-11-05T14:20:40.000Z', ref_opname_id: 'op-nov01-late' },
+        { id: 'l-nov02', outlet_id: 'out-1', bahan_baku_id: 'ayam', tipe: 'opname_selisih', qty: -740, created_at: '2026-11-02T15:42:08.000Z', ref_opname_id: 'op-nov02' },
+        { id: 'l-pos-1', outlet_id: 'out-1', bahan_baku_id: 'ayam', tipe: 'pemakaian', qty: -3250, created_at: '2026-11-01T08:00:00.000Z', ref_order_id: 'ord-1' },
+        { id: 'l-pos-2', outlet_id: 'out-1', bahan_baku_id: 'ayam', tipe: 'pemakaian', qty: -1110, created_at: '2026-11-02T08:00:00.000Z', ref_order_id: 'ord-2' },
+      ],
+      stok_balance: [],
+    })
+
+    const res = await hitungPemakaianPosPeriodeOpname(supabase, {
+      outletId: 'out-1',
+      opname: {
+        id: 'op-nov02',
+        status: 'finalized',
+        created_at: '2026-11-02T15:31:02.000Z',
+        updated_at: '2026-11-02T15:42:08.000Z',
+        finalized_at: '2026-11-02T15:42:08.000Z',
+      },
+    })
+
+    expect(res).toEqual({ ayam: 4360 })
+  })
 })

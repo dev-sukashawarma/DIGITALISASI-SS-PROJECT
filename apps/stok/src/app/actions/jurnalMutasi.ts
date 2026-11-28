@@ -23,7 +23,11 @@ import {
 import { assertStaffCanAccessOutlet } from '@/lib/stok/outletAccess'
 import { canViewJurnalMutasi } from '@/lib/stok/navAccess'
 import { isMutasiOrder, pemakaianPosPerBahan } from '@/lib/stok/mutasiOrder'
-import { ambilWaktuTutupOpname, pilihWaktuTutupOpname } from '@/lib/stok/waktuTutupOpname'
+import {
+  ambilWaktuTutupOpname,
+  pilihOpnameSebelumValid,
+  pilihWaktuTutupOpname,
+} from '@/lib/stok/waktuTutupOpname'
 import {
   BATAS_MUNDUR_BASELINE_HARI,
   batasHariWIB,
@@ -941,7 +945,13 @@ export async function fetchOpnameSessions(outletId: string): Promise<OpnameSessi
  */
 async function ambilWaktuTutupBanyak(
   supabase: ReturnType<typeof makeServiceClient>,
-  opnames: { id: string; created_at: string; updated_at?: string | null; status?: string | null }[]
+  opnames: {
+    id: string
+    created_at: string
+    updated_at?: string | null
+    finalized_at?: string | null
+    status?: string | null
+  }[]
 ): Promise<Map<string, string>> {
   const pertama = new Map<string, string>()
   const ids = [...new Set(opnames.map((o) => o.id))]
@@ -1049,7 +1059,7 @@ export async function fetchReconciliationSnapshot(
     // Ambil opname terpilih
     const { data: curOpname, error: curErr } = await supabase
       .from('opname')
-      .select('id, tanggal, tipe, status, notes, created_at, updated_at, approved_at, outlet_staff!opname_created_by_fkey(name)')
+      .select('id, tanggal, tipe, status, notes, created_at, updated_at, finalized_at, approved_at, outlet_staff!opname_created_by_fkey(name)')
       .eq('id', params.opnameId)
       .single()
 
@@ -1085,18 +1095,20 @@ export async function fetchReconciliationSnapshot(
       )
     }
 
-    // Cari opname sebelumnya sebelum opname terpilih
+    // Cari opname sebelumnya sebelum opname terpilih yang waktu tutupnya
+    // benar-benar lebih awal dari endIso (lewati draf lama yang baru difinalisasi belakangan).
     const { data: prevOpnameList } = await supabase
       .from('opname')
-      .select('id, tanggal, tipe, status, notes, created_at, updated_at, approved_at, outlet_staff!opname_created_by_fkey(name)')
+      .select('id, tanggal, tipe, status, notes, created_at, updated_at, finalized_at, approved_at, outlet_staff!opname_created_by_fkey(name)')
       .eq('outlet_id', outletId)
       .eq('status', 'finalized')
       .lt('created_at', curOpname.created_at)
       .order('created_at', { ascending: false })
-      .limit(1)
+      .limit(15)
 
-    if (prevOpnameList && prevOpnameList.length > 0) {
-      const prev = prevOpnameList[0]
+    const prevValid = await pilihOpnameSebelumValid(supabase, prevOpnameList || [], endIso)
+    if (prevValid) {
+      const prev = prevValid.opname
       opnameSebelumnya = {
         id: prev.id,
         tanggal: prev.tanggal,
@@ -1109,7 +1121,7 @@ export async function fetchReconciliationSnapshot(
         item_count: 0,
         flagged_count: 0,
       }
-      startIso = await ambilWaktuTutupOpname(supabase, prev)
+      startIso = prevValid.waktuTutup
 
       // Ambil item opname sebelumnya sebagai baseline Saldo Awal
       const { data: prevItems } = await supabase
@@ -1157,7 +1169,7 @@ export async function fetchReconciliationSnapshot(
       kandidat = await fetchAllPages<any>(() =>
         supabase
           .from('opname')
-          .select('id, outlet_id, tanggal, tipe, status, notes, created_at, updated_at, approved_at, outlet_staff!opname_created_by_fkey(name)')
+          .select('id, outlet_id, tanggal, tipe, status, notes, created_at, updated_at, finalized_at, approved_at, outlet_staff!opname_created_by_fkey(name)')
           .in('outlet_id', targetOutletIds)
           .eq('status', 'finalized')
           .gte('created_at', batasMundurIso)
@@ -1190,8 +1202,9 @@ export async function fetchReconciliationSnapshot(
 
     if (!isAll) {
       const p = pilihan.get(outletId)
-      if (p?.awal) opnameSebelumnya = keRingkasanOpname(p.awal)
-      if (p?.penutup) {
+      const j = jendelaOutlet.get(outletId)
+      if (p?.awal && j?.opname_awal_id === p.awal.id) opnameSebelumnya = keRingkasanOpname(p.awal)
+      if (p?.penutup && j?.opname_penutup_id === p.penutup.id) {
         opnameTerpilih = keRingkasanOpname(p.penutup)
         auditNote = p.penutup.notes ?? null
       }
@@ -1200,8 +1213,9 @@ export async function fetchReconciliationSnapshot(
     // Item opname baseline (Saldo Awal) & penutup (Stok Fisik), disimpan per outlet.
     const peranOpname = new Map<string, { outletId: string; peran: 'awal' | 'penutup' }>()
     for (const [oId, p] of pilihan) {
-      if (p.awal) peranOpname.set(p.awal.id, { outletId: oId, peran: 'awal' })
-      if (p.penutup) peranOpname.set(p.penutup.id, { outletId: oId, peran: 'penutup' })
+      const j = jendelaOutlet.get(oId)
+      if (p.awal && j?.opname_awal_id === p.awal.id) peranOpname.set(p.awal.id, { outletId: oId, peran: 'awal' })
+      if (p.penutup && j?.opname_penutup_id === p.penutup.id) peranOpname.set(p.penutup.id, { outletId: oId, peran: 'penutup' })
     }
     const opnameIds = [...peranOpname.keys()]
     if (opnameIds.length > 0) {

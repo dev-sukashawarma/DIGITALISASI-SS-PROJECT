@@ -48,7 +48,7 @@ export default async function AdminPromoPage() {
     const promoRes = await supabase
       .from('outlet_promos')
       .select(
-        'id, outlet_id, scope, menu_item_id, discount_type, discount_value, is_active, is_assigned, min_purchase, usage_limit, current_usage, quota_scope, quota_pool_id, start_date, end_date, daily_start_time, daily_end_time, daily_schedule, apply_to_food_apps, promo_name, buy_quantity, get_quantity, reward_menu_item_id, excluded_menu_item_ids',
+        'id, outlet_id, scope, menu_item_id, discount_type, discount_value, is_active, is_assigned, min_purchase, usage_limit, current_usage, quota_scope, quota_pool_id, start_date, end_date, daily_start_time, daily_end_time, daily_schedule, apply_to_food_apps, promo_name, buy_quantity, get_quantity, is_accumulative, reward_menu_item_id, excluded_menu_item_ids',
       )
       .in('outlet_id', outletIds)
 

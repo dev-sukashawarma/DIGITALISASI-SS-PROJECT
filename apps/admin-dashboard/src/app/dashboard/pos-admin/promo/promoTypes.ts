@@ -48,6 +48,7 @@ export type OutletPromo = {
   promo_name?: string | null
   buy_quantity?: number
   get_quantity?: number
+  is_accumulative?: boolean
   reward_menu_item_id?: string | null
   /** Outlet yang dituju promo ini. Tidak diisi = semua outlet aktif (perilaku lama). */
   outlet_ids?: string[]

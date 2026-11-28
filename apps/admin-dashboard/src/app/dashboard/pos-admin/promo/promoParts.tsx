@@ -77,7 +77,8 @@ export function StatusBadge({ status }: { status: PromoStatus }) {
 /** Kalimat aturan promo yang dibaca manusia, mis. "Beli 1 → Gratis 1 Sapi Sedang". */
 export function promoRule(promo: OutletPromo, rewardName: string): string {
   if (promo.discount_type === 'buy_one_get_one') {
-    return `Beli ${promo.buy_quantity ?? 1} → Gratis ${promo.get_quantity ?? 1} ${rewardName}`
+    const modeLabel = promo.is_accumulative ? ' (kelipatan)' : ''
+    return `Beli ${promo.buy_quantity ?? 1} → Gratis ${promo.get_quantity ?? 1} ${rewardName}${modeLabel}`
   }
   if (promo.discount_type === 'percentage') return promo.discount_value ? `Diskon ${promo.discount_value}%` : 'Diskon %'
   return promo.discount_value ? `Potongan ${rupiah(promo.discount_value)}` : 'Potongan Rp'

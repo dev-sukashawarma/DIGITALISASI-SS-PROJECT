@@ -392,7 +392,7 @@ export default function LeaderPettyCashPage() {
             }`}
           >
             {isTopupOpen
-              ? 'Jam pengajuan top up petty cash: 09:00–16:00 WIB. Pengajuan yang belum diproses Finance melewati pukul 16:00 WIB akan dibatalkan otomatis oleh sistem.'
+              ? 'Jam pengajuan top up petty cash: 09:00–16:00 WIB. Pengajuan yang belum diproses Finance melewati pukul 17:00 WIB akan dibatalkan otomatis oleh sistem.'
               : 'Pengajuan top up petty cash sedang tutup. Hanya dibuka pukul 09:00 hingga 16:00 WIB.'}
           </div>
           

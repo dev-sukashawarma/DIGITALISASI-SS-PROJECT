@@ -211,7 +211,7 @@ export function CreateTopupModal({ isOpen, onClose }: CreateTopupModalProps) {
               }`}
             >
               {jamInfo.diizinkan
-                ? 'Jam pengajuan top up petty cash: 09:00–16:00 WIB. Pengajuan yang belum diproses melewati pukul 16:00 WIB dibatalkan otomatis oleh sistem.'
+                ? 'Jam pengajuan top up petty cash: 09:00–16:00 WIB. Pengajuan yang belum diproses Finance melewati pukul 17:00 WIB dibatalkan otomatis oleh sistem.'
                 : jamInfo.pesan}
             </div>
 

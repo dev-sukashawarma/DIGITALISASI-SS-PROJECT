@@ -173,7 +173,17 @@ export function HubApprovalView() {
   ) => {
     if (!pettyAcc) return
     try {
-      await processTopup.mutateAsync({ id: pettyAcc.id, action: 'approve', method, cashLocationId, proofFile, approvedAmount, approvalNote })
+      await processTopup.mutateAsync({
+        id: pettyAcc.id,
+        action: 'approve',
+        method,
+        cashLocationId,
+        proofFile,
+        approvedAmount,
+        approvalNote,
+        createdAt: pettyAcc.created_at,
+        isDarurat: Boolean(pettyAcc.is_darurat),
+      })
       toast.success('Pencairan Petty Cash berhasil diproses!')
       setPettyAcc(null)
     } catch (err) {

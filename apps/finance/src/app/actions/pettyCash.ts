@@ -136,3 +136,37 @@ export async function processPettyCashFinanceCustomAmount(formData: FormData) {
     return { success: false, error: err?.message || 'Gagal memproses pencairan' }
   }
 }
+
+/**
+ * Jalur Proses Darurat: buka kembali top-up yang auto-batal sistem pada hari ini
+ * agar bisa langsung dicairkan Finance di Hub Approval walau lewat pukul 17:00 WIB.
+ */
+export async function bukaKembaliTopupDaruratAction(topupId: string, alasan: string) {
+  try {
+    await requireRole(FINANCE_STAFF_ROLES)
+    const alasanBersih = (alasan || '').trim()
+    if (alasanBersih.length < 3) {
+      return { success: false, error: 'Alasan darurat wajib diisi (minimal 3 karakter)' }
+    }
+
+    const supabase = await getSupabaseClient()
+    const { error } = await supabase.rpc('finance_buka_kembali_topup_darurat', {
+      p_topup_id: topupId,
+      p_alasan: alasanBersih,
+    })
+
+    if (error) {
+      console.error('RPC finance_buka_kembali_topup_darurat error:', error)
+      return { success: false, error: error.message || 'Gagal membuka kembali pengajuan darurat' }
+    }
+
+    revalidatePath('/petty-cash')
+    revalidatePath('/approval')
+    revalidatePath('/area-manager/petty-cash')
+
+    return { success: true }
+  } catch (err: any) {
+    console.error('Error in bukaKembaliTopupDaruratAction:', err)
+    return { success: false, error: err?.message || 'Gagal membuka kembali pengajuan darurat' }
+  }
+}

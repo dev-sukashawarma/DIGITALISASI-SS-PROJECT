@@ -43,7 +43,9 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
   const [approvedAmount, setApprovedAmount] = useState<number>(request.amount)
   const [approvalNote, setApprovalNote] = useState<string>('')
   const submittingRef = useRef(false)
-  const [batasProses, setBatasProses] = useState(() => cekBatasProsesFinanceTopupWib(request.created_at))
+  const [batasProses, setBatasProses] = useState(() =>
+    cekBatasProsesFinanceTopupWib(request.created_at, undefined, Boolean(request.is_darurat)),
+  )
 
   // Reset state when request changes
   useEffect(() => {
@@ -59,12 +61,12 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
     })
     setProofFileName(null)
     setIsDropdownOpen(false)
-    setBatasProses(cekBatasProsesFinanceTopupWib(request.created_at))
+    setBatasProses(cekBatasProsesFinanceTopupWib(request.created_at, undefined, Boolean(request.is_darurat)))
     const timer = setInterval(() => {
-      setBatasProses(cekBatasProsesFinanceTopupWib(request.created_at))
+      setBatasProses(cekBatasProsesFinanceTopupWib(request.created_at, undefined, Boolean(request.is_darurat)))
     }, 15_000)
     return () => clearInterval(timer)
-  }, [isOpen, request.id, request.amount, request.created_at])
+  }, [isOpen, request.id, request.amount, request.created_at, request.is_darurat])
 
   useEffect(() => {
     return () => {
@@ -133,10 +135,10 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
   const handleAction = async (type: 'approve' | 'reject') => {
     if (submittingRef.current || isLoading) return
     if (type === 'approve') {
-      const cekKini = cekBatasProsesFinanceTopupWib(request.created_at)
+      const cekKini = cekBatasProsesFinanceTopupWib(request.created_at, undefined, Boolean(request.is_darurat))
       setBatasProses(cekKini)
       if (!cekKini.diizinkan) {
-        toast.error(cekKini.pesan || 'Pengajuan sudah melewati batas waktu proses pukul 16:00 WIB.')
+        toast.error(cekKini.pesan || 'Pengajuan sudah melewati batas waktu proses pukul 17:00 WIB.')
         return
       }
       if (!canApprove) return
@@ -197,7 +199,9 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
             <Clock className={`w-4 h-4 shrink-0 mt-0.5 ${batasProses.diizinkan ? 'text-blue-600' : 'text-red-600'}`} />
             <span>
               {batasProses.diizinkan
-                ? 'Batas proses pencairan top up adalah pukul 16:00 WIB pada hari yang sama. Jangan transfer dana bila mendekati/melewati pukul 16:00 WIB.'
+                ? request.is_darurat
+                  ? 'Mode Proses Darurat aktif — pencairan diizinkan melewati batas pukul 17:00 WIB untuk pengajuan hari ini.'
+                  : 'Batas proses pencairan top up adalah pukul 17:00 WIB pada hari yang sama. Jika melewati pukul 17:00 WIB, gunakan tombol Proses Darurat di halaman Petty Cash.'
                 : batasProses.pesan}
             </span>
           </div>

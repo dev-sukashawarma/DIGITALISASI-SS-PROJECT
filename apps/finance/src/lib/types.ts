@@ -91,6 +91,7 @@ export interface PettyCashTopup {
   approved_by: string | null
   finance_approved_by: string | null
   approved_at: string | null
+  is_darurat?: boolean | null
   bank_name?: string | null
   bank_account_number?: string | null
   bank_account_name?: string | null

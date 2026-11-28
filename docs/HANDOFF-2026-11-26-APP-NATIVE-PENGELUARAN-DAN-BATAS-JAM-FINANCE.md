@@ -24,7 +24,7 @@
 |---|---|
 | Alur status | Tetap tanpa AM: Leader ajukan (`forwarded_to_finance`) → Finance cairkan + bukti (`approved_by_finance`) → Leader konfirmasi masuk laci (`forwarded_by_leader`). |
 | Jendela pengajuan (`create_petty_cash_topup`) | **09:00–16:00 WIB**. Di luar jam tersebut server menolak dengan pesan: `"Pengajuan top up petty cash hanya dibuka pukul 09:00 hingga 16:00 WIB."` |
-| Auto-batal pukul 16:00 WIB | `pg_cron` (`petty-cash-topup-auto-batal-16wib`, `0 9 * * *` UTC = 16:00 WIB) membatalkan otomatis semua pengajuan berstatus `forwarded_to_finance` menjadi `rejected` dengan alasan `[Ditolak Finance: Dibatalkan otomatis oleh sistem karena melewati batas pukul 16:00 WIB]`. Guard yang sama juga menolak `approve` Finance bila lewat 16:00 WIB. Baris `approved_by_finance` (sudah ditransfer, menunggu konfirmasi Leader) **tidak** dibatalkan. |
+| Auto-batal pukul 17:00 WIB & Proses Darurat | `pg_cron` (`petty-cash-topup-auto-batal-17wib`, `0 10 * * *` UTC = **17:00 WIB**) membatalkan otomatis semua pengajuan `forwarded_to_finance` menjadi `rejected` (jeda 1 jam bagi Finance setelah batas input 16:00 WIB). Bila mendesak di hari yang sama, Finance/Admin/Owner dapat membukanya kembali lewat tombol **Proses Darurat** (`finance_buka_kembali_topup_darurat`, `is_darurat = true`) di web Finance. Baris `approved_by_finance` **tidak** dibatalkan. |
 | Push notifikasi | 1) Pengajuan baru → info pantauan ke **AM binaan** (`app: manager`, `url: manager_petty_cash`) + permintaan ACC ke `admin_finance` (`app: finance`).<br>2) Auto-batal jam 16:00 → push ke **Leader pengaju** (`app: leader`, `type: petty_cash_cancelled`, `url: leader_petty_cash`).<br>3) Sudah ditransfer Finance → tetap push ke Leader pengaju (`type: petty_cash_urgent`). |
 
 ---

@@ -1,12 +1,17 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Wallet, Clock, History, Filter, Store, CheckCircle2, XCircle, ArrowRight, Loader2, Camera, X, Download, Search, FileSpreadsheet, FileText } from 'lucide-react'
+import { Wallet, Clock, History, Filter, Store, CheckCircle2, XCircle, ArrowRight, Loader2, Camera, X, Download, Search, FileSpreadsheet, FileText, RotateCcw } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { usePettyCashRequests } from '@/hooks/usePettyCash'
+import { bukaKembaliTopupDaruratAction } from '@/app/actions/pettyCash'
 import { tanggalWaktu } from '@/lib/format'
 import type { PettyCashTopup } from '@/lib/types'
 import { labelStatusPettyCash, sedangBerjalan } from '@/lib/pettyCash/tahap'
+import { bisaProsesDaruratTopup } from '@/lib/pettyCash/jamBatas'
 import { exportPettyCashCSV, exportPettyCashPDF } from '@/lib/exportPettyCash'
 
 const formatRupiah = (val: number) => `Rp ${val.toLocaleString('id-ID')}`
@@ -97,6 +102,37 @@ function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; on
 
 export function FinancePettyCashList({ initialRequests }: { initialRequests?: PettyCashTopup[] }) {
   const { data: allRequests, isLoading } = usePettyCashRequests(undefined, initialRequests)
+  const queryClient = useQueryClient()
+  const router = useRouter()
+  const [processingDaruratId, setProcessingDaruratId] = useState<string | null>(null)
+
+  const handleProsesDarurat = async (req: PettyCashTopup) => {
+    const alasan = window.prompt(
+      `Buka kembali pengajuan ${req.outlet?.name || 'Outlet'} (${formatRupiah(req.amount)}) lewat jalur DARURAT?\n\nMasukkan alasan darurat:`,
+      'Finance baru sempat buka dashboard lewat batas jam',
+    )
+    if (alasan === null) return
+    if (alasan.trim().length < 3) {
+      toast.error('Alasan darurat wajib diisi (minimal 3 karakter)')
+      return
+    }
+    setProcessingDaruratId(req.id)
+    try {
+      const res = await bukaKembaliTopupDaruratAction(req.id, alasan.trim())
+      if (!res.success) {
+        toast.error(res.error || 'Gagal membuka kembali pengajuan darurat')
+        return
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] }),
+        queryClient.invalidateQueries({ queryKey: ['approval_log'] }),
+      ])
+      toast.success('Pengajuan dibuka kembali (DARURAT). Mengarahkan ke Hub Approval…')
+      router.push('/approval')
+    } finally {
+      setProcessingDaruratId(null)
+    }
+  }
   
   const [activeTab, setActiveTab] = useState<'review' | 'history'>('review')
   const [reviewFilter, setReviewFilter] = useState<'all' | 'unprocessed' | 'ready_handover'>('all')
@@ -451,6 +487,21 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                           <ArrowRight className="w-3.5 h-3.5" />
                           Putuskan di Hub Approval
                         </Link>
+                      )}
+                      {activeTab === 'history' && bisaProsesDaruratTopup(req) && (
+                        <button
+                          type="button"
+                          onClick={() => handleProsesDarurat(req)}
+                          disabled={processingDaruratId === req.id}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold text-xs transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+                        >
+                          {processingDaruratId === req.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          )}
+                          Proses Darurat
+                        </button>
                       )}
                     </td>
                   </tr>

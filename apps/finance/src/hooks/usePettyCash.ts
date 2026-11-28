@@ -22,6 +22,7 @@ const PETTY_CASH_TOPUP_COLUMNS = `
   approved_at,
   approved_by,
   finance_approved_by,
+  is_darurat,
   leader_forwarded_by,
   leader_forwarded_at,
   completed_at,
@@ -164,7 +165,9 @@ export function useProcessPettyCashFinance() {
       cashLocationId,
       proofFile,
       approvedAmount,
-      approvalNote
+      approvalNote,
+      createdAt,
+      isDarurat = false,
     }: { 
       id: string; 
       action: 'approve' | 'reject';
@@ -173,11 +176,13 @@ export function useProcessPettyCashFinance() {
       proofFile?: File | null;
       approvedAmount?: number;
       approvalNote?: string;
+      createdAt?: string | null;
+      isDarurat?: boolean;
     }) => {
       if (action === 'approve') {
-        const cekJam = cekBatasProsesFinanceTopupWib()
+        const cekJam = cekBatasProsesFinanceTopupWib(createdAt, undefined, isDarurat)
         if (!cekJam.diizinkan) {
-          throw new Error(cekJam.pesan || 'Pengajuan top up petty cash sudah melewati batas pukul 16:00 WIB.')
+          throw new Error(cekJam.pesan || 'Pengajuan top up petty cash sudah melewati batas pukul 17:00 WIB.')
         }
       }
       const formData = new FormData()

@@ -303,6 +303,7 @@ export async function savePromosAction(
         ,promo_name: String(p.promo_name || '').trim() || null,
         buy_quantity: p.discount_type === 'buy_one_get_one' ? Number(p.buy_quantity) : 1,
         get_quantity: p.discount_type === 'buy_one_get_one' ? Number(p.get_quantity) : 1,
+        is_accumulative: p.discount_type === 'buy_one_get_one' ? Boolean(p.is_accumulative) : false,
         reward_menu_item_id: p.discount_type === 'buy_one_get_one'
           ? rewardMenuForOutlet(p, outletId)?.id || null
           : null,

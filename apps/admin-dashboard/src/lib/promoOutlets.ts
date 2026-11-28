@@ -100,6 +100,7 @@ export const PROMO_CONFIG_FIELDS = [
   'apply_to_food_apps',
   'buy_quantity',
   'get_quantity',
+  'is_accumulative',
   'excluded_menu_item_ids',
 ] as const
 
@@ -107,6 +108,7 @@ const normalizeConfigValue = (field: string, value: unknown): unknown => {
   // Kolom daftar: tidak ada / null / [] semuanya berarti "kosong".
   if (field === 'daily_schedule') return Array.isArray(value) ? value : []
   if (field === 'excluded_menu_item_ids') return Array.isArray(value) ? [...value].map(String).sort() : []
+  if (field === 'is_accumulative') return Boolean(value)
   if (value === undefined || value === '') return null
   if (field === 'promo_name') return String(value ?? '').trim() || null
   if (field === 'discount_value' || field === 'min_purchase' || field === 'usage_limit' || field === 'buy_quantity' || field === 'get_quantity') {

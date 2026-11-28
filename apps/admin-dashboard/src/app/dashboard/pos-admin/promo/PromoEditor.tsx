@@ -238,9 +238,23 @@ export default function PromoEditor({
                 <Stepper value={promo.get_quantity ?? 1} onChange={v => onChange('get_quantity', v)} label="jumlah gratis" />
               </div>
               <RewardMenuPicker menuItems={menuItems} value={rewardId} onChange={id => onChange('reward_menu_item_id', id)} />
+              <div className="space-y-1.5 pt-1">
+                <span className="block text-xs font-bold text-slate-600">Pola pemberian hadiah</span>
+                <Segmented
+                  label="Pola pemberian hadiah"
+                  value={promo.is_accumulative ? 'accumulative' : 'single'}
+                  onChange={v => onChange('is_accumulative', v === 'accumulative')}
+                  options={[
+                    { value: 'single', label: 'Sekali per transaksi' },
+                    { value: 'accumulative', label: 'Kelipatan jumlah beli' },
+                  ]}
+                />
+              </div>
               <p className="flex items-start gap-1.5 text-xs text-slate-500">
                 <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                Menu gratis otomatis masuk keranjang kasir seharga Rp 0. Sekali per transaksi, tidak digabung promo lain. Kalau menu gratis sedang habis, promo tidak berlaku.
+                {promo.is_accumulative
+                  ? `Menu gratis otomatis masuk keranjang kasir seharga Rp 0 dan bertambah sesuai kelipatan beli (contoh: beli ${(promo.buy_quantity ?? 1) * 3} gratis ${(promo.get_quantity ?? 1) * 3}). Tidak digabung promo lain.`
+                  : 'Menu gratis otomatis masuk keranjang kasir seharga Rp 0. Maksimal sekali per transaksi, tidak digabung promo lain. Kalau menu gratis sedang habis, promo tidak berlaku.'}
               </p>
             </div>
           )}

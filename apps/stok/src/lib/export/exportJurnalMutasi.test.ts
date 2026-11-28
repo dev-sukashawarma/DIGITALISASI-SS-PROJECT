@@ -2,11 +2,13 @@ import { describe, it, expect, vi } from 'vitest'
 import * as XLSX from 'xlsx'
 import {
   buildSummaryCardsRows,
+  exportDailySummaryCardsToCsv,
+  exportDailySummaryCardsToXls,
   exportReconciliationToCsv,
   exportSummaryCardsToCsv,
   exportSummaryCardsToXls,
 } from './exportJurnalMutasi'
-import type { ReconciliationSnapshotResponse } from '@/app/actions/jurnalMutasi'
+import type { DailySummaryCardEntry, ReconciliationSnapshotResponse } from '@/app/actions/jurnalMutasi'
 
 describe('exportReconciliationToCsv', () => {
   it('should generate and trigger CSV download with valid structure and headers', () => {
@@ -343,6 +345,68 @@ describe('summary cards export (CSV & XLS)', () => {
     })
     expect(sheetRows.some((r) => r[0] === 'Omzet Penjualan' && r[1] === 1000000)).toBe(true)
     expect(sheetRows.some((r) => r[0] === '7. Selisih' && r[1] === -30000)).toBe(true)
+
+    global.Blob = originalBlob
+  })
+
+  it('exports per-date breakdown to CSV and XLS for date_range without summing across dates', () => {
+    const dailyEntries: DailySummaryCardEntry[] = [
+      {
+        date: '2026-11-20',
+        totals: { ...singleOutletMock.totals, omzet_rp: 1000000, total_selisih_rp: -10000 },
+      },
+      {
+        date: '2026-11-21',
+        totals: { ...singleOutletMock.totals, omzet_rp: 1500000, total_selisih_rp: 5000 },
+      },
+    ]
+
+    let capturedCsv = ''
+    const originalBlob = global.Blob
+    global.Blob = class MockBlob extends originalBlob {
+      constructor(blobParts?: BlobPart[], options?: BlobPropertyBag) {
+        super(blobParts, options)
+        if (blobParts && blobParts.length > 0) {
+          capturedCsv = String(blobParts[0])
+        }
+      }
+    } as any
+
+    const mockAnchor = { setAttribute: vi.fn(), click: vi.fn() }
+    vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor as any)
+    vi.spyOn(document.body, 'appendChild').mockImplementation(vi.fn())
+    vi.spyOn(document.body, 'removeChild').mockImplementation(vi.fn())
+    global.URL.createObjectURL = vi.fn().mockReturnValue('blob:daily-csv')
+    global.URL.revokeObjectURL = vi.fn()
+
+    exportDailySummaryCardsToCsv(singleOutletMock, dailyEntries)
+    expect(capturedCsv).toContain('BREAKDOWN HARIAN KARTU REKONSILIASI & JURNAL BAHAN BAKU')
+    expect(capturedCsv).toContain('"2026-11-20";"1000000"')
+    expect(capturedCsv).toContain('"2026-11-21";"1500000"')
+    expect(capturedCsv).not.toContain('"2500000"')
+
+    let capturedXlsBuffer: ArrayBuffer | Uint8Array | null = null
+    global.Blob = class MockXlsBlob extends originalBlob {
+      constructor(blobParts?: BlobPart[], options?: BlobPropertyBag) {
+        super(blobParts, options)
+        if (blobParts && blobParts.length > 0) {
+          capturedXlsBuffer = blobParts[0] as ArrayBuffer | Uint8Array
+        }
+      }
+    } as any
+
+    exportDailySummaryCardsToXls(
+      { ...singleOutletMock, outlet: { id: 'ALL', name: 'Semua Outlet (3 Cabang)' } },
+      dailyEntries
+    )
+
+    const wb = XLSX.read(capturedXlsBuffer!, { type: 'array' })
+    expect(wb.SheetNames).toContain('Breakdown Harian')
+    const sheetRows = XLSX.utils.sheet_to_json<Array<string | number>>(wb.Sheets['Breakdown Harian'], {
+      header: 1,
+    })
+    expect(sheetRows.some((r) => r[0] === '2026-11-20' && r[1] === 1000000)).toBe(true)
+    expect(sheetRows.some((r) => r[0] === '2026-11-21' && r[1] === 1500000)).toBe(true)
 
     global.Blob = originalBlob
   })

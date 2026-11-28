@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx'
-import type { ReconciliationSnapshotResponse } from '@/app/actions/jurnalMutasi'
+import type { DailySummaryCardEntry, ReconciliationSnapshotResponse } from '@/app/actions/jurnalMutasi'
 
 function escapeCsv(value: any): string {
   if (value === null || value === undefined) return '""'
@@ -189,6 +189,124 @@ export function exportSummaryCardsToXls(data: ReconciliationSnapshotResponse) {
   const cleanOutlet = sanitizeOutletFilename(data.outlet.name)
   const dateStamp = new Date().toISOString().slice(0, 10)
   triggerBlobDownload(blob, `Ringkasan_Kartu_Rekonsiliasi_${cleanOutlet}_${dateStamp}.xls`)
+}
+
+function buildDailyBreakdownTable(
+  data: ReconciliationSnapshotResponse,
+  dailyEntries: DailySummaryCardEntry[]
+): { headers: string[]; rows: Array<Array<string | number>> } {
+  const isAll = data.outlet.id === 'ALL'
+
+  const headers = isAll
+    ? [
+        'Tanggal',
+        'Omzet Penjualan (Rp)',
+        'Order Selesai',
+        'Potongan / Diskon (Rp)',
+        'Masuk / Inbound (Rp)',
+        'Pemakaian POS (Rp)',
+        'Pemakaian Riil SJ (Rp)',
+        'Waste (Rp)',
+      ]
+    : [
+        'Tanggal',
+        'Omzet Penjualan (Rp)',
+        'Order Selesai',
+        'Potongan / Diskon (Rp)',
+        '1. Saldo Awal (Rp)',
+        '2. Masuk / Inbound (Rp)',
+        '3. Pemakaian Menu (Rp)',
+        'Pemakaian Riil SJ (Rp)',
+        '4. Waste / Rusak (Rp)',
+        '5. Seharusnya Ada (Rp)',
+        '6. Hasil Hitung Opname (Rp)',
+        '7. Selisih (Rp)',
+      ]
+
+  const rows = dailyEntries.map(({ date, totals }) =>
+    isAll
+      ? [
+          date,
+          totals.omzet_rp,
+          totals.order_count,
+          totals.potongan_rp,
+          totals.total_masuk_rp_master,
+          totals.total_pakai_rp,
+          totals.total_pakai_rp_riil ?? totals.total_pakai_rp,
+          totals.total_waste_rp,
+        ]
+      : [
+          date,
+          totals.omzet_rp,
+          totals.order_count,
+          totals.potongan_rp,
+          totals.total_awal_rp,
+          totals.total_masuk_rp_master,
+          totals.total_pakai_rp,
+          totals.total_pakai_rp_riil ?? totals.total_pakai_rp,
+          totals.total_waste_rp,
+          totals.total_sistem_rp,
+          totals.total_fisik_rp,
+          totals.total_selisih_rp,
+        ]
+  )
+
+  return { headers, rows }
+}
+
+/**
+ * Ekspor breakdown harian nilai kartu ringkasan (mode Rentang Tanggal) ke file CSV.
+ */
+export function exportDailySummaryCardsToCsv(
+  data: ReconciliationSnapshotResponse,
+  dailyEntries: DailySummaryCardEntry[]
+) {
+  const { headers, rows } = buildDailyBreakdownTable(data, dailyEntries)
+  const lines: string[] = []
+  lines.push('BREAKDOWN HARIAN KARTU REKONSILIASI & JURNAL BAHAN BAKU')
+  for (const [label, value] of formatReportMetaRows(data)) {
+    lines.push(`${label};${escapeCsv(value)}`)
+  }
+  lines.push('')
+  lines.push(headers.map(escapeCsv).join(';'))
+  for (const row of rows) {
+    lines.push(row.map(escapeCsv).join(';'))
+  }
+
+  const csvContent = '\uFEFF' + lines.join('\r\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const cleanOutlet = sanitizeOutletFilename(data.outlet.name)
+  const dateStamp = new Date().toISOString().slice(0, 10)
+  triggerBlobDownload(blob, `Breakdown_Harian_Kartu_Rekonsiliasi_${cleanOutlet}_${dateStamp}.csv`)
+}
+
+/**
+ * Ekspor breakdown harian nilai kartu ringkasan (mode Rentang Tanggal) ke file Excel (.xls).
+ */
+export function exportDailySummaryCardsToXls(
+  data: ReconciliationSnapshotResponse,
+  dailyEntries: DailySummaryCardEntry[]
+) {
+  const { headers, rows } = buildDailyBreakdownTable(data, dailyEntries)
+  const aoa: Array<Array<string | number>> = [
+    ['BREAKDOWN HARIAN KARTU REKONSILIASI & JURNAL BAHAN BAKU'],
+    ...formatReportMetaRows(data),
+    [],
+    headers,
+    ...rows,
+  ]
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+  ws['!cols'] = headers.map((_, idx) => ({ wch: idx === 0 ? 14 : 22 }))
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Breakdown Harian')
+
+  const buffer = XLSX.write(wb, { bookType: 'biff8', type: 'array' })
+  const blob = new Blob([buffer], { type: 'application/vnd.ms-excel' })
+  const cleanOutlet = sanitizeOutletFilename(data.outlet.name)
+  const dateStamp = new Date().toISOString().slice(0, 10)
+  triggerBlobDownload(blob, `Breakdown_Harian_Kartu_Rekonsiliasi_${cleanOutlet}_${dateStamp}.xls`)
 }
 
 export function exportReconciliationToCsv(data: ReconciliationSnapshotResponse) {

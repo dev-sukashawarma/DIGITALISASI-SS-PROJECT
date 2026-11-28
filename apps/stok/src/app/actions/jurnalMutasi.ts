@@ -2670,3 +2670,58 @@ export async function fetchProofDetails(type: 'surat_jalan' | 'waste' | 'order',
 
   throw new Error('Tipe bukti tidak valid')
 }
+
+export interface DailySummaryCardEntry {
+  date: string
+  totals: ReconciliationTotals
+}
+
+/**
+ * Mengambil breakdown harian nilai kartu ringkasan untuk mode Rentang Tanggal,
+ * sehingga setiap tanggal dihitung terpisah tanpa dijumlahkan antar hari.
+ */
+export async function fetchDailySummaryCardsBreakdown(
+  outletId: string,
+  startDate: string,
+  endDate: string
+): Promise<DailySummaryCardEntry[]> {
+  if (!startDate || !endDate) {
+    throw new Error('Tanggal awal dan tanggal akhir wajib diisi')
+  }
+  const [sy, sm, sd] = startDate.split('-').map(Number)
+  const [ey, em, ed] = endDate.split('-').map(Number)
+  const cur = new Date(Date.UTC(sy, sm - 1, sd))
+  const end = new Date(Date.UTC(ey, em - 1, ed))
+  if (Number.isNaN(cur.getTime()) || Number.isNaN(end.getTime()) || cur > end) {
+    throw new Error('Rentang tanggal tidak valid')
+  }
+
+  const dates: string[] = []
+  while (cur <= end) {
+    dates.push(cur.toISOString().slice(0, 10))
+    cur.setUTCDate(cur.getUTCDate() + 1)
+  }
+
+  if (dates.length > 62) {
+    throw new Error('Maksimal rentang tanggal untuk breakdown harian adalah 62 hari')
+  }
+
+  const results: DailySummaryCardEntry[] = []
+  const chunkSize = 5
+  for (let i = 0; i < dates.length; i += chunkSize) {
+    const chunk = dates.slice(i, i + chunkSize)
+    const snapshots = await Promise.all(
+      chunk.map(async (date) => {
+        const snap = await fetchReconciliationSnapshot(outletId, {
+          mode: 'date_range',
+          startDate: date,
+          endDate: date,
+        })
+        return { date, totals: snap.totals }
+      })
+    )
+    results.push(...snapshots)
+  }
+
+  return results
+}

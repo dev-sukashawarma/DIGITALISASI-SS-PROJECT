@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import {
   fetchAccessibleOutlets,
+  fetchDailySummaryCardsBreakdown,
   fetchOpnameSessions,
   fetchReconciliationSnapshot,
   type OpnameSessionSummary,
@@ -25,6 +26,8 @@ import {
 } from '@/app/actions/jurnalMutasi'
 import { useOutletScope } from '@/hooks/useOutletScope'
 import {
+  exportDailySummaryCardsToCsv,
+  exportDailySummaryCardsToXls,
   exportReconciliationToCsv,
   exportSummaryCardsToCsv,
   exportSummaryCardsToXls,
@@ -101,6 +104,7 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
 
   // Export Loading States
   const [pdfExporting, setPdfExporting] = useState(false)
+  const [cardsExporting, setCardsExporting] = useState<'csv' | 'xls' | null>(null)
 
   // Audit Notes Modal State
   const [showNotesModal, setShowNotesModal] = useState(false)
@@ -265,6 +269,30 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
       console.error('Gagal mengekspor PDF:', err)
     } finally {
       setPdfExporting(false)
+    }
+  }
+
+  const handleExportCards = async (format: 'csv' | 'xls') => {
+    if (!data) return
+    if (data.period.mode !== 'date_range') {
+      if (format === 'csv') exportSummaryCardsToCsv(data)
+      else exportSummaryCardsToXls(data)
+      return
+    }
+
+    setCardsExporting(format)
+    setError(null)
+    try {
+      const rangeStart = data.period.tanggal_mulai || startDate
+      const rangeEnd = data.period.tanggal_akhir || endDate
+      const dailyEntries = await fetchDailySummaryCardsBreakdown(currentOutletId, rangeStart, rangeEnd)
+      if (format === 'csv') exportDailySummaryCardsToCsv(data, dailyEntries)
+      else exportDailySummaryCardsToXls(data, dailyEntries)
+    } catch (err: any) {
+      console.error('Gagal mengekspor breakdown harian kartu:', err)
+      setError(err?.message || 'Gagal mengekspor breakdown harian nilai kartu')
+    } finally {
+      setCardsExporting(null)
     }
   }
 
@@ -590,24 +618,43 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
           <div className="flex flex-wrap items-center justify-between gap-2 px-1">
             <span className="text-[11px] font-black uppercase tracking-wider text-suka-brown/70">
               Ringkasan Nilai Kartu
+              {data.period.mode === 'date_range' ? ' (Export Breakdown Per Tanggal)' : ''}
             </span>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => exportSummaryCardsToCsv(data)}
-                className="px-3 py-1.5 bg-white hover:bg-suka-cream/40 text-suka-brown border border-suka-brown/20 rounded-xl font-black text-[11px] transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-2xs"
-                title="Ekspor nilai kartu ringkasan ke CSV"
+                disabled={cardsExporting !== null}
+                onClick={() => handleExportCards('csv')}
+                className="px-3 py-1.5 bg-white hover:bg-suka-cream/40 disabled:opacity-60 text-suka-brown border border-suka-brown/20 rounded-xl font-black text-[11px] transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-2xs"
+                title={
+                  data.period.mode === 'date_range'
+                    ? 'Ekspor breakdown harian nilai kartu ke CSV'
+                    : 'Ekspor nilai kartu ringkasan ke CSV'
+                }
               >
-                <Download className="w-3.5 h-3.5 text-emerald-600" />
+                {cardsExporting === 'csv' ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-emerald-600" />
+                )}
                 <span>Kartu CSV</span>
               </button>
               <button
                 type="button"
-                onClick={() => exportSummaryCardsToXls(data)}
-                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 rounded-xl font-black text-[11px] transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-2xs"
-                title="Ekspor nilai kartu ringkasan ke Excel (.xls)"
+                disabled={cardsExporting !== null}
+                onClick={() => handleExportCards('xls')}
+                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-60 text-emerald-900 border border-emerald-200 rounded-xl font-black text-[11px] transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-2xs"
+                title={
+                  data.period.mode === 'date_range'
+                    ? 'Ekspor breakdown harian nilai kartu ke Excel (.xls)'
+                    : 'Ekspor nilai kartu ringkasan ke Excel (.xls)'
+                }
               >
-                <Download className="w-3.5 h-3.5 text-emerald-700" />
+                {cardsExporting === 'xls' ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-700" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-emerald-700" />
+                )}
                 <span>Kartu XLS</span>
               </button>
             </div>

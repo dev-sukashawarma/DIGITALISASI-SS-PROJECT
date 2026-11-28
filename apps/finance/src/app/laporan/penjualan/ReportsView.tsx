@@ -475,7 +475,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
   // Ekspor PDF & Excel: data per outlet × channel × menu dihitung di server
   // (lib/posReport/ekspor, rumus sama dengan kartu KPI) dan baru diminta saat
   // tombol ditekan. Pustaka PDF/Excel dimuat dinamis agar halaman tetap ringan.
-  const [exporting, setExporting] = useState<null | 'pdf' | 'excel' | 'historyPdf'>(null)
+  const [exporting, setExporting] = useState<null | 'pdf' | 'excel' | 'historyPdf' | 'historyExcel'>(null)
 
   const exportChannelLabel = () => {
     if (selectedChannels.includes('all')) return isSSOnlineSelected ? 'Semua Platform' : 'Semua Channel'
@@ -488,18 +488,33 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
     if (!reportRequest || exporting) return
     setExporting(jenis)
     try {
-      const data = await getPosReportExport(reportRequest)
-      if (!data || data.total.trx === 0) {
-        alert('Tidak ada transaksi selesai pada filter ini.')
-        return
-      }
       const ctx = { cabang: selectedOutletName, channel: exportChannelLabel() }
       if (jenis === 'pdf') {
+        const data = await getPosReportExport(reportRequest)
+        if (!data || data.total.trx === 0) {
+          alert('Tidak ada transaksi selesai pada filter ini.')
+          return
+        }
         const { buatPdfLaporan } = await import('@/lib/posReport/eksporPdf')
         await buatPdfLaporan(data, ctx)
       } else {
+        const [data, histori] = await Promise.all([
+          getPosReportExport(reportRequest),
+          getPosTransactionHistoryExport({
+            ...reportRequest,
+            paymentMethod: 'all',
+            receiptFilter: 'all',
+            xenditFilter: 'all',
+            search: '',
+            exportMode: 'excel',
+          }),
+        ])
+        if (!data || data.total.trx === 0) {
+          alert('Tidak ada transaksi selesai pada filter ini.')
+          return
+        }
         const { buatExcelLaporan } = await import('@/lib/posReport/eksporExcel')
-        await buatExcelLaporan(data, ctx)
+        await buatExcelLaporan(data, ctx, histori)
       }
     } catch (err) {
       console.error('export error:', err)
@@ -509,12 +524,16 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
     }
   }
 
-  const downloadHistoryPdf = async () => {
+  const downloadHistory = async (jenis: 'pdf' | 'excel') => {
     if (!reportRequest || exporting) return
-    setExporting('historyPdf')
+    setExporting(jenis === 'pdf' ? 'historyPdf' : 'historyExcel')
     try {
       const activeSearch = searchQuery.trim()
-      const data = await getPosTransactionHistoryExport({ ...reportRequest, search: activeSearch })
+      const data = await getPosTransactionHistoryExport({
+        ...reportRequest,
+        search: activeSearch,
+        exportMode: jenis,
+      })
       if (!data || data.totalMatching === 0) {
         alert('Tidak ada transaksi yang cocok dengan filter ini.')
         return
@@ -523,18 +542,24 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
         selectedPaymentMethod === 'all'
           ? 'Semua Metode Bayar'
           : availablePaymentMethods.find((m) => m.key === selectedPaymentMethod)?.label || selectedPaymentMethod.toUpperCase()
-      const { buatPdfHistoriTransaksi } = await import('@/lib/posReport/eksporHistoriPdf')
-      await buatPdfHistoriTransaksi(data, {
+      const ctx = {
         cabang: selectedOutletName,
         channel: exportChannelLabel(),
         paymentLabel,
         receiptLabel: isSSOnlineSelected ? '-' : RECEIPT_FILTER_LABEL[selectedReceiptFilter],
         search: activeSearch,
         multiOutlet: selectedOutlets.includes('all') || selectedOutlets.length > 1,
-      })
+      }
+      if (jenis === 'pdf') {
+        const { buatPdfHistoriTransaksi } = await import('@/lib/posReport/eksporHistoriPdf')
+        await buatPdfHistoriTransaksi(data, ctx)
+      } else {
+        const { buatExcelHistoriTransaksi } = await import('@/lib/posReport/eksporExcel')
+        await buatExcelHistoriTransaksi(data, ctx)
+      }
     } catch (err) {
-      console.error('history pdf export error:', err)
-      alert('Gagal menyiapkan PDF histori transaksi. Coba lagi sebentar.')
+      console.error(`history ${jenis} export error:`, err)
+      alert(`Gagal menyiapkan ${jenis === 'pdf' ? 'PDF' : 'Excel'} histori transaksi. Coba lagi sebentar.`)
     } finally {
       setExporting(null)
     }
@@ -635,7 +660,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                   onClick={() => downloadExport('excel')}
                   disabled={!hasOrders || !!exporting}
                   className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  title="Unduh Excel (.xlsx): per outlet, channel, menu & harian — berwarna, bisa difilter"
+                  title="Unduh Excel (.xlsx): ringkasan, per outlet, channel, menu & histori detail transaksi — berwarna, bisa difilter"
                 >
                   {exporting === 'excel' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
                   <span>{exporting === 'excel' ? 'Menyiapkan…' : 'Excel'}</span>
@@ -1247,10 +1272,21 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                   />
                 </div>
 
-                {/* Tombol Export PDF Histori Transaksi Detail */}
+                {/* Tombol Export Excel & PDF Histori Transaksi Detail */}
                 <button
                   type="button"
-                  onClick={downloadHistoryPdf}
+                  onClick={() => downloadHistory('excel')}
+                  disabled={filteredTableCount === 0 || !!exporting}
+                  title="Unduh Excel (.xlsx) Histori Transaksi Detail sesuai filter aktif"
+                  className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                >
+                  {exporting === 'historyExcel' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
+                  <span>{exporting === 'historyExcel' ? 'Menyiapkan…' : 'Export Excel'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => downloadHistory('pdf')}
                   disabled={filteredTableCount === 0 || !!exporting}
                   title="Unduh PDF Histori Transaksi Detail sesuai filter aktif"
                   className="flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm shadow-rose-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0"

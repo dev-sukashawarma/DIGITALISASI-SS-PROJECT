@@ -25,7 +25,11 @@ import {
   filterTableData,
 } from '@/lib/posReport/compute'
 import { computeExportReport } from '@/lib/posReport/ekspor'
-import { buildHistoriTransaksiExport } from '@/lib/posReport/eksporHistori'
+import {
+  buildHistoriTransaksiExport,
+  MAX_HISTORI_EXCEL_ROWS,
+  MAX_HISTORI_PDF_ROWS,
+} from '@/lib/posReport/eksporHistori'
 import { toXenditFilter } from '@/lib/posReport/xenditStatus'
 import { gabungXendit, muatPembayaranXendit, muatPesananTertaut } from '@/lib/posReport/xenditLoad'
 import { isPesananWebsite } from '@/lib/xendit/website'
@@ -47,6 +51,8 @@ export type PosReportRequest = {
   receiptFilter?: string
   /** 'all' | 'terverifikasi' | 'belum' | 'selisih' | 'hanya_xendit' — status Xendit pesanan website. Opsional. */
   xenditFilter?: string
+  /** 'pdf' (default, maks 5.000 baris) | 'excel' (maks 50.000 baris) untuk ekspor histori transaksi. */
+  exportMode?: 'pdf' | 'excel'
   search: string
   page: number
   pageSize: number
@@ -148,6 +154,7 @@ function sanitizeRequest(req: PosReportRequest) {
     paymentMethod: typeof req.paymentMethod === 'string' ? req.paymentMethod : 'all',
     receiptFilter: toReceiptFilter(req.receiptFilter),
     xenditFilter: toXenditFilter(req.xenditFilter),
+    exportMode: req.exportMode === 'excel' ? ('excel' as const) : ('pdf' as const),
     search: typeof req.search === 'string' ? req.search.slice(0, 100) : '',
     page: Math.max(1, Math.floor(Number(req.page) || 1)),
     pageSize: Math.min(100, Math.max(1, Math.floor(Number(req.pageSize) || 10))),
@@ -402,16 +409,25 @@ export async function eksporLaporanPosUntukScope(rawReq: PosReportRequest, scope
   return prepared.exportReport
 }
 
-/** Data ekspor PDF Histori Transaksi Detail (seluruh baris terfilter, tanpa paginasi). */
+/** Data ekspor PDF & Excel Histori Transaksi Detail (seluruh baris terfilter, tanpa paginasi). */
 export async function eksporHistoriTransaksiUntukScope(rawReq: PosReportRequest, scope: CakupanLaporan) {
   const { req, prepared } = await getPreparedReport(rawReq, scope)
   const derived = getDerivedTable(prepared, req)
+  let tableRows = derived.tableRows
+  let footer = derived.footer
+  if (req.xenditFilter !== 'all') {
+    const xendit = await terapkanXendit(req, prepared, derived.tableRows, scope)
+    tableRows = xendit.rows
+    footer = computeTableFooter(tableRows, prepared.settlements)
+  }
   return buildHistoriTransaksiExport({
-    tableRows: derived.tableRows,
-    footer: derived.footer,
+    tableRows,
+    footer,
     outlets: prepared.outlets,
     periode: { from: prepared.from, to: req.to },
     isSSOnlineSelected: prepared.isSSOnlineSelected,
+    settlements: prepared.settlements,
+    maxRows: req.exportMode === 'excel' ? MAX_HISTORI_EXCEL_ROWS : MAX_HISTORI_PDF_ROWS,
   })
 }
 

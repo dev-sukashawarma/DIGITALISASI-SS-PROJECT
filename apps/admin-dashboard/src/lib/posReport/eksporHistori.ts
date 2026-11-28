@@ -1,18 +1,28 @@
-/* ── Data ekspor PDF Histori Transaksi Detail ────────────────────────────────
+/* ── Data ekspor PDF & Excel Histori Transaksi Detail ────────────────────────
  *
  * Murni (tanpa React/Next/Supabase). Mengubah baris transaksi hasil filter tabel
  * (compute.ts: filterTableData + computeTableFooter) menjadi payload ringkas
- * agar pengiriman dari Server Action ke browser tetap ringan dan siap cetak PDF.
+ * agar pengiriman dari Server Action ke browser tetap ringan dan siap cetak PDF
+ * maupun diekspor ke Excel (.xlsx).
  */
 
 import { cleanItemName } from '@/lib/order-item-name'
 import { resolveOrderSource } from '@/lib/order-source'
 import { isBigOrder } from '@/lib/big-order'
+import {
+  buildFoodAppsSettlementPromoMap,
+  computeOrderDeduction,
+  computeOrderGross,
+} from '@/lib/posReportKpi'
 import { extractOrderPackages, type OrderRow } from '@/lib/posReport/compute'
+import { klasifikasiChannel, labelMetodeBayar } from '@/lib/posReport/ekspor'
 import { receiptChips } from '@/lib/posReport/receiptReprint'
 import { rupiah } from '@/lib/posReport/eksporUi'
 
 export const MAX_HISTORI_PDF_ROWS = 5000
+export const MAX_HISTORI_EXCEL_ROWS = 50000
+
+const r2 = (n: number) => Math.round(n * 100) / 100
 
 export interface HistoriTableFooter {
   totalGross: number
@@ -34,8 +44,15 @@ export interface EksporHistoriRow {
   cashierName: string | null
   itemsText: string
   packagesText: string
+  itemQty: number
   sourceLabel: string
+  channelLabel: string
+  channelColor: string
   paymentMethod: string
+  paymentMethodLabel: string
+  grossAmount: number
+  potonganAmount: number
+  netAmount: number
   totalAmount: number
   originalAmount: number | null
   deductionNotes: string[]
@@ -59,6 +76,7 @@ export function buildHistoriTransaksiExport(params: {
   outlets: { id: string; name?: string | null }[]
   periode: { from: string; to: string }
   isSSOnlineSelected: boolean
+  settlements?: any[]
   maxRows?: number
 }): PosHistoryExportReport {
   const {
@@ -67,6 +85,7 @@ export function buildHistoriTransaksiExport(params: {
     outlets,
     periode,
     isSSOnlineSelected,
+    settlements = [],
     maxRows = MAX_HISTORI_PDF_ROWS,
   } = params
 
@@ -80,14 +99,26 @@ export function buildHistoriTransaksiExport(params: {
   const slice = totalMatching > limit ? tableRows.slice(0, limit) : tableRows
   const truncated = totalMatching > slice.length
 
+  const foodAppsSettlementPromoMap = buildFoodAppsSettlementPromoMap(tableRows as any, settlements)
+  const kpiOpts = {
+    ssOnlineMode: isSSOnlineSelected,
+    getSettlementPromo: (order: any) => foodAppsSettlementPromoMap.get(order.id ?? order),
+    getGofoodSettlementPromo: (order: any) => foodAppsSettlementPromoMap.get(order.id ?? order),
+    gofoodSettlementMap: foodAppsSettlementPromoMap,
+  }
+
   const rows: EksporHistoriRow[] = slice.map((order) => {
     const anyOrder = order as any
     const items = order.order_items || []
+    const itemQty = items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0)
     const orderSubtotal = items.reduce(
       (sum, i) => sum + (Number(i.subtotal) || Number(i.quantity) * Number(i.unit_price) || 0),
       0
     )
     const totalAmount = Number(order.total_amount) || 0
+    const grossAmount = r2(computeOrderGross(order as any, kpiOpts))
+    const potonganAmount = r2(computeOrderDeduction(order as any, kpiOpts))
+    const netAmount = r2(grossAmount - potonganAmount)
     const offlineDiscount = Number(anyOrder.discount_amount) || 0
     const appSubsidy = Number(anyOrder.promo_subsidy) || 0
     const settlementPromoMerchant: number | undefined = anyOrder.settlement_promo_merchant
@@ -176,6 +207,7 @@ export function buildHistoriTransaksiExport(params: {
       order.customer_name,
       order.is_endorse
     ).label
+    const ch = klasifikasiChannel(order)
 
     return {
       id: order.id,
@@ -186,8 +218,15 @@ export function buildHistoriTransaksiExport(params: {
       cashierName: order.cashier_name || null,
       itemsText: itemsText || '-',
       packagesText: packagesText || '-',
+      itemQty,
       sourceLabel,
+      channelLabel: ch.channel,
+      channelColor: ch.warna,
       paymentMethod: (order.payment_method || '-').toUpperCase(),
+      paymentMethodLabel: labelMetodeBayar(order.payment_method),
+      grossAmount,
+      potonganAmount,
+      netAmount,
       totalAmount,
       originalAmount,
       deductionNotes,

@@ -8,8 +8,10 @@
  */
 
 import type { PosExportReport } from '@/lib/posReport/ekspor'
+import type { PosHistoryExportReport } from '@/lib/posReport/eksporHistori'
+import type { KonteksEksporHistori } from '@/lib/posReport/eksporHistoriPdf'
 import {
-  WARNA, type KonteksEkspor, labelCabang, labelPeriode, namaBerkas, persen, rasio, unduhBlob, waktuCetak,
+  WARNA, type KonteksEkspor, angka, jumlahHari, labelCabang, labelPeriode, namaBerkas, persen, rasio, tanggalPendek, unduhBlob, waktuCetak,
 } from '@/lib/posReport/eksporUi'
 
 type Jenis = 'teks' | 'angka' | 'rp' | 'pct'
@@ -25,6 +27,9 @@ interface Kolom {
   skala?: 'omzet' | 'margin'
   warnaChannel?: boolean
   tipeOutlet?: boolean
+  statusStruk?: boolean
+  wrap?: boolean
+  align?: 'left' | 'center' | 'right'
 }
 
 const RP = '"Rp"#,##0;[Red]-"Rp"#,##0;"Rp"0'
@@ -72,6 +77,7 @@ function sheetTabel(
   opsi: {
     judul: string
     sub: string
+    tips?: string
     kolom: Kolom[]
     baris: Record<string, any>[]
     beku: number
@@ -87,7 +93,7 @@ function sheetTabel(
 
   kolom.forEach((k, i) => { ws.getColumn(i + 1).width = k.width })
   kopSheet(ws, kolom.length, opsi.judul, opsi.sub,
-    'Klik tombol ▼ di judul kolom untuk memfilter / mengurutkan. Baris TOTAL di atas otomatis menyesuaikan hasil filter.')
+    opsi.tips ?? 'Klik tombol ▼ di judul kolom untuk memfilter / mengurutkan. Baris TOTAL di atas otomatis menyesuaikan hasil filter.')
 
   const awal = BARIS_DATA
   const akhir = Math.max(BARIS_DATA, BARIS_DATA + baris.length - 1)
@@ -102,13 +108,15 @@ function sheetTabel(
     c.value = k.header
     c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } }
     c.fill = isi(WARNA.primary)
-    c.alignment = { vertical: 'middle', horizontal: k.jenis === 'teks' ? 'left' : 'center', wrapText: true }
+    c.alignment = { vertical: 'middle', horizontal: k.align ?? (k.jenis === 'teks' ? 'left' : 'center'), wrapText: true }
     c.border = { bottom: { style: 'medium', color: { argb: argb(WARNA.oranye) } } }
   })
 
   // Data
+  const hasWrapCol = kolom.some(k => k.wrap)
   baris.forEach((r, idx) => {
     const row = ws.getRow(awal + idx)
+    let maxLines = 1
     kolom.forEach((k, i) => {
       const c = row.getCell(i + 1)
       const v = r[k.key]
@@ -116,8 +124,16 @@ function sheetTabel(
       const fmt = formatSel(k.jenis)
       if (fmt) c.numFmt = fmt
       c.font = { name: 'Calibri', size: 10, color: { argb: argb(WARNA.teks) } }
-      c.alignment = { vertical: 'middle', horizontal: k.jenis === 'teks' ? 'left' : 'right' }
+      c.alignment = {
+        vertical: 'middle',
+        horizontal: k.align ?? (k.jenis === 'teks' ? 'left' : 'right'),
+        ...(k.wrap ? { wrapText: true } : {}),
+      }
       c.border = { bottom: garisTipis }
+      if (k.wrap && typeof v === 'string' && v.includes('\n')) {
+        const lines = v.split('\n').length
+        if (lines > maxLines) maxLines = lines
+      }
       if (k.warnaChannel && r._warna) {
         c.fill = isi(r._warna)
         c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } }
@@ -128,7 +144,13 @@ function sheetTabel(
         c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: argb(warna) } }
         c.alignment = { vertical: 'middle', horizontal: 'center' }
       }
+      if (k.statusStruk && r._strukSkipped) {
+        c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: argb(WARNA.merah) } }
+      }
     })
+    if (hasWrapCol && maxLines > 1) {
+      row.height = Math.min(180, Math.max(20, maxLines * 14 + 6))
+    }
   })
 
   // TOTAL yang mengikuti filter (SUBTOTAL mengabaikan baris tersembunyi)
@@ -327,8 +349,125 @@ function sheetRingkasan(wb: any, data: PosExportReport, sub: string, daftarSheet
   })
 }
 
+const FMT_TGL_WIB = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Jakarta',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+const FMT_JAM_WIB = new Intl.DateTimeFormat('id-ID', {
+  timeZone: 'Asia/Jakarta',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+})
+
+function formatTanggalWib(iso: string): string {
+  try {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return iso
+    return FMT_TGL_WIB.format(d)
+  } catch {
+    return iso
+  }
+}
+
+function formatJamWib(iso: string): string {
+  try {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return ''
+    return FMT_JAM_WIB.format(d).replace(/\./g, ':')
+  } catch {
+    return ''
+  }
+}
+
+/** Tambahkan sheet "Histori Transaksi" (rincian tiap pesanan selesai). */
+function tambahSheetHistoriTransaksi(wb: any, histori: PosHistoryExportReport, sub: string) {
+  const tips = histori.truncated
+    ? `Menampilkan ${angka(histori.rows.length)} transaksi terbaru dari ${angka(histori.totalMatching)} transaksi. Persempit filter tanggal/cabang untuk melihat seluruh baris.`
+    : 'Klik tombol ▼ di judul kolom untuk memfilter / mengurutkan. Baris TOTAL di atas otomatis menyesuaikan hasil filter.'
+
+  const kolom: Kolom[] = histori.isSSOnlineSelected
+    ? [
+        { key: 'no', header: 'No', width: 6, jenis: 'angka', align: 'center' },
+        { key: 'orderNumber', header: 'No. Pesanan', width: 15, jenis: 'teks', align: 'center' },
+        { key: 'tanggal', header: 'Tanggal (WIB)', width: 13, jenis: 'teks', align: 'center' },
+        { key: 'jam', header: 'Jam (WIB)', width: 10, jenis: 'teks', align: 'center' },
+        { key: 'outlet', header: 'Outlet', width: 20, jenis: 'teks', total: 'judul' },
+        { key: 'channel', header: 'Platform', width: 18, jenis: 'teks', warnaChannel: true },
+        { key: 'pelanggan', header: 'Pelanggan', width: 22, jenis: 'teks' },
+        { key: 'items', header: 'Nama Item', width: 42, jenis: 'teks', wrap: true },
+        { key: 'qty', header: 'Qty Item', width: 10, jenis: 'angka', total: 'sum' },
+        { key: 'gross', header: 'Gross Revenue', width: 17, jenis: 'rp', total: 'sum', skala: 'omzet' },
+        { key: 'potongan', header: 'Potongan / Biaya Platform', width: 18, jenis: 'rp', total: 'sum' },
+        { key: 'net', header: 'Omzet Bersih', width: 17, jenis: 'rp', total: 'sum' },
+        { key: 'catatan', header: 'Promo & Catatan', width: 28, jenis: 'teks', wrap: true },
+      ]
+    : [
+        { key: 'no', header: 'No', width: 6, jenis: 'angka', align: 'center' },
+        { key: 'orderNumber', header: 'No. Antrian', width: 13, jenis: 'teks', align: 'center' },
+        { key: 'tanggal', header: 'Tanggal (WIB)', width: 13, jenis: 'teks', align: 'center' },
+        { key: 'jam', header: 'Jam (WIB)', width: 10, jenis: 'teks', align: 'center' },
+        { key: 'outlet', header: 'Outlet', width: 26, jenis: 'teks', total: 'judul' },
+        { key: 'channel', header: 'Sumber / Channel', width: 18, jenis: 'teks', warnaChannel: true },
+        { key: 'metodeBayar', header: 'Metode Bayar', width: 14, jenis: 'teks', align: 'center' },
+        { key: 'pelanggan', header: 'Pelanggan', width: 20, jenis: 'teks' },
+        { key: 'kasir', header: 'Kasir', width: 16, jenis: 'teks' },
+        { key: 'items', header: 'Nama Item', width: 38, jenis: 'teks', wrap: true },
+        { key: 'paket', header: 'Paket / Combo', width: 26, jenis: 'teks', wrap: true },
+        { key: 'qty', header: 'Qty Item', width: 10, jenis: 'angka', total: 'sum' },
+        { key: 'gross', header: 'Gross Revenue', width: 17, jenis: 'rp', total: 'sum', skala: 'omzet' },
+        { key: 'potongan', header: 'Potongan / Diskon', width: 17, jenis: 'rp', total: 'sum' },
+        { key: 'net', header: 'Omzet Bersih', width: 17, jenis: 'rp', total: 'sum' },
+        { key: 'catatan', header: 'Promo & Catatan', width: 28, jenis: 'teks', wrap: true },
+        { key: 'struk', header: 'Status Struk', width: 26, jenis: 'teks', statusStruk: true },
+      ]
+
+  const baris = histori.rows.map((row, idx) => {
+    const catatanParts = [...row.promoBadges, ...row.deductionNotes].filter(Boolean)
+    return {
+      no: idx + 1,
+      orderNumber: row.orderNumberLabel,
+      tanggal: formatTanggalWib(row.createdAt),
+      jam: formatJamWib(row.createdAt),
+      outlet: row.outletName,
+      channel: row.channelLabel || row.sourceLabel,
+      metodeBayar: row.paymentMethodLabel || row.paymentMethod,
+      pelanggan: row.customerName || '-',
+      kasir: row.cashierName || '-',
+      items: row.itemsText,
+      paket: row.packagesText,
+      qty: row.itemQty,
+      gross: row.grossAmount,
+      potongan: row.potonganAmount,
+      net: row.netAmount,
+      catatan: catatanParts.length > 0 ? catatanParts.join('\n') : '-',
+      struk: row.receiptNote || '-',
+      _warna: row.channelColor,
+      _strukSkipped: row.hasSkippedReceipt,
+    }
+  })
+
+  return sheetTabel(wb, 'Histori Transaksi', {
+    judul: 'HISTORI DETAIL TRANSAKSI',
+    sub,
+    tips,
+    beku: 4,
+    tab: WARNA.mitra,
+    kolom,
+    baris,
+  })
+}
+
 /** Susun workbook (tanpa mengunduh) — dipisah agar bisa diuji di Node. */
-export function susunWorkbookLaporan(ExcelJS: any, data: PosExportReport, ctx: KonteksEkspor) {
+export function susunWorkbookLaporan(
+  ExcelJS: any,
+  data: PosExportReport,
+  ctx: KonteksEkspor,
+  histori?: PosHistoryExportReport | null
+) {
   const wb = new ExcelJS.Workbook()
   wb.creator = 'SS Shawarma Digital Hub'
   wb.created = new Date()
@@ -343,6 +482,7 @@ export function susunWorkbookLaporan(ExcelJS: any, data: PosExportReport, ctx: K
   })
 
   const SHEET = ['Per Outlet', 'Outlet x Channel', 'Detail Item', 'Menu Terlaris']
+  if (histori) SHEET.push('Histori Transaksi')
   sheetRingkasan(wb, data, sub, SHEET)
 
   sheetTabel(wb, 'Per Outlet', {
@@ -407,14 +547,72 @@ export function susunWorkbookLaporan(ExcelJS: any, data: PosExportReport, ctx: K
     baris: data.menu.map((m, i) => ({ no: i + 1, ...m, ...lengkapi(m), harga: rasio(m.gross, m.qty) })),
   })
 
+  if (histori) {
+    tambahSheetHistoriTransaksi(wb, histori, sub)
+  }
+
   return wb
 }
 
-export async function buatExcelLaporan(data: PosExportReport, ctx: KonteksEkspor): Promise<void> {
+export async function buatExcelLaporan(
+  data: PosExportReport,
+  ctx: KonteksEkspor,
+  histori?: PosHistoryExportReport | null
+): Promise<void> {
   const ExcelJS = (await import('exceljs')).default
-  const buffer = await susunWorkbookLaporan(ExcelJS, data, ctx).xlsx.writeBuffer()
+  const buffer = await susunWorkbookLaporan(ExcelJS, data, ctx, histori).xlsx.writeBuffer()
   unduhBlob(
     new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
     namaBerkas(data, ctx, 'xlsx')
+  )
+}
+
+export function namaBerkasHistoriExcel(
+  data: PosHistoryExportReport,
+  ctx: KonteksEksporHistori
+): string {
+  const cabang =
+    ctx.cabang === 'Semua Cabang'
+      ? 'Semua_Cabang'
+      : ctx.cabang.includes(',')
+        ? `${ctx.cabang.split(',').length}_Cabang`
+        : ctx.cabang
+  const cabangAman = cabang.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '') || 'Cabang'
+  const { from, to } = data.periode
+  return `Histori_Transaksi_${cabangAman}_${from === to ? from : `${from}_sd_${to}`}.xlsx`
+}
+
+/** Susun workbook Excel khusus Histori Transaksi Detail (sesuai filter tabel). */
+export function susunWorkbookHistoriTransaksi(
+  ExcelJS: any,
+  histori: PosHistoryExportReport,
+  ctx: KonteksEksporHistori
+) {
+  const wb = new ExcelJS.Workbook()
+  wb.creator = 'SS Shawarma Digital Hub'
+  wb.created = new Date()
+
+  const { from, to } = histori.periode
+  const hari = jumlahHari(from, to)
+  const periodeStr = `${from === to ? tanggalPendek(from) : `${tanggalPendek(from)} - ${tanggalPendek(to)}`} (${hari} hari)`
+  const filterParts = histori.isSSOnlineSelected
+    ? [ctx.channel]
+    : [ctx.channel, ctx.paymentLabel, ctx.receiptLabel]
+  if (ctx.search) filterParts.push(`Cari: "${ctx.search}"`)
+  const sub = `Periode: ${periodeStr}   ·   Cabang: ${ctx.cabang}   ·   Filter: ${filterParts.join(' | ')}   ·   Dicetak: ${waktuCetak()}`
+
+  tambahSheetHistoriTransaksi(wb, histori, sub)
+  return wb
+}
+
+export async function buatExcelHistoriTransaksi(
+  histori: PosHistoryExportReport,
+  ctx: KonteksEksporHistori
+): Promise<void> {
+  const ExcelJS = (await import('exceljs')).default
+  const buffer = await susunWorkbookHistoriTransaksi(ExcelJS, histori, ctx).xlsx.writeBuffer()
+  unduhBlob(
+    new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+    namaBerkasHistoriExcel(histori, ctx)
   )
 }

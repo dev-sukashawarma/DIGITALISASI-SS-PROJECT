@@ -1,7 +1,9 @@
 // @vitest-environment node
+import ExcelJS from 'exceljs'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { computeTableFooter, type OrderRow } from '@/lib/posReport/compute'
+import { namaBerkasHistoriExcel, susunWorkbookHistoriTransaksi } from '@/lib/posReport/eksporExcel'
 import { buildHistoriTransaksiExport } from '@/lib/posReport/eksporHistori'
 import { namaBerkasHistori, susunPdfHistoriTransaksi } from '@/lib/posReport/eksporHistoriPdf'
 
@@ -102,6 +104,12 @@ describe('eksporHistori & eksporHistoriPdf', () => {
     expect(r1.outletName).toBe('SUKA SHAWARMA EMPANG')
     expect(r1.customerName).toBe('Budi')
     expect(r1.cashierName).toBe('Rina')
+    expect(r1.itemQty).toBe(2)
+    expect(r1.grossAmount).toBe(50000)
+    expect(r1.potonganAmount).toBe(5000)
+    expect(r1.netAmount).toBe(45000)
+    expect(r1.channelLabel).toBe('POS Kasir')
+    expect(r1.paymentMethodLabel).toBe('QRIS')
     expect(r1.itemsText).toContain('1x PAKET NONGKI 1')
     expect(r1.itemsText).toContain('1x Gratis · Extra Keju')
     expect(r1.packagesText).toContain('1x PAKET NONGKI 1 (Minuman: Ice Tea)')
@@ -235,5 +243,52 @@ describe('eksporHistori & eksporHistoriPdf', () => {
     const doc = susunPdfHistoriTransaksi(jsPDF, autoTable, data, ctx)
     expect(doc.internal.getNumberOfPages()).toBe(1)
     expect(namaBerkasHistori(data, ctx)).toBe('Histori_Transaksi_SS_Online_2026-11-17.pdf')
+    expect(namaBerkasHistoriExcel(data, ctx)).toBe('Histori_Transaksi_SS_Online_2026-11-17.xlsx')
+
+    const wb = susunWorkbookHistoriTransaksi(ExcelJS, data, ctx)
+    expect(wb.worksheets.map((w: any) => w.name)).toEqual(['Histori Transaksi'])
+    const ws = wb.getWorksheet('Histori Transaksi')
+    expect(ws.getRow(6).getCell(3).value).toBe('2026-11-17')
+    expect(ws.getRow(6).getCell(4).value).toBe('15:00')
+    expect((ws.getRow(4).getCell(10).value as any).result).toBe(68000)
+    expect((ws.getRow(4).getCell(11).value as any).result).toBe(8000)
+    expect((ws.getRow(4).getCell(12).value as any).result).toBe(60000)
+  })
+
+  it('menyusun Excel Histori Transaksi Detail mode outlet biasa lengkap dengan kolom WIB & SUBTOTAL', async () => {
+    const orders = makeOrders()
+    const footer = computeTableFooter(orders, [])
+    const data = buildHistoriTransaksiExport({
+      tableRows: orders,
+      footer,
+      outlets,
+      periode: { from: '2026-11-17', to: '2026-11-17' },
+      isSSOnlineSelected: false,
+    })
+
+    const wb = susunWorkbookHistoriTransaksi(ExcelJS, data, {
+      cabang: 'Semua Cabang',
+      channel: 'Semua Channel',
+      paymentLabel: 'Semua Metode Bayar',
+      receiptLabel: 'Semua Status Struk',
+      search: '',
+      multiOutlet: true,
+    })
+
+    const ws = wb.getWorksheet('Histori Transaksi')
+    expect(ws.getRow(6).getCell(2).value).toBe('#101')
+    expect(ws.getRow(6).getCell(3).value).toBe('2026-11-17')
+    expect(ws.getRow(6).getCell(4).value).toBe('12:15')
+    expect(ws.getRow(6).getCell(5).value).toBe('SUKA SHAWARMA EMPANG')
+    expect(ws.getRow(6).getCell(6).value).toBe('POS Kasir')
+    expect(ws.getRow(6).getCell(7).value).toBe('QRIS')
+    expect((ws.getRow(4).getCell(12).value as any).result).toBe(3)
+    expect((ws.getRow(4).getCell(13).value as any).result).toBe(90000)
+    expect((ws.getRow(4).getCell(14).value as any).result).toBe(11000)
+    expect((ws.getRow(4).getCell(15).value as any).result).toBe(79000)
+    expect(ws.autoFilter).toBe('A5:Q7')
+
+    const buf = await wb.xlsx.writeBuffer()
+    expect(buf.byteLength).toBeGreaterThan(1000)
   })
 })

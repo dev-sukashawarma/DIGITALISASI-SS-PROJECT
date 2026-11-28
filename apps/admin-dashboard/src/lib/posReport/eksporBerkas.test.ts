@@ -4,9 +4,10 @@ import { join } from 'node:path'
 import ExcelJS from 'exceljs'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { buildPenerapHpp } from '@/lib/posReport/compute'
+import { buildPenerapHpp, computeTableFooter } from '@/lib/posReport/compute'
 import { computeExportReport } from '@/lib/posReport/ekspor'
 import { susunWorkbookLaporan } from '@/lib/posReport/eksporExcel'
+import { buildHistoriTransaksiExport, MAX_HISTORI_EXCEL_ROWS } from '@/lib/posReport/eksporHistori'
 import { susunPdfLaporan } from '@/lib/posReport/eksporPdf'
 
 // Data sintetis berukuran mirip produksi: 21 outlet × 30 hari × beberapa channel.
@@ -76,14 +77,43 @@ describe('berkas ekspor', () => {
     if (keluar) writeFileSync(join(keluar, 'laporan.pdf'), Buffer.from(doc.output('arraybuffer')))
   })
 
-  it('Excel tersusun: 6 sheet, TOTAL memakai SUBTOTAL agar ikut filter', async () => {
-    const wb = susunWorkbookLaporan(ExcelJS, data, ctx)
-    expect(wb.worksheets.map((w: any) => w.name)).toEqual(['Ringkasan', 'Per Outlet', 'Outlet x Channel', 'Detail Item', 'Menu Terlaris'])
+  it('Excel tersusun: 6 sheet termasuk Histori Transaksi, TOTAL memakai SUBTOTAL agar ikut filter', async () => {
+    const completedOrders = ordersUji.filter(o => o.status === 'completed' || o.status === 'settled')
+    const histori = buildHistoriTransaksiExport({
+      tableRows: completedOrders,
+      footer: computeTableFooter(completedOrders, []),
+      outlets,
+      periode: { from: '2026-09-01', to: '2026-09-30' },
+      isSSOnlineSelected: false,
+      maxRows: MAX_HISTORI_EXCEL_ROWS,
+    })
+    const wb = susunWorkbookLaporan(ExcelJS, data, ctx, histori)
+    expect(wb.worksheets.map((w: any) => w.name)).toEqual([
+      'Ringkasan',
+      'Per Outlet',
+      'Outlet x Channel',
+      'Detail Item',
+      'Menu Terlaris',
+      'Histori Transaksi',
+    ])
     const detail = wb.getWorksheet('Detail Item')
     const gross = detail.getRow(4).getCell(10).value as any
     expect(gross.formula).toMatch(/^SUBTOTAL\(109,J6:J\d+\)$/)
     expect(gross.result).toBeCloseTo(data.total.gross, 0)
     expect(detail.autoFilter).toBe(`A5:P${5 + data.items.length}`)
+
+    const sheetHistori = wb.getWorksheet('Histori Transaksi')
+    const historiQty = sheetHistori.getRow(4).getCell(12).value as any
+    const historiGross = sheetHistori.getRow(4).getCell(13).value as any
+    const historiPotongan = sheetHistori.getRow(4).getCell(14).value as any
+    const historiNet = sheetHistori.getRow(4).getCell(15).value as any
+    expect(historiQty.formula).toMatch(/^SUBTOTAL\(109,L6:L\d+\)$/)
+    expect(historiQty.result).toBe(data.total.qty)
+    expect(historiGross.formula).toMatch(/^SUBTOTAL\(109,M6:M\d+\)$/)
+    expect(historiGross.result).toBeCloseTo(data.total.gross, 0)
+    expect(historiPotongan.result).toBeCloseTo(data.total.potongan, 0)
+    expect(historiNet.result).toBeCloseTo(data.total.gross - data.total.potongan, 0)
+    expect(sheetHistori.autoFilter).toBe(`A5:Q${5 + histori.rows.length}`)
     if (keluar) writeFileSync(join(keluar, 'laporan.xlsx'), Buffer.from(await wb.xlsx.writeBuffer()))
   })
 })

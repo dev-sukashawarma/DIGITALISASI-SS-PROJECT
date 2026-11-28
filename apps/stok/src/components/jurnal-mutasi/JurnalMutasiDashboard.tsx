@@ -548,7 +548,7 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
                 data.outlet.id !== 'ALL' &&
                 data.period.mode === 'date_range' && (
                   <span className="text-[11px] font-bold text-suka-brown/60">
-                    Tanpa opname sebelum tanggal mulai: mulai 00:00 WIB, saldo awal dari saldo sistem
+                    Tanpa opname H-1: mulai 00:00 WIB, saldo awal dari saldo sistem
                   </span>
                 )
               )}

@@ -1047,6 +1047,7 @@ export async function fetchReconciliationSnapshot(
   // outlet yang SAMA (lihat lib/stok/rekonsiliasiOutlet).
   const prevFisikOB = new Map<string, number>()
   const fisikPenutupOB = new Map<string, number | null>()
+  const sistemPenutupOB = new Map<string, number>()
   let auditNote: string | null = null
   // Jendela waktu tiap outlet; startIso/endIso = gabungannya (lib/stok/jendelaRentangOpname).
   let jendelaOutlet = new Map<string, JendelaOutlet>()
@@ -1227,7 +1228,7 @@ export async function fetchReconciliationSnapshot(
             ...(await fetchAllPages<any>(() =>
               supabase
                 .from('opname_item')
-                .select('id, opname_id, bahan_baku_id, qty_fisik')
+                .select('id, opname_id, bahan_baku_id, qty_fisik, qty_system')
                 .in('opname_id', chunk)
                 .order('id')
             ))
@@ -1248,6 +1249,9 @@ export async function fetchReconciliationSnapshot(
         } else {
           // Per outlet -- stok outlet yang tak opname tidak ikut selisih (rekonsiliasiOutlet).
           fisikPenutupOB.set(k, ada ? Number(item.qty_fisik) : null)
+          if (item.qty_system !== null && item.qty_system !== undefined) {
+            sistemPenutupOB.set(k, Number(item.qty_system))
+          }
         }
       }
     }
@@ -1970,6 +1974,65 @@ export async function fetchReconciliationSnapshot(
     teoritisPakaiRp = Math.round(teoritisPakaiRp)
   }
 
+  // 5b. Fallback saldo awal dari ledger terakhir SEBELUM jendela outlet untuk
+  // pasangan (outlet, bahan) yang tidak punya opname baseline H-1 DAN tidak
+  // punya baris mutasi apa pun di dalam jendela (sehingga `agg.firstSaldoSebelum`
+  // kosong). Tanpa ini, bahan yang diam di hari tanpa opname H-1 akan terbaca
+  // saldo awal = 0 dan memunculkan surplus palsu saat dibandingkan fisik penutup.
+  const saldoLedgerSebelumOB = new Map<string, number>()
+  {
+    const missingByOutlet = new Map<string, Set<string>>()
+    for (const b of bahanList) {
+      for (const oId of targetOutletIds) {
+        const k = kunciOB(oId, b.id)
+        if (prevFisikOB.has(k)) continue
+        const agg = movementOB.get(k)
+        if (agg && agg.firstSaldoSebelum !== null && agg.firstSaldoSebelum !== undefined) continue
+        const adaData = !!agg || pakaiOrderOB.has(k) || approvedWasteOB.has(k) || fisikPenutupOB.has(k)
+        if (!adaData) continue
+        let s = missingByOutlet.get(oId)
+        if (!s) {
+          s = new Set<string>()
+          missingByOutlet.set(oId, s)
+        }
+        s.add(b.id)
+      }
+    }
+
+    await Promise.all(
+      [...missingByOutlet.entries()].map(async ([oId, bahanSet]) => {
+        const j = jendelaOutlet.get(oId)
+        const batasAwal = j?.start ?? startIso
+        const belumKetemu = new Set(bahanSet)
+        const PAGE = 1000
+        for (let hal = 0; hal < 6 && belumKetemu.size > 0; hal++) {
+          const { data, error } = await supabase
+            .from('ledger_stok')
+            .select('id, bahan_baku_id, saldo_sesudah, created_at')
+            .eq('outlet_id', oId)
+            .in('bahan_baku_id', [...belumKetemu])
+            .lt('created_at', batasAwal)
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: false })
+            .range(hal * PAGE, hal * PAGE + PAGE - 1)
+          if (error || !data || data.length === 0) break
+          for (const row of data as any[]) {
+            if (!belumKetemu.has(row.bahan_baku_id)) continue
+            if (row.saldo_sesudah === null || row.saldo_sesudah === undefined) continue
+            let val = Number(row.saldo_sesudah)
+            if (notGramSet.has(`${oId}_${row.bahan_baku_id}`)) {
+              const f = faktorPenuhMap.get(row.bahan_baku_id) || 1
+              if (f > 1) val = val * f
+            }
+            saldoLedgerSebelumOB.set(kunciOB(oId, row.bahan_baku_id), val)
+            belumKetemu.delete(row.bahan_baku_id)
+          }
+          if (data.length < PAGE) break
+        }
+      })
+    )
+  }
+
   // 6. Susun tabel rekonsiliasi item per item
   const reconciliationItems: ReconciliationItem[] = []
 
@@ -2009,8 +2072,13 @@ export async function fetchReconciliationSnapshot(
       const adaData =
         !!agg || pakaiOrderOB.has(k) || approvedWasteOB.has(k) || prevFisikOB.has(k) || fisikPenutupOB.has(k)
       if (!adaData) continue
+      const adaMutasiPeriode = !!agg || pakaiOrderOB.has(k) || approvedWasteOB.has(k)
+      const saldoLedgerFallback =
+        agg?.firstSaldoSebelum ??
+        saldoLedgerSebelumOB.get(k) ??
+        (!adaMutasiPeriode ? sistemPenutupOB.get(k) : undefined)
       posisi.push({
-        saldoAwal: saldoAwalOutlet(prevFisikOB.get(k), agg?.firstSaldoSebelum),
+        saldoAwal: saldoAwalOutlet(prevFisikOB.get(k), saldoLedgerFallback),
         masuk: agg?.masukQty || 0,
         pakai: (agg?.pakaiQty || 0) + (pakaiOrderOB.get(k) || 0),
         waste: (approvedWasteOB.get(k) || 0) + (agg?.wasteQty || 0),

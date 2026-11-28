@@ -8,24 +8,27 @@
  * pemakaian sesudah opname).
  *
  * - Awal jendela outlet X = waktu tutup opname finalized terakhir outlet X yang
- *   dibuat SEBELUM 00:00 WIB tanggal mulai (opname itu = baseline Saldo Awal).
- *   Tidak ada (atau lebih tua dari BATAS_MUNDUR_BASELINE_HARI) -> 00:00 WIB
- *   tanggal mulai, Saldo Awal jatuh ke saldo ledger.
+ *   dibuat PADA H-1 (`startDate - 1` WIB) (opname itu = baseline Saldo Awal).
+ *   Tidak ada opname valid pada H-1 -> mulai tepat di `00:00 WIB` tanggal mulai,
+ *   Saldo Awal jatuh ke saldo ledger sistem per `00:00 WIB`, sehingga transaksi
+ *   hari-hari sebelumnya tidak ikut terbawa ke rentang yang dipilih.
  * - Akhir jendela outlet X = waktu tutup opname finalized terakhir outlet X yang
  *   dibuat PADA tanggal akhir (WIB) (opname itu = fisik penutup). Tidak ada ->
  *   23:59:59.999999 WIB tanggal akhir, outlet itu tanpa fisik penutup.
  *
- * Hasilnya: rentang 21–22 Nov satu outlet = sesi 21 Nov + sesi 22 Nov (Saldo Awal
- * sesi 21, mutasi kedua sesi, fisik sesi 22). "Dibuat sebelum" memakai
- * `opname.created_at`, sama dengan cara mode sesi mencari opname sebelumnya.
+ * Hasilnya: bila outlet opname rutin tiap malam, rentang 21–22 Nov = sesi 21 Nov
+ * + sesi 22 Nov (Saldo Awal sesi 20, mutasi 21–22, fisik sesi 22). Bila H-1 bolong
+ * opname (atau telat difinalisasi lintas sesi), rentang mulai dari 00:00 WIB
+ * tanggal mulai supaya hari sebelumnya tidak ikut terseret (dan breakdown harian
+ * tidak menghitung dobel hari yang bolong).
  */
 
 /**
- * Baseline yang terlalu tua tidak dipakai: jendela sebuah outlet akan melebar
- * berminggu-minggu (dan di mode Semua Outlet ikut memperberat kueri), sementara
- * angkanya tak lagi bisa dibaca sebagai "rentang yang dipilih".
+ * Hanya cari opname baseline pada H-1 (1 hari sebelum `startDate`). Jika H-1
+ * tidak ada opname valid, jendela mulai tepat di 00:00 WIB `startDate` dan
+ * saldo awal diambil dari saldo ledger sistem per 00:00 WIB.
  */
-export const BATAS_MUNDUR_BASELINE_HARI = 31
+export const BATAS_MUNDUR_BASELINE_HARI = 1
 
 /**
  * Toleransi maksimal keterlambatan finalisasi melewati tengah malam tanggal

@@ -229,12 +229,14 @@ export function DrillDownTimeline({
                   <td className="p-3 whitespace-nowrap">
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
                       <ClipboardCheck className="w-3 h-3 text-amber-700" />
-                      Opname Sebelum
+                      {period?.opname_sebelumnya ? 'Opname Sebelum' : 'Saldo Awal Sistem'}
                     </span>
                   </td>
                   <td className="p-3 text-suka-brown">
                     <span className="font-black text-suka-brown">
-                      Hasil Stok Opname Fisik Sebelumnya (Saldo Awal Periode)
+                      {period?.opname_sebelumnya
+                        ? 'Hasil Stok Opname Fisik Sebelumnya (Saldo Awal Periode)'
+                        : 'Saldo Ledger Sistem Awal Periode (Tanpa Opname H-1)'}
                     </span>
                     {period?.opname_sebelumnya?.created_by_name && (
                       <span className="text-[10px] text-suka-brown/60 block">

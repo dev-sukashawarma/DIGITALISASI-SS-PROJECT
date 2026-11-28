@@ -45,12 +45,12 @@ describe('pilihOpnameRentang', () => {
     op('b18', B, '2026-11-18T16:00:00Z'),
   ]
 
-  it('awal = opname terakhir sebelum 00:00 WIB tanggal mulai; penutup = terakhir pada tanggal akhir', () => {
+  it('awal = opname terakhir pada H-1 sebelum 00:00 WIB tanggal mulai; penutup = terakhir pada tanggal akhir', () => {
     const r = pilihOpnameRentang({ outletIds: [A, B], startDate: '2026-11-21', endDate: '2026-11-22', opnames })
     expect(r.get(A)?.awal?.id).toBe('a20')
     expect(r.get(A)?.penutup?.id).toBe('a22')
-    // B: opname 18 Nov 23:00 WIB = baseline; tidak opname pada 22 Nov
-    expect(r.get(B)?.awal?.id).toBe('b18')
+    // B: opname 18 Nov (> H-1 dari 21 Nov) tidak dipakai agar transaksi 19–20 Nov tak kebawa
+    expect(r.get(B)?.awal).toBeNull()
     expect(r.get(B)?.penutup).toBeNull()
   })
 
@@ -97,19 +97,25 @@ describe('pilihOpnameRentang', () => {
       { id: 'oct31', outlet_id: A, created_at: '2026-10-31T22:27:34+07:00', finalized_at: '2026-10-31T23:30:26+07:00' },
       { id: 'nov01', outlet_id: A, created_at: '2026-11-01T22:39:22+07:00', finalized_at: '2026-11-05T21:20:40+07:00' },
       { id: 'nov02', outlet_id: A, created_at: '2026-11-02T22:31:02+07:00', finalized_at: '2026-11-02T22:42:08+07:00' },
+      { id: 'nov03', outlet_id: A, created_at: '2026-11-03T22:33:33+07:00', finalized_at: '2026-11-03T22:44:31+07:00' },
       { id: 'nov05', outlet_id: A, created_at: '2026-11-05T22:47:34+07:00', finalized_at: '2026-11-05T23:00:15+07:00' },
     ]
-    // Rentang 2 Nov: baseline mundur ke 31 Okt (bukan 1 Nov yang baru tutup 5 Nov!)
+    // Rentang 2 Nov: H-1 (1 Nov) tidak valid -> awal null (mulai 02 Nov 00:00 WIB agar transaksi 1 Nov tak kebawa!)
     const rNov2 = pilihOpnameRentang({ outletIds: [A], startDate: '2026-11-02', endDate: '2026-11-02', opnames: kalisari })
-    expect(rNov2.get(A)?.awal?.id).toBe('oct31')
+    expect(rNov2.get(A)?.awal).toBeNull()
     expect(rNov2.get(A)?.penutup?.id).toBe('nov02')
 
-    // Rentang 2 Nov - 5 Nov: baseline tetap 31 Okt (tidak loncat mulai 5 Nov 21:20!)
+    // Rentang 3 Nov: H-1 (2 Nov) valid -> awal = nov02, penutup = nov03
+    const rNov3 = pilihOpnameRentang({ outletIds: [A], startDate: '2026-11-03', endDate: '2026-11-03', opnames: kalisari })
+    expect(rNov3.get(A)?.awal?.id).toBe('nov02')
+    expect(rNov3.get(A)?.penutup?.id).toBe('nov03')
+
+    // Rentang 2 Nov - 5 Nov: H-1 (1 Nov) tidak valid -> awal null (mulai 02 Nov 00:00 WIB)
     const rNov2to5 = pilihOpnameRentang({ outletIds: [A], startDate: '2026-11-02', endDate: '2026-11-05', opnames: kalisari })
-    expect(rNov2to5.get(A)?.awal?.id).toBe('oct31')
+    expect(rNov2to5.get(A)?.awal).toBeNull()
     expect(rNov2to5.get(A)?.penutup?.id).toBe('nov05')
 
-    // Rentang 1 Nov saja (tanpa opname sesudahnya di kandidat): nov01 tetap ditolak karena tutup > 24 jam lewat 1 Nov
+    // Rentang 1 Nov saja: H-1 (31 Okt) valid -> awal = oct31, penutup = null (nov01 telat 4 hari ditolak)
     const rNov1 = pilihOpnameRentang({
       outletIds: [A],
       startDate: '2026-11-01',
